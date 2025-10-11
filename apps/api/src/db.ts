@@ -378,7 +378,12 @@ export function updateClipStatus(
     updates.playedAt = new Date()
   }
 
-  db.update(clips).set(updates).where(eq(clips.id, clipId)).run()
+  try {
+    db.update(clips).set(updates).where(eq(clips.id, clipId)).run()
+  } catch (error) {
+    console.error(`[DB] Failed to update clip status: ${error}`)
+    throw error
+  }
 }
 
 /**
@@ -388,14 +393,24 @@ export function deleteClipsByStatus(
   db: DbClient,
   status: 'approved' | 'pending' | 'rejected' | 'played'
 ): void {
-  db.delete(clips).where(eq(clips.status, status)).run()
+  try {
+    db.delete(clips).where(eq(clips.status, status)).run()
+  } catch (error) {
+    console.error(`[DB] Failed to delete clips by status: ${error}`)
+    throw error
+  }
 }
 
 /**
  * Delete clip by ID
  */
 export function deleteClip(db: DbClient, clipId: string): void {
-  db.delete(clips).where(eq(clips.id, clipId)).run()
+  try {
+    db.delete(clips).where(eq(clips.id, clipId)).run()
+  } catch (error) {
+    console.error(`[DB] Failed to delete clip: ${error}`)
+    throw error
+  }
 }
 
 /**

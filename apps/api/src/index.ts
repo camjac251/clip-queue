@@ -244,28 +244,51 @@ async function handleChatCommand(message: { username: string; text: string }): P
       console.log(`[Command] Queue closed by ${message.username}`)
       break
 
-    case 'clear':
-      queue.clear()
-      deleteClipsByStatus(db, 'approved')
-      io.emit('queue:cleared', {})
-      console.log(`[Command] Queue cleared by ${message.username}`)
-      break
-
-    case 'next':
-      // Move current to history
-      if (currentClip) {
-        history.add(currentClip)
-        const clipId = toClipUUID(currentClip)
-        updateClipStatus(db, clipId, 'played')
+    case 'clear': {
+      const previousQueue = queue.toArray()
+      try {
+        queue.clear()
+        deleteClipsByStatus(db, 'approved')
+        io.emit('queue:cleared', {})
+        console.log(`[Command] Queue cleared by ${message.username}`)
+      } catch (error) {
+        // Roll back in-memory changes on database failure
+        previousQueue.forEach((clip: Clip) => queue.add(clip))
+        console.error(`[Command] Failed to clear queue: ${error}`)
       }
-
-      // Get next clip
-      currentClip = queue.shift() || null
-
-      // Broadcast change
-      io.emit('queue:current', { clip: currentClip })
-      console.log(`[Command] Advanced to next clip by ${message.username}`)
       break
+    }
+
+    case 'next': {
+      const previousCurrent = currentClip
+      try {
+        // Move current to history
+        if (currentClip) {
+          history.add(currentClip)
+          const clipId = toClipUUID(currentClip)
+          updateClipStatus(db, clipId, 'played')
+        }
+
+        // Get next clip
+        const nextClip = queue.shift()
+        currentClip = nextClip || null
+
+        // Broadcast change
+        io.emit('queue:current', { clip: currentClip })
+        console.log(`[Command] Advanced to next clip by ${message.username}`)
+      } catch (error) {
+        // Roll back in-memory changes on database failure
+        if (previousCurrent) {
+          history.remove(previousCurrent)
+        }
+        if (currentClip) {
+          queue.unshift(currentClip)
+        }
+        currentClip = previousCurrent
+        console.error(`[Command] Failed to advance to next clip: ${error}`)
+      }
+      break
+    }
 
     case 'prev':
     case 'previous':
@@ -403,24 +426,37 @@ app.post('/api/queue/submit', asyncHandler(async (req, res) => {
   res.json({ success: true })
 }))
 
-app.post('/api/queue/advance', (req, res) => {
-  // Move current to history
-  if (currentClip) {
-    history.add(currentClip)
-    const clipId = toClipUUID(currentClip)
-    updateClipStatus(db, clipId, 'played')
+app.post('/api/queue/advance', asyncHandler(async (req, res) => {
+  const previousCurrent = currentClip
+  try {
+    // Move current to history
+    if (currentClip) {
+      history.add(currentClip)
+      const clipId = toClipUUID(currentClip)
+      updateClipStatus(db, clipId, 'played')
+    }
+
+    // Get next clip
+    const nextClip = queue.shift()
+    currentClip = nextClip || null
+
+    // Broadcast change
+    io.emit('queue:current', { clip: currentClip })
+
+    console.log(`[Queue] Advanced to next clip: ${currentClip?.title || 'none'}`)
+    res.json({ success: true, current: currentClip })
+  } catch (error) {
+    // Roll back in-memory changes on database failure
+    if (previousCurrent) {
+      history.remove(previousCurrent)
+    }
+    if (currentClip) {
+      queue.unshift(currentClip)
+    }
+    currentClip = previousCurrent
+    throw error // Let asyncHandler catch and respond with error
   }
-
-  // Get next clip
-  const nextClip = queue.shift()
-  currentClip = nextClip || null
-
-  // Broadcast change
-  io.emit('queue:current', { clip: currentClip })
-
-  console.log(`[Queue] Advanced to next clip: ${currentClip?.title || 'none'}`)
-  res.json({ success: true, current: currentClip })
-})
+}))
 
 app.post('/api/queue/previous', (req, res) => {
   // Move current back to upcoming
@@ -444,25 +480,39 @@ app.post('/api/queue/previous', (req, res) => {
   res.json({ success: true, current: currentClip })
 })
 
-app.delete('/api/queue', (req, res) => {
-  queue.clear()
-  deleteClipsByStatus(db, 'approved')
-  io.emit('queue:cleared', {})
+app.delete('/api/queue', asyncHandler(async (req, res) => {
+  const previousQueue = queue.toArray()
+  try {
+    queue.clear()
+    deleteClipsByStatus(db, 'approved')
+    io.emit('queue:cleared', {})
 
-  console.log('[Queue] Cleared queue')
-  res.json({ success: true })
-})
+    console.log('[Queue] Cleared queue')
+    res.json({ success: true })
+  } catch (error) {
+    // Roll back in-memory changes on database failure
+    previousQueue.forEach((clip: Clip) => queue.add(clip))
+    throw error // Let asyncHandler catch and respond with error
+  }
+}))
 
-app.delete('/api/queue/history', (req, res) => {
-  history.clear()
-  deleteClipsByStatus(db, 'played')
+app.delete('/api/queue/history', asyncHandler(async (req, res) => {
+  const previousHistory = history.toArray()
+  try {
+    history.clear()
+    deleteClipsByStatus(db, 'played')
 
-  // Broadcast history cleared event
-  io.emit('history:cleared', {})
+    // Broadcast history cleared event
+    io.emit('history:cleared', {})
 
-  console.log('[Queue] Cleared history')
-  res.json({ success: true })
-})
+    console.log('[Queue] Cleared history')
+    res.json({ success: true })
+  } catch (error) {
+    // Roll back in-memory changes on database failure
+    previousHistory.forEach((clip: Clip) => history.add(clip))
+    throw error // Let asyncHandler catch and respond with error
+  }
+}))
 
 app.post('/api/queue/open', (req, res) => {
   isQueueOpen = true
@@ -478,7 +528,7 @@ app.post('/api/queue/close', (req, res) => {
   res.json({ success: true })
 })
 
-app.post('/api/queue/remove', (req, res) => {
+app.post('/api/queue/remove', asyncHandler(async (req, res) => {
   const { clipId } = req.body as { clipId: string }
 
   if (!clipId) {
@@ -490,20 +540,26 @@ app.post('/api/queue/remove', (req, res) => {
   const clip = clips.find((c) => toClipUUID(c) === clipId)
 
   if (clip) {
-    queue.remove(clip)
-    updateClipStatus(db, clipId, 'rejected')
+    try {
+      queue.remove(clip)
+      updateClipStatus(db, clipId, 'rejected')
 
-    // Broadcast removal
-    io.emit('clip:removed', { clipId })
+      // Broadcast removal
+      io.emit('clip:removed', { clipId })
 
-    console.log(`[Queue] Removed clip: ${clip.title}`)
-    res.json({ success: true })
+      console.log(`[Queue] Removed clip: ${clip.title}`)
+      res.json({ success: true })
+    } catch (error) {
+      // Roll back in-memory changes on database failure
+      queue.add(clip)
+      throw error // Let asyncHandler catch and respond with error
+    }
   } else {
     res.status(404).json({ error: 'Clip not found' })
   }
-})
+}))
 
-app.post('/api/queue/play', (req, res) => {
+app.post('/api/queue/play', asyncHandler(async (req, res) => {
   const { clipId } = req.body as { clipId: string }
 
   if (!clipId) {
@@ -518,23 +574,34 @@ app.post('/api/queue/play', (req, res) => {
     return res.status(404).json({ error: 'Clip not found' })
   }
 
-  // Move current to history
-  if (currentClip) {
-    history.add(currentClip)
-    const currentId = toClipUUID(currentClip)
-    updateClipStatus(db, currentId, 'played')
+  const previousCurrent = currentClip
+  try {
+    // Move current to history
+    if (currentClip) {
+      history.add(currentClip)
+      const currentId = toClipUUID(currentClip)
+      updateClipStatus(db, currentId, 'played')
+    }
+
+    // Remove clip from queue and set as current
+    queue.remove(clip)
+    currentClip = clip
+
+    // Broadcast change
+    io.emit('queue:current', { clip: currentClip })
+
+    console.log(`[Queue] Playing clip: ${currentClip.title}`)
+    res.json({ success: true, current: currentClip })
+  } catch (error) {
+    // Roll back in-memory changes on database failure
+    if (previousCurrent) {
+      history.remove(previousCurrent)
+    }
+    queue.add(clip)
+    currentClip = previousCurrent
+    throw error // Let asyncHandler catch and respond with error
   }
-
-  // Remove clip from queue and set as current
-  queue.remove(clip)
-  currentClip = clip
-
-  // Broadcast change
-  io.emit('queue:current', { clip: currentClip })
-
-  console.log(`[Queue] Playing clip: ${currentClip.title}`)
-  res.json({ success: true, current: currentClip })
-})
+}))
 
 // Settings API endpoints
 app.get('/api/settings', (req, res) => {
