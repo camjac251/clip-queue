@@ -44,7 +44,8 @@ export const clips = sqliteTable(
     platformIdx: index('idx_clips_platform').on(table.platform),
     statusIdx: index('idx_clips_status').on(table.status),
     channelIdx: index('idx_clips_channel').on(table.channel),
-    playedAtIdx: index('idx_clips_played_at').on(table.playedAt)
+    playedAtIdx: index('idx_clips_played_at').on(table.playedAt),
+    statusSubmittedIdx: index('idx_clips_status_submitted').on(table.status, table.submittedAt)
   })
 )
 
