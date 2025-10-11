@@ -256,7 +256,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
     case 'previous':
       // Move current back to upcoming
       if (currentClip) {
-        queue.toArray().unshift(currentClip)
+        queue.unshift(currentClip)
       }
 
       // Pop from history
@@ -410,7 +410,7 @@ app.post('/api/queue/advance', (req, res) => {
 app.post('/api/queue/previous', (req, res) => {
   // Move current back to upcoming
   if (currentClip) {
-    queue.toArray().unshift(currentClip)
+    queue.unshift(currentClip)
   }
 
   // Pop from history
