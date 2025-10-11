@@ -14,3 +14,7 @@ node_modules
 *.sw?
 
 *.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
