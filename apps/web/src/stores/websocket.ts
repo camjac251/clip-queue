@@ -40,6 +40,12 @@ export const useWebSocket = defineStore('websocket', () => {
   // Event handlers
   const eventHandlers = new Map<string, Set<WebSocketEventHandler>>()
 
+  // Socket.io internal listeners (for cleanup)
+  let onConnectHandler: (() => void) | null = null
+  let onDisconnectHandler: ((reason: string) => void) | null = null
+  let onConnectErrorHandler: ((error: Error) => void) | null = null
+  let onAnyHandler: ((eventName: string, ...args: unknown[]) => void) | null = null
+
   /**
    * Connect to backend server
    */
@@ -61,23 +67,26 @@ export const useWebSocket = defineStore('websocket', () => {
       reconnectionAttempts: Infinity
     })
 
-    socket.on('connect', () => {
+    onConnectHandler = () => {
       status.value = WebSocketStatus.CONNECTED
       logger.info('[WebSocket]: Connected')
-    })
+    }
+    socket.on('connect', onConnectHandler)
 
-    socket.on('disconnect', (reason) => {
+    onDisconnectHandler = (reason: string) => {
       status.value = WebSocketStatus.DISCONNECTED
       logger.warn(`[WebSocket]: Disconnected - ${reason}`)
-    })
+    }
+    socket.on('disconnect', onDisconnectHandler)
 
-    socket.on('connect_error', (error) => {
+    onConnectErrorHandler = (error: Error) => {
       status.value = WebSocketStatus.ERROR
       logger.error(`[WebSocket]: Connection error: ${error.message}`)
-    })
+    }
+    socket.on('connect_error', onConnectErrorHandler)
 
     // Listen for all server events and dispatch to handlers
-    socket.onAny((eventName: string, ...args: unknown[]) => {
+    onAnyHandler = (eventName: string, ...args: unknown[]) => {
       const handlers = eventHandlers.get(eventName)
       if (!handlers) return
 
@@ -90,7 +99,8 @@ export const useWebSocket = defineStore('websocket', () => {
           logger.error(`[WebSocket]: Event handler error for ${eventName}: ${error}`)
         }
       }
-    })
+    }
+    socket.onAny(onAnyHandler)
   }
 
   /**
@@ -98,6 +108,24 @@ export const useWebSocket = defineStore('websocket', () => {
    */
   function disconnect(): void {
     if (socket) {
+      // Remove all event listeners before disconnecting
+      if (onConnectHandler) {
+        socket.off('connect', onConnectHandler)
+        onConnectHandler = null
+      }
+      if (onDisconnectHandler) {
+        socket.off('disconnect', onDisconnectHandler)
+        onDisconnectHandler = null
+      }
+      if (onConnectErrorHandler) {
+        socket.off('connect_error', onConnectErrorHandler)
+        onConnectErrorHandler = null
+      }
+      if (onAnyHandler) {
+        socket.offAny(onAnyHandler)
+        onAnyHandler = null
+      }
+
       socket.disconnect()
       socket = null
     }
