@@ -9,8 +9,8 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [
     paraglideVitePlugin({
-      project: './project.inlang',
-      outdir: './src/paraglide'
+      project: fileURLToPath(new URL('./project.inlang', import.meta.url)),
+      outdir: fileURLToPath(new URL('./src/paraglide', import.meta.url))
     }),
     tailwindcss(),
     vue()
