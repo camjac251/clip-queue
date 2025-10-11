@@ -151,17 +151,17 @@ const commandHelp: Record<Command, { description: string; args?: string[] }> = {
     args: [m.submitter().toLocaleLowerCase()],
     description: m.command_remove_by_submitter()
   },
-  [Command.REMOVE_BY_PROVIDER]: {
-    args: [m.provider().toLocaleLowerCase()],
-    description: m.command_remove_by_provider()
+  [Command.REMOVE_BY_PLATFORM]: {
+    args: [m.platform().toLocaleLowerCase()],
+    description: m.command_remove_by_platform()
   },
-  [Command.ENABLE_PROVIDER]: {
-    args: [m.provider().toLocaleLowerCase()],
-    description: m.command_enable_provider()
+  [Command.ENABLE_PLATFORM]: {
+    args: [m.platform().toLocaleLowerCase()],
+    description: m.command_enable_platform()
   },
-  [Command.DISABLE_PROVIDER]: {
-    args: [m.provider().toLocaleLowerCase()],
-    description: m.command_disable_provider()
+  [Command.DISABLE_PLATFORM]: {
+    args: [m.platform().toLocaleLowerCase()],
+    description: m.command_disable_platform()
   },
   [Command.ENABLE_AUTO_MODERATION]: { description: m.command_enable_auto_mod() },
   [Command.DISABLE_AUTO_MODERATION]: { description: m.command_disable_auto_mod() },

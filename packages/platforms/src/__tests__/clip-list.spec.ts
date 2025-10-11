@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { ClipProvider } from '@cq/providers'
+import { Platform } from '@cq/platforms'
 
 import { ClipList } from '../clip-list'
 import { clipFromKick, clipFromTwitch } from './mocks'
@@ -302,8 +302,8 @@ describe('clip-list.ts', () => {
     clipList2.add({ ...clipFromKick, id: 'test', submitters: ['S'] })
     expect(clipList2.size()).toEqual(2)
     expect(clipList2.toArray()[0]?.id).toEqual(clipList2.toArray()[1]?.id)
-    expect(clipList2.toArray()[0]?.provider).toEqual(ClipProvider.TWITCH)
-    expect(clipList2.toArray()[1]?.provider).toEqual(ClipProvider.KICK)
+    expect(clipList2.toArray()[0]?.platform).toEqual(Platform.TWITCH)
+    expect(clipList2.toArray()[1]?.platform).toEqual(Platform.KICK)
   })
 
   it('can remove clips based on the provider of the clip', () => {
@@ -315,8 +315,8 @@ describe('clip-list.ts', () => {
     clipList2.add({ ...clipFromKick, id: 'test4' })
     clipList2.add({ ...clipFromKick, id: 'test5' })
     expect(clipList2.size()).toEqual(5)
-    clipList2.removeByProvider(ClipProvider.KICK)
+    clipList2.removeByPlatform(Platform.KICK)
     expect(clipList2.size()).toEqual(3)
-    expect(clipList2.toArray().some((c) => c.provider === ClipProvider.KICK)).toEqual(false)
+    expect(clipList2.toArray().some((c) => c.platform === Platform.KICK)).toEqual(false)
   })
 })

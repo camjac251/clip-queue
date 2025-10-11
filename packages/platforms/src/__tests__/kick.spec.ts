@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { KickProvider } from '../kick'
+import { KickPlatform } from '../kick'
 import { mockKickClip, mockTwitchClip } from './mocks'
 
 vi.mock('@cq/services/kick', async (importOriginal) => {
@@ -18,24 +18,24 @@ describe('kick.ts', () => {
   })
 
   it('knows if it is an experimental provider', () => {
-    const provider = new KickProvider()
+    const provider = new KickPlatform()
     expect(provider.isExperimental).toEqual(false)
   })
 
   it('gets the player format of the clip', () => {
-    const provider = new KickProvider()
+    const provider = new KickPlatform()
     expect(provider.getPlayerFormat()).toEqual('video')
   })
 
   it('gets the player source of the clip', async () => {
-    const provider = new KickProvider()
+    const provider = new KickPlatform()
     const clip = await provider.getClip(mockKickClip.clip_url)
     expect(clip).toBeDefined()
     expect(provider.getPlayerSource(clip)).toEqual(mockKickClip.clip_url)
   })
 
   it('can get a clip from a kick url', async () => {
-    const provider = new KickProvider()
+    const provider = new KickPlatform()
     const clip = await provider.getClip(mockKickClip.clip_url)
     expect(clip).toBeDefined()
     expect(clip.id).toEqual(mockKickClip.id)
@@ -46,19 +46,19 @@ describe('kick.ts', () => {
     [''],
     [mockTwitchClip.url]
   ])('throws an error for unknown clip urls: (url: %s)', async (url: string) => {
-    const provider = new KickProvider()
+    const provider = new KickPlatform()
     expect(provider.getClip(url)).rejects.toThrowError()
   })
 
   it('caches clip data that it fetchs', async () => {
-    const provider = new KickProvider()
+    const provider = new KickPlatform()
     expect(provider.hasCachedData).toEqual(false)
     expect(await provider.getClip(mockKickClip.clip_url)).toBeDefined()
     expect(provider.hasCachedData).toEqual(true)
   })
 
   it('can have the cached data cleared', async () => {
-    const provider = new KickProvider()
+    const provider = new KickPlatform()
     expect(provider.hasCachedData).toEqual(false)
     expect(await provider.getClip(mockKickClip.clip_url)).toBeDefined()
     expect(provider.hasCachedData).toEqual(true)

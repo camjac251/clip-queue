@@ -2,7 +2,7 @@ import type { KickCategory, KickChannel, KickClip } from '@cq/services/kick'
 import type { TwitchClip, TwitchGame } from '@cq/services/twitch'
 
 import type { Clip } from '..'
-import { ClipProvider } from '..'
+import { Platform } from '..'
 
 export const mockKickCategory: KickCategory = {
   id: 123,
@@ -71,7 +71,7 @@ export const mockTwitchClip: TwitchClip = {
 }
 
 export const clipFromKick: Clip = {
-  provider: ClipProvider.KICK,
+  platform: Platform.KICK,
   submitters: ['testsubmitterkick'],
   id: 'testclipkick',
   title: 'testclipkick',
@@ -85,7 +85,7 @@ export const clipFromKick: Clip = {
 }
 
 export const clipFromTwitch: Clip = {
-  provider: ClipProvider.TWITCH,
+  platform: Platform.TWITCH,
   submitters: ['testsubmittertwitch'],
   id: 'testcliptwitch',
   title: 'testcliptwitch',

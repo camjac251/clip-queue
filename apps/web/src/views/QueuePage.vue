@@ -7,11 +7,11 @@
     @previous="handlePrevious()"
     @next="handleNext()"
   />
-  <Message v-else-if="settings.queue.providers.length === 0" severity="error">
+  <Message v-else-if="settings.queue.platforms.length === 0" severity="error">
     <template #icon>
       <i class="pi pi-exclamation-circle"></i>
     </template>
-    <span>{{ m.message_no_clip_providers_enabled() }}</span>
+    <span>{{ m.message_no_clip_platforms_enabled() }}</span>
   </Message>
   <ClipQueue
     :title="m.upcoming_clips()"
@@ -26,8 +26,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Clip } from '@cq/providers'
-import { toClipUUID } from '@cq/providers'
+import type { Clip } from '@cq/platforms'
+import { toClipUUID } from '@cq/platforms'
 import { Message } from '@cq/ui'
 
 import ClipPlayer from '@/components/ClipPlayer.vue'

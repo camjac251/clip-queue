@@ -1,13 +1,13 @@
 import kick from '@cq/services/kick'
 
 import type { Clip, PlayerFormat } from './types'
-import { BaseClipProvider, ClipProvider } from './types'
+import { BasePlatform, Platform } from './types'
 
 /**
- * The Kick provider.
+ * The Kick platform.
  */
-export class KickProvider extends BaseClipProvider {
-  public name = ClipProvider.KICK
+export class KickPlatform extends BasePlatform {
+  public name = Platform.KICK
   public displayName = 'Kick'
   public svg = kick.logo
 
@@ -31,7 +31,7 @@ export class KickProvider extends BaseClipProvider {
         url,
         embedUrl: clip.clip_url,
         thumbnailUrl: clip.thumbnail_url,
-        provider: this.name,
+        platform: this.name,
         submitters: []
       }
       this.cache[id] = response

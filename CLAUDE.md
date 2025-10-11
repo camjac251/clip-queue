@@ -39,12 +39,12 @@ pnpm web dev      # Frontend on port 5173 (or: make web-dev)
 # Per-package commands work from root
 pnpm api <script>    # Run backend/server script
 pnpm web <script>        # Run web script
-pnpm providers <script>  # Run providers script
+pnpm platforms <script>  # Run platforms script
 
 # Examples:
 pnpm api typecheck   # Type check backend
 pnpm web build           # Build frontend
-pnpm providers typecheck # Type check providers
+pnpm platforms typecheck # Type check platforms
 ```
 
 **Note**: A `Makefile` is available with aliases for common commands. Run `make help` to see all available commands.
@@ -118,7 +118,7 @@ apps/
 packages/
   config/        Shared configurations (TypeScript, ESLint, Vitest)
   player/        Video.js clip player component
-  providers/     Clip fetching (TwitchProvider, KickProvider)
+  platforms/     Clip fetching (TwitchPlatform, KickPlatform)
   services/      API clients (Twitch Helix API, Kick API)
   sources/       ⚠️ Deprecated (chat moved to backend)
   ui/            PrimeVue component library
@@ -150,8 +150,8 @@ packages/
 ```typescript
 // Normalized structure (no JSON blobs)
 clips:
-  - id: TEXT PRIMARY KEY              // UUID: "provider:clip_id"
-  - provider: TEXT (twitch|kick)
+  - id: TEXT PRIMARY KEY              // UUID: "platform:clip_id"
+  - platform: TEXT (twitch|kick)
   - clipId, url, embedUrl, thumbnailUrl, title, channel, creator, category
   - status: TEXT (approved|pending|rejected|played)
   - submittedAt, playedAt: TIMESTAMP
@@ -206,7 +206,7 @@ pnpm api db:generate
 ```
 Chat message → handleClipSubmission()
   ↓
-  ├─ Fetch clip metadata (TwitchProvider.getClip())
+  ├─ Fetch clip metadata (TwitchPlatform.getClip())
   ├─ upsertClip(db, ...) → SQLite
   └─ queue.add(clip) → in-memory ClipList
   ↓
@@ -256,16 +256,16 @@ io.emit('settings:updated', { settings })
   - `DELETE /api/queue/history` → clear history
   - `PUT /api/settings` → update app settings
 
-#### 5. Provider/Service Separation
+#### 5. Platform/Service Separation
 
 **Services** (`packages/services`): Low-level API clients
 - `twitch/api.ts`: Helix API (getClips, getGames, getUsers)
 - `twitch/auth.ts`: OAuth flow
 - `kick/index.ts`: Kick API client
 
-**Providers** (`packages/providers`): High-level clip abstraction
-- `TwitchProvider`: Fetches clip + game metadata, normalizes to `Clip` type
-- `KickProvider`: Fetches Kick clips, normalizes to `Clip` type
+**Platforms** (`packages/platforms`): High-level clip abstraction
+- `TwitchPlatform`: Fetches clip + game metadata, normalizes to `Clip` type
+- `KickPlatform`: Fetches Kick clips, normalizes to `Clip` type
 - `ClipList`: Priority queue implementation (sorts by submitter count)
 - `toClipUUID()`: Generates unique ID (`"twitch:abc123"` or `"kick:xyz789"`)
 
@@ -292,7 +292,7 @@ if (url.includes('kick.com/') && url.includes('/clips/clip_'))
 - `prev/previous` → move current back to queue, pop from history
 - `purgehistory` → clear history
 
-**Note**: The schema (`apps/api/src/schema.ts`) defines additional commands not yet implemented: `setlimit`, `removelimit`, `removebysubmitter`, `removebyprovider`, `enableprovider`, `disableprovider`, `enableautomod`, `disableautomod`, `purgecache`
+**Note**: The schema (`apps/api/src/schema.ts`) defines additional commands not yet implemented: `setlimit`, `removelimit`, `removebysubmitter`, `removebyplatform`, `enableplatform`, `disableplatform`, `enableautomod`, `disableautomod`, `purgecache`
 
 ### Environment Variables
 
@@ -335,22 +335,22 @@ VITE_API_URL=http://localhost:3000    # Backend WebSocket URL
 2. `apps/web/src/stores/websocket.ts` - Socket.io connection manager
 
 **Shared**:
-1. `packages/providers/src/clip-list.ts` - Queue sorting logic
-2. `packages/providers/src/types.ts` - `Clip` interface
-3. `packages/providers/src/twitch.ts` - Twitch clip fetching
-4. `packages/providers/src/kick.ts` - Kick clip fetching
+1. `packages/platforms/src/clip-list.ts` - Queue sorting logic
+2. `packages/platforms/src/types.ts` - `Clip` interface
+3. `packages/platforms/src/twitch.ts` - Twitch clip fetching
+4. `packages/platforms/src/kick.ts` - Kick clip fetching
 
 ### Common Patterns
 
-#### Adding a New Clip Provider
+#### Adding a New Clip Platform
 
-1. Create `packages/providers/src/newprovider.ts`:
+1. Create `packages/platforms/src/newplatform.ts`:
 ```typescript
-export class NewProvider extends ClipProviderBase {
+export class NewPlatform extends PlatformBase {
   async getClip(url: string): Promise<Clip | null> {
     // Fetch metadata, normalize to Clip type
     return {
-      provider: ClipProvider.NEW,
+      platform: Platform.NEW,
       id: '...',
       url, embedUrl, thumbnailUrl, title, channel, creator,
       submitters: []
@@ -361,12 +361,12 @@ export class NewProvider extends ClipProviderBase {
 
 2. Add URL detection in `apps/api/src/index.ts`:
 ```typescript
-if (url.includes('newprovider.com/clips/')) {
+if (url.includes('newplatform.com/clips/')) {
   await handleClipSubmission(url, message.username, canAutoApprove)
 }
 ```
 
-3. Update `schema.ts` enum: `provider: text('provider', { enum: ['twitch', 'kick', 'new'] })`
+3. Update `schema.ts` enum: `platform: text('platform', { enum: ['twitch', 'kick', 'new'] })`
 
 #### Adding a Database Migration
 
@@ -408,4 +408,4 @@ function handleMyEvent(event: { data: string }) {
 - **Single channel only**: Server monitors ONE channel per deployment (multi-channel not supported)
 - **Settings are JSON blobs**: Stored in SQLite, validated with Zod on read/write
 - **Kick URL format**: `kick.com/channel/clips/clip_ID` (note: `/clips/` with `clip_` prefix)
-- **toClipUUID()**: Returns `"provider:id"` (lowercase) for duplicate detection
+- **toClipUUID()**: Returns `"platform:id"` (lowercase) for duplicate detection

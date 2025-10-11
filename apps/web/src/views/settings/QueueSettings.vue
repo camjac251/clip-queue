@@ -28,26 +28,26 @@
           <Message id="limit-help" size="small" severity="secondary" variant="simple">{{
             m.size_limit_description()
           }}</Message>
-          <label for="allowedProviders">{{ m.allowed_providers() }}</label>
+          <label for="allowedPlatforms">{{ m.allowed_platforms() }}</label>
           <MultiSelect
-            v-model="formSettings.providers"
-            input-id="allowedProviders"
-            :options="Object.values(ClipProvider)"
+            v-model="formSettings.platforms"
+            input-id="allowedPlatforms"
+            :options="Object.values(Platform)"
             :placeholder="m.none()"
             display="chip"
-            aria-describedby="allowedProviders-help"
+            aria-describedby="allowedPlatforms-help"
           >
-            <template #option="{ option }: { option: ClipProvider }">
-              <ProviderName :provider="option" />
+            <template #option="{ option }: { option: Platform }">
+              <PlatformName :platform="option" />
             </template>
-            <template #chip="{ value }: { value: ClipProvider }">
+            <template #chip="{ value }: { value: Platform }">
               <Chip>
-                <ProviderName :provider="value" />
+                <PlatformName :platform="value" />
               </Chip>
             </template>
           </MultiSelect>
-          <Message id="allowedProviders-help" size="small" severity="secondary" variant="simple">{{
-            m.allowed_providers_description()
+          <Message id="allowedPlatforms-help" size="small" severity="secondary" variant="simple">{{
+            m.allowed_platforms_description()
           }}</Message>
         </div>
         <div class="mt-3">
@@ -73,7 +73,7 @@
 <script setup lang="ts">
 import { ref, toRaw } from 'vue'
 
-import { ClipProvider } from '@cq/providers'
+import { Platform } from '@cq/platforms'
 import {
   Card,
   Chip,
@@ -86,7 +86,7 @@ import {
   useToast
 } from '@cq/ui'
 
-import ProviderName from '@/components/ProviderName.vue'
+import PlatformName from '@/components/PlatformName.vue'
 import * as m from '@/paraglide/messages'
 import { usePreferences } from '@/stores/preferences'
 import { useSettings } from '@/stores/settings'

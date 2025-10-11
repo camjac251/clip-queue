@@ -9,7 +9,7 @@
     "web": "pnpm --filter @cq/web --",
     "cfg": "pnpm --filter @cq/config --",
     "player": "pnpm --filter @cq/player --",
-    "providers": "pnpm --filter @cq/providers --",
+    "platforms": "pnpm --filter @cq/platforms --",
     "services": "pnpm --filter @cq/services --",
     "sources": "pnpm --filter @cq/sources --",
     "ui": "pnpm --filter @cq/ui --",

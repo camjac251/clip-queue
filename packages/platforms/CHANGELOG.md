@@ -1,4 +1,4 @@
-# @cq/providers
+# @cq/platforms
 
 ## 2.1.0
 

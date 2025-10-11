@@ -83,8 +83,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "provider": {
-          "name": "provider",
+        "platform": {
+          "name": "platform",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -178,10 +178,10 @@
         }
       },
       "indexes": {
-        "idx_clips_provider": {
-          "name": "idx_clips_provider",
+        "idx_clips_platform": {
+          "name": "idx_clips_platform",
           "columns": [
-            "provider"
+            "platform"
           ],
           "isUnique": false
         },

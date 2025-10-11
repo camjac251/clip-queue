@@ -80,9 +80,9 @@ importers:
 
   apps/api:
     dependencies:
-      '@cq/providers':
+      '@cq/platforms':
         specifier: workspace:*
-        version: link:../../packages/providers
+        version: link:../../packages/platforms
       '@cq/services':
         specifier: workspace:*
         version: link:../../packages/services
@@ -144,12 +144,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@cq/platforms':
+        specifier: workspace:*
+        version: link:../../packages/platforms
       '@cq/player':
         specifier: workspace:*
         version: link:../../packages/player
-      '@cq/providers':
-        specifier: workspace:*
-        version: link:../../packages/providers
       '@cq/services':
         specifier: workspace:*
         version: link:../../packages/services
@@ -266,6 +266,22 @@ importers:
         specifier: ^8.46.0
         version: 8.46.0(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
 
+  packages/platforms:
+    dependencies:
+      '@cq/services':
+        specifier: workspace:*
+        version: link:../services
+    devDependencies:
+      '@cq/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.7.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/player:
     dependencies:
       video.js:
@@ -311,22 +327,6 @@ importers:
       vue-tsc:
         specifier: 'catalog:'
         version: 3.1.1(typescript@5.9.3)
-
-  packages/providers:
-    dependencies:
-      '@cq/services':
-        specifier: workspace:*
-        version: link:../services
-    devDependencies:
-      '@cq/config':
-        specifier: workspace:*
-        version: link:../config
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.7.0
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
 
   packages/services:
     dependencies:

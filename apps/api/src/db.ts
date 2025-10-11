@@ -239,7 +239,7 @@ export function upsertClip(
       tx.insert(clips)
         .values({
           id: clipId,
-          provider: validated.provider,
+          platform: validated.platform,
           clipId: validated.id,
           url: validated.url,
           embedUrl: validated.embedUrl,
@@ -285,7 +285,7 @@ export function getClip(db: DbClient, clipId: string): Clip | null {
 
   try {
     return ClipSchema.parse({
-      provider: row.provider,
+      platform: row.platform,
       id: row.clipId,
       url: row.url,
       embedUrl: row.embedUrl,
@@ -344,7 +344,7 @@ export function getClipsByStatus(
     .map((row) => {
       try {
         return ClipSchema.parse({
-          provider: row.provider,
+          platform: row.platform,
           id: row.clipId,
           url: row.url,
           embedUrl: row.embedUrl,

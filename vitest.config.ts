@@ -8,7 +8,7 @@ export default defineConfig({
       'packages/*'
     ],
     coverage: {
-      provider: 'v8',
+      platform: 'v8',
       include: ['apps/**', 'packages/**'],
       exclude: [
         '**/*.config.js',

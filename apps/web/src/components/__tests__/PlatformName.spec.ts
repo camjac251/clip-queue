@@ -2,14 +2,14 @@ import { createTestingPinia } from '@pinia/testing'
 import { shallowMount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
-import { ClipProvider } from '@cq/providers'
+import { Platform } from '@cq/platforms'
 
-import ProviderName from '../ProviderName.vue'
+import PlatformName from '../PlatformName.vue'
 
-describe('ProviderName.vue', () => {
-  const wrapper = shallowMount(ProviderName, {
+describe('PlatformName.vue', () => {
+  const wrapper = shallowMount(PlatformName, {
     props: {
-      provider: ClipProvider.TWITCH
+      platform: Platform.TWITCH
     },
     global: {
       plugins: [createTestingPinia()]

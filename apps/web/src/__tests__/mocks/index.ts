@@ -1,11 +1,11 @@
-import type { Clip } from '@cq/providers'
-import { ClipProvider } from '@cq/providers'
+import type { Clip } from '@cq/platforms'
+import { Platform } from '@cq/platforms'
 
 export * from './kick'
 export * from './twitch'
 
 export const clipFromKick: Clip = {
-  provider: ClipProvider.KICK,
+  platform: Platform.KICK,
   submitters: ['testsubmitterkick'],
   id: 'testclipkick',
   title: 'testclipkick',
@@ -19,7 +19,7 @@ export const clipFromKick: Clip = {
 }
 
 export const clipFromTwitch: Clip = {
-  provider: ClipProvider.TWITCH,
+  platform: Platform.TWITCH,
   submitters: ['testsubmittertwitch'],
   id: 'testcliptwitch',
   title: 'testcliptwitch',

@@ -98,7 +98,7 @@ See [ADR 002](docs/adr/002-self-hosted-docker-backend.md) for architecture detai
 - ✅ Automatically detect clips submitted by viewers in chat
 - ✅ Duplicate clip prevention
 - ✅ Popular clips rise up in the queue (sorted by submitter count)
-- ✅ Support for multiple clip providers: [Twitch](https://www.twitch.tv/), [Kick](https://kick.com/)
+- ✅ Support for multiple clip platforms: [Twitch](https://www.twitch.tv/), [Kick](https://kick.com/)
 - ✅ Automatic moderation and clip removal
 - ✅ Settings customization to personalize for your needs
 - ✅ UI customization to personalize your experience
@@ -144,7 +144,7 @@ pnpm format         # Format all packages
 **Packages:**
 - **`config`**: Common configurations shared between other apps and packages
 - **`player`**: Clip player component (Video.js + Vue.js)
-- **`providers`**: Clip fetching abstraction (Twitch, Kick)
+- **`platforms`**: Clip fetching abstraction (Twitch, Kick)
 - **`services`**: API clients for external services
 - **`sources`**: ⚠️ *Deprecated* - Chat monitoring moved to backend server
 - **`ui`**: UI component library (Vue.js + TailwindCSS + PrimeVue)
@@ -156,7 +156,7 @@ pnpm format         # Format all packages
 | `pnpm web ...` | @cq/web | apps/web |
 | `pnpm api ...` | @cq/api | apps/api |
 | `pnpm player ...` | @cq/player | packages/player |
-| `pnpm providers ...` | @cq/providers | packages/providers |
+| `pnpm platforms ...` | @cq/platforms | packages/platforms |
 | `pnpm services ...` | @cq/services | packages/services |
 | `pnpm ui ...` | @cq/ui | packages/ui |
 

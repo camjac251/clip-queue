@@ -6,7 +6,7 @@
     </div>
     <div>{{ displayName }}</div>
     <i
-      v-if="providers.isExperimental(provider)"
+      v-if="platforms.isExperimental(platform)"
       v-tooltip="m.experimental()"
       class="pi pi-exclamation-triangle text-yellow-600 dark:text-yellow-500"
     ></i>
@@ -16,19 +16,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import type { ClipProvider } from '@cq/providers'
+import type { Platform } from '@cq/platforms'
 
 import * as m from '@/paraglide/messages'
-import { useProviders } from '@/stores/providers'
+import { usePlatforms } from '@/stores/platforms'
 
 export interface Props {
-  provider: ClipProvider
+  platform: Platform
 }
 
-const { provider } = defineProps<Props>()
+const { platform } = defineProps<Props>()
 
-const providers = useProviders()
+const platforms = usePlatforms()
 
-const svg = computed(() => providers.svg(provider))
-const displayName = computed(() => providers.displayName(provider))
+const svg = computed(() => platforms.svg(platform))
+const displayName = computed(() => platforms.displayName(platform))
 </script>

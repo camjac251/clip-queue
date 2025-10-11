@@ -7,7 +7,9 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { ClipProvider, type Clip as ProviderClip } from '@cq/providers'
+import { Platform } from '@cq/platforms'
+
+export type { Clip } from '@cq/platforms'
 
 /**
  * Clips Table
@@ -17,9 +19,9 @@ import { ClipProvider, type Clip as ProviderClip } from '@cq/providers'
 export const clips = sqliteTable(
   'clips',
   {
-    id: text('id').primaryKey(), // UUID format: "provider:clip_id"
-    provider: text('provider', { enum: ['twitch', 'kick'] }).notNull(),
-    clipId: text('clip_id').notNull(), // The actual clip ID from provider
+    id: text('id').primaryKey(), // UUID format: "platform:clip_id"
+    platform: text('platform', { enum: ['twitch', 'kick'] }).notNull(),
+    clipId: text('clip_id').notNull(), // The actual clip ID from platform
     url: text('url').notNull(),
     embedUrl: text('embed_url').notNull(),
     thumbnailUrl: text('thumbnail_url').notNull(),
@@ -27,7 +29,7 @@ export const clips = sqliteTable(
     channel: text('channel').notNull(),
     creator: text('creator').notNull(),
     category: text('category'),
-    createdAt: text('created_at'), // ISO date string from provider
+    createdAt: text('created_at'), // ISO date string from platform
     status: text('status', {
       enum: ['approved', 'pending', 'rejected', 'played']
     })
@@ -39,7 +41,7 @@ export const clips = sqliteTable(
     playedAt: integer('played_at', { mode: 'timestamp' })
   },
   (table) => ({
-    providerIdx: index('idx_clips_provider').on(table.provider),
+    platformIdx: index('idx_clips_platform').on(table.platform),
     statusIdx: index('idx_clips_status').on(table.status),
     channelIdx: index('idx_clips_channel').on(table.channel),
     playedAtIdx: index('idx_clips_played_at').on(table.playedAt)
@@ -89,9 +91,9 @@ export const settings = sqliteTable('settings', {
  * Zod Validation Schemas
  */
 
-// Clip validation schema (matches @cq/providers types exactly)
+// Clip validation schema (matches @cq/platforms types exactly)
 export const ClipSchema = z.object({
-  provider: z.nativeEnum(ClipProvider),
+  platform: z.nativeEnum(Platform),
   id: z.string(),
   url: z.string().url(),
   embedUrl: z.string().url(),
@@ -103,9 +105,6 @@ export const ClipSchema = z.object({
   category: z.string().optional(),
   createdAt: z.string().optional() // ISO date string
 })
-
-// Use the Clip type from @cq/providers for type compatibility
-export type Clip = ProviderClip
 
 // Command settings validation
 export const CommandSettingsSchema = z.object({
@@ -120,9 +119,9 @@ export const CommandSettingsSchema = z.object({
       'prev',
       'next',
       'removebysubmitter',
-      'removebyprovider',
-      'enableprovider',
-      'disableprovider',
+      'removebyplatform',
+      'enableplatform',
+      'disableplatform',
       'enableautomod',
       'disableautomod',
       'purgecache',
@@ -137,7 +136,7 @@ export type CommandSettings = z.infer<typeof CommandSettingsSchema>
 export const QueueSettingsSchema = z.object({
   hasAutoModerationEnabled: z.boolean(),
   limit: z.number().int().positive().nullable(),
-  providers: z.array(z.enum(['twitch', 'kick']))
+  platforms: z.array(z.enum(['twitch', 'kick']))
 })
 
 export type QueueSettings = z.infer<typeof QueueSettingsSchema>
@@ -174,9 +173,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
       'prev',
       'next',
       'removebysubmitter',
-      'removebyprovider',
-      'enableprovider',
-      'disableprovider',
+      'removebyplatform',
+      'enableplatform',
+      'disableplatform',
       'enableautomod',
       'disableautomod',
       'purgecache',
@@ -186,7 +185,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   queue: {
     hasAutoModerationEnabled: true,
     limit: null,
-    providers: ['twitch', 'kick']
+    platforms: ['twitch', 'kick']
   },
   logger: {
     level: 'WARN',

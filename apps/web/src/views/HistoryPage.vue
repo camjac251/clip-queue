@@ -20,7 +20,7 @@
   <DataTable
     v-model:selection="selection"
     v-model:filters="filters"
-    :global-filter-fields="['category', 'channel', 'provider', 'submitters', 'title']"
+    :global-filter-fields="['category', 'channel', 'platform', 'submitters', 'title']"
     :value="queue.history.toArray()"
     size="small"
     paginator
@@ -79,9 +79,9 @@
         </div>
       </template>
     </Column>
-    <Column field="provider" sortable :header="m.provider()">
+    <Column field="platform" sortable :header="m.platform()">
       <template #body="{ data }: { data: Clip }">
-        <ProviderName :provider="data.provider" />
+        <PlatformName :platform="data.platform" />
       </template>
     </Column>
     <Column
@@ -104,10 +104,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-import type { Clip } from '@cq/providers'
+import type { Clip } from '@cq/platforms'
 import { Column, DangerButton, DataTable, InputText, SecondaryButton, useConfirm } from '@cq/ui'
 
-import ProviderName from '@/components/ProviderName.vue'
+import PlatformName from '@/components/PlatformName.vue'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
 import { useQueueServer as useQueue } from '@/stores/queue-server'

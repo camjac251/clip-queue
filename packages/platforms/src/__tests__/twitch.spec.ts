@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { TwitchUserCtx } from '@cq/services/twitch'
 
-import { TwitchProvider } from '../twitch'
+import { TwitchPlatform } from '../twitch'
 import { mockKickClip, mockTwitchClip, mockTwitchGame } from './mocks'
 
 vi.mock('@cq/services/twitch', async (importOriginal) => {
@@ -37,17 +37,17 @@ describe('twitch.ts', () => {
   })
 
   it('knows if it is an experimental provider', () => {
-    const provider = new TwitchProvider()
+    const provider = new TwitchPlatform()
     expect(provider.isExperimental).toEqual(false)
   })
 
   it('gets the player format of the clip', () => {
-    const provider = new TwitchProvider()
+    const provider = new TwitchPlatform()
     expect(provider.getPlayerFormat()).toEqual('iframe')
   })
 
   it('gets the player source of the clip', async () => {
-    const provider = new TwitchProvider()
+    const provider = new TwitchPlatform()
     const clip = await provider.getClip(mockTwitchClip.url)
     expect(clip).toBeDefined()
     expect(provider.getPlayerSource(clip)).toEqual(
@@ -56,7 +56,7 @@ describe('twitch.ts', () => {
   })
 
   it('can get a clip from a twitch url', async () => {
-    const provider = new TwitchProvider()
+    const provider = new TwitchPlatform()
     const clip = await provider.getClip(mockTwitchClip.url)
     expect(clip).toBeDefined()
     expect(clip.id).toEqual(mockTwitchClip.id)
@@ -67,19 +67,19 @@ describe('twitch.ts', () => {
     [''],
     [mockKickClip.clip_url]
   ])('throws an error for unknown clip urls: (url: %s)', async (url: string) => {
-    const provider = new TwitchProvider()
+    const provider = new TwitchPlatform()
     expect(provider.getClip(url)).rejects.toThrowError()
   })
 
   it('caches clip data that it fetchs', async () => {
-    const provider = new TwitchProvider()
+    const provider = new TwitchPlatform()
     expect(provider.hasCachedData).toEqual(false)
     expect(await provider.getClip(mockTwitchClip.url)).toBeDefined()
     expect(provider.hasCachedData).toEqual(true)
   })
 
   it('can have the cached data cleared', async () => {
-    const provider = new TwitchProvider()
+    const provider = new TwitchPlatform()
     expect(provider.hasCachedData).toEqual(false)
     expect(await provider.getClip(mockTwitchClip.url)).toBeDefined()
     expect(provider.hasCachedData).toEqual(true)

@@ -14,8 +14,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import type { Clip } from '@cq/providers'
-import { BasicClipList, ClipList, toClipUUID } from '@cq/providers'
+import type { Clip } from '@cq/platforms'
+import { BasicClipList, ClipList, toClipUUID } from '@cq/platforms'
 
 import type { WebSocketEventHandler } from './websocket'
 import { useLogger } from './logger'

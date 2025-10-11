@@ -9,7 +9,7 @@
       "path": "packages/player"
     },
     {
-      "path": "packages/providers"
+      "path": "packages/platforms"
     },
     {
       "path": "packages/services"

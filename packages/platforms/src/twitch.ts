@@ -1,19 +1,19 @@
 import twitch from '@cq/services/twitch'
 
-import type { Clip, ClipProviderCtxCallback, PlayerFormat } from './types'
-import { BaseClipProvider, ClipProvider } from './types'
+import type { Clip, PlatformCtxCallback, PlayerFormat } from './types'
+import { BasePlatform, Platform } from './types'
 
 /**
- * The Twitch provider.
+ * The Twitch platform.
  */
-export class TwitchProvider extends BaseClipProvider {
-  public name = ClipProvider.TWITCH
+export class TwitchPlatform extends BasePlatform {
+  public name = Platform.TWITCH
   public displayName = 'Twitch'
   public svg = twitch.logo
 
-  private ctx: ClipProviderCtxCallback = () => ({ id: '' })
+  private ctx: PlatformCtxCallback = () => ({ id: '' })
 
-  public constructor(callback?: ClipProviderCtxCallback) {
+  public constructor(callback?: PlatformCtxCallback) {
     super()
     if (callback) {
       this.ctx = callback
@@ -45,7 +45,7 @@ export class TwitchProvider extends BaseClipProvider {
         url,
         embedUrl: clip.embed_url,
         thumbnailUrl: clip.thumbnail_url,
-        provider: this.name,
+        platform: this.name,
         submitters: []
       }
       this.cache[id] = response

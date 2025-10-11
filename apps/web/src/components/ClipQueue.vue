@@ -40,8 +40,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Clip } from '@cq/providers'
-import { toClipUUID } from '@cq/providers'
+import type { Clip } from '@cq/platforms'
+import { toClipUUID } from '@cq/platforms'
 import { DangerButton, SecondaryButton } from '@cq/ui'
 
 import ClipCard from '@/components/ClipCard.vue'

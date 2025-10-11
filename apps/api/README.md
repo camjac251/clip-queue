@@ -201,7 +201,7 @@ SQLite schema:
 
 ```sql
 CREATE TABLE clips (
-  id TEXT PRIMARY KEY,           -- UUID (provider:clip_id)
+  id TEXT PRIMARY KEY,           -- UUID (platform:clip_id)
   data TEXT NOT NULL,            -- JSON: Full Clip object
   status TEXT DEFAULT 'approved',
   submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,

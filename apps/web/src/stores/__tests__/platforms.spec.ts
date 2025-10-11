@@ -1,18 +1,18 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Clip, PlayerFormat } from '@cq/providers'
+import type { Clip, PlayerFormat } from '@cq/platforms'
 
 import { clipFromKick, clipFromTwitch } from '@/__tests__/mocks'
-import { useProviders } from '../providers'
+import { usePlatforms } from '../platforms'
 
 /**
- * Providers Store Tests
+ * Platforms Store Tests
  *
- * Tests display metadata and player configuration for clip providers.
+ * Tests display metadata and player configuration for clip platforms.
  * Clip fetching is handled by the backend via EventSub.
  */
-describe('providers.ts', () => {
+describe('platforms.ts', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
@@ -26,8 +26,8 @@ describe('providers.ts', () => {
   ])(
     'returns the correct player format based on clip: (clip: %o) -> %s',
     async (input: Clip, expected: PlayerFormat | undefined) => {
-      const providers = useProviders()
-      expect(await providers.getPlayerFormat(input)).toEqual(expected)
+      const platforms = usePlatforms()
+      expect(await platforms.getPlayerFormat(input)).toEqual(expected)
     }
   )
 
@@ -38,8 +38,8 @@ describe('providers.ts', () => {
   ])(
     'returns the correct player source based on clip: (clip: %o) -> %s',
     async (input: Clip, expected: string | undefined) => {
-      const providers = useProviders()
-      expect(await providers.getPlayerSource(input)).toEqual(expected)
+      const platforms = usePlatforms()
+      expect(await platforms.getPlayerSource(input)).toEqual(expected)
     }
   )
 })

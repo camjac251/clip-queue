@@ -8,7 +8,7 @@
  * - settings: Global app settings with version tracking
  *
  * Indices:
- * - clips: provider, status, channel, played_at
+ * - clips: platform, status, channel, played_at
  * - clip_submitters: clip_id, unique(clip_id + submitter)
  */
 
@@ -24,7 +24,7 @@ CREATE INDEX `idx_submitters_clip_id` ON `clip_submitters` (`clip_id`);--> state
 CREATE UNIQUE INDEX `unique_clip_submitter` ON `clip_submitters` (`clip_id`,`submitter`);--> statement-breakpoint
 CREATE TABLE `clips` (
 	`id` text PRIMARY KEY NOT NULL,
-	`provider` text NOT NULL,
+	`platform` text NOT NULL,
 	`clip_id` text NOT NULL,
 	`url` text NOT NULL,
 	`embed_url` text NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE `clips` (
 	`played_at` integer
 );
 --> statement-breakpoint
-CREATE INDEX `idx_clips_provider` ON `clips` (`provider`);--> statement-breakpoint
+CREATE INDEX `idx_clips_platform` ON `clips` (`platform`);--> statement-breakpoint
 CREATE INDEX `idx_clips_status` ON `clips` (`status`);--> statement-breakpoint
 CREATE INDEX `idx_clips_channel` ON `clips` (`channel`);--> statement-breakpoint
 CREATE INDEX `idx_clips_played_at` ON `clips` (`played_at`);--> statement-breakpoint

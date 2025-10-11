@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { ClipProvider } from '@cq/providers'
+import { Platform } from '@cq/platforms'
 
 import type { LogLevel } from '@/stores/logger'
 import type { WebSocketEventHandler } from './websocket'
@@ -22,9 +22,9 @@ export enum Command {
   PREV = 'prev',
   NEXT = 'next',
   REMOVE_BY_SUBMITTER = 'removebysubmitter',
-  REMOVE_BY_PROVIDER = 'removebyprovider',
-  ENABLE_PROVIDER = 'enableprovider',
-  DISABLE_PROVIDER = 'disableprovider',
+  REMOVE_BY_PLATFORM = 'removebyplatform',
+  ENABLE_PLATFORM = 'enableplatform',
+  DISABLE_PLATFORM = 'disableplatform',
   ENABLE_AUTO_MODERATION = 'enableautomod',
   DISABLE_AUTO_MODERATION = 'disableautomod',
   PURGE_CACHE = 'purgecache',
@@ -65,9 +65,9 @@ export interface QueueSettings {
    */
   limit: number | null
   /**
-   * The providers allowed to be used for clips.
+   * The platforms allowed to be used for clips.
    */
-  providers: ClipProvider[]
+  platforms: Platform[]
 }
 
 /**
@@ -92,7 +92,7 @@ export const DEFAULT_COMMAND_SETTINGS: CommandSettings = {
 export const DEFAULT_QUEUE_SETTINGS: QueueSettings = {
   hasAutoModerationEnabled: true,
   limit: null,
-  providers: Object.values(ClipProvider)
+  platforms: Object.values(Platform)
 }
 
 export const DEFAULT_LOGGER_SETTINGS: LoggerSettings = {
@@ -124,8 +124,8 @@ export const useSettings = defineStore('settings', () => {
       return (
         queue.value.hasAutoModerationEnabled !== q.hasAutoModerationEnabled ||
         queue.value.limit !== q.limit ||
-        Object.values(ClipProvider).some(
-          (p) => queue.value.providers.includes(p) !== q.providers.includes(p)
+        Object.values(Platform).some(
+          (p) => queue.value.platforms.includes(p) !== q.platforms.includes(p)
         )
       )
     }

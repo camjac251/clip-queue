@@ -1,4 +1,4 @@
-import type { Clip, ClipProvider } from './types'
+import type { Clip, Platform } from './types'
 import { toClipUUID } from './utils'
 
 /**
@@ -153,11 +153,11 @@ export class ClipList extends BasicClipList {
   }
 
   /**
-   * Remove all clips by a provider.
-   * @param provider - The provider to remove.
+   * Remove all clips by a platform.
+   * @param platform - The platform to remove.
    */
-  public removeByProvider(provider: ClipProvider): void {
-    this._clips = this._clips.filter((c) => c.provider.toLowerCase() !== provider.toLowerCase())
+  public removeByPlatform(platform: Platform): void {
+    this._clips = this._clips.filter((c) => c.platform.toLowerCase() !== platform.toLowerCase())
   }
 
   /**

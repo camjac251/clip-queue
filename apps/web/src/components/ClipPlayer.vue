@@ -50,7 +50,7 @@
             - {{ m.submitter_name({ name: clip.submitters[0] }) }}</span
           >
         </span>
-        <ProviderName :provider="clip.provider" />
+        <PlatformName :platform="clip.platform" />
       </div>
     </div>
   </div>
@@ -59,15 +59,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import type { Clip, PlayerFormat } from '@cq/providers'
+import type { Clip, PlayerFormat } from '@cq/platforms'
 import { Player } from '@cq/player'
 import { SecondaryButton } from '@cq/ui'
 
-import ProviderName from '@/components/ProviderName.vue'
+import PlatformName from '@/components/PlatformName.vue'
 import { useKeydown } from '@/composables/keydown'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
-import { useProviders } from '@/stores/providers'
+import { usePlatforms } from '@/stores/platforms'
 
 export interface Props {
   clip: Clip
@@ -93,14 +93,14 @@ const emit = defineEmits<{
   (e: 'next'): void
 }>()
 
-const providers = useProviders()
+const platforms = usePlatforms()
 
 const playerFormat = computed<PlayerFormat | undefined>(() => {
-  return providers.getPlayerFormat(clip)
+  return platforms.getPlayerFormat(clip)
 })
 
 const playerSource = computed<string | undefined>(() => {
-  return providers.getPlayerSource(clip)
+  return platforms.getPlayerSource(clip)
 })
 </script>
 

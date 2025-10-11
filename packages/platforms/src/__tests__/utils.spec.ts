@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { Clip } from '@cq/providers'
+import { Clip } from '@cq/platforms'
 
 import { toClipUUID } from '../utils'
 import { clipFromKick, clipFromTwitch } from './mocks'

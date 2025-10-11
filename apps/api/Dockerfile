@@ -15,7 +15,7 @@ RUN pnpm install --frozen-lockfile
 
 # Build packages
 RUN pnpm --filter @cq/services build
-RUN pnpm --filter @cq/providers build
+RUN pnpm --filter @cq/platforms build
 RUN pnpm --filter @cq/sources build
 RUN pnpm --filter @cq/api build
 

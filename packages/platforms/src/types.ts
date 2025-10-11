@@ -1,7 +1,7 @@
 /**
- * Enumeration of clip providers.
+ * Enumeration of clip platforms.
  */
-export enum ClipProvider {
+export enum Platform {
   /**
    * Kick.com clips.
    */
@@ -22,9 +22,9 @@ export type PlayerFormat = 'iframe' | 'video' | 'unknown'
  */
 export interface Clip {
   /**
-   * The provider of the clip.
+   * The platform of the clip.
    */
-  provider: ClipProvider
+  platform: Platform
   /**
    * The ID of the clip.
    */
@@ -68,28 +68,28 @@ export interface Clip {
 }
 
 /**
- * The base clip provider.
+ * The base clip platform.
  */
-export abstract class BaseClipProvider {
+export abstract class BasePlatform {
   /**
-   * The identifier of the provider (lowercase).
+   * The identifier of the platform (lowercase).
    */
-  public abstract name: ClipProvider
+  public abstract name: Platform
   /**
-   * The display name of the provider.
+   * The display name of the platform.
    */
   public abstract displayName: string
   /**
-   * The SVG of the provider.
+   * The SVG of the platform.
    */
   public abstract svg: string
   /**
-   * Whether the provider is experimental.
+   * Whether the platform is experimental.
    */
   public isExperimental = false
   protected cache: Record<string, Clip> = {}
   /**
-   * Whether the provider has cached data.
+   * Whether the platform has cached data.
    */
   public get hasCachedData(): boolean {
     return Object.keys(this.cache).length > 0
@@ -121,9 +121,9 @@ export abstract class BaseClipProvider {
 }
 
 /**
- * Clip provider context.
+ * Clip platform context.
  */
-export interface ClipProviderCtx {
+export interface PlatformCtx {
   /**
    * The ID of the user.
    */
@@ -135,6 +135,6 @@ export interface ClipProviderCtx {
 }
 
 /**
- * Clip provider context callback.
+ * Clip platform context callback.
  */
-export type ClipProviderCtxCallback = () => ClipProviderCtx | Promise<ClipProviderCtx>
+export type PlatformCtxCallback = () => PlatformCtx | Promise<PlatformCtx>

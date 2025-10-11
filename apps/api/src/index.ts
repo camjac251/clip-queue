@@ -11,8 +11,8 @@ import express from 'express'
 import { Server as SocketIOServer } from 'socket.io'
 import { createServer } from 'http'
 import cors from 'cors'
-import { ClipList, toClipUUID } from '@cq/providers'
-import { TwitchProvider } from '@cq/providers'
+import { ClipList, toClipUUID } from '@cq/platforms'
+import { TwitchPlatform } from '@cq/platforms'
 import {
   initDatabase,
   closeDatabase,
@@ -83,13 +83,13 @@ const db = initDatabase(process.env.DB_PATH)
 let settings: AppSettings = initSettings(db)
 console.log('[Settings] Loaded from database:', settings)
 
-// Initialize queue and provider
+// Initialize queue and platform
 const queue = new ClipList()
 const history = new ClipList()
 let currentClip: Clip | null = null
 let isQueueOpen = true
 
-const provider = new TwitchProvider(() => ({
+const platform = new TwitchPlatform(() => ({
   id: process.env.TWITCH_CLIENT_ID!,
   token: process.env.TWITCH_BOT_TOKEN
 }))
@@ -299,8 +299,8 @@ async function handleClipSubmission(
       return
     }
 
-    // Fetch clip data using existing provider
-    const clip = await provider.getClip(url)
+    // Fetch clip data using existing platform
+    const clip = await platform.getClip(url)
     if (!clip) {
       console.log(`[Queue] Failed to fetch clip: ${url}`)
       return

@@ -23,8 +23,8 @@
           {{ m.creator_name({ name: clip.creator ?? m.unknown() }) }}
         </p>
         <div class="flex items-center gap-1">
-          <p>{{ m.provider_colon() }}</p>
-          <ProviderName :provider="clip.provider" class="font-normal" />
+          <p>{{ m.platform_colon() }}</p>
+          <PlatformName :platform="clip.platform" class="font-normal" />
         </div>
       </div>
     </template>
@@ -54,10 +54,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import type { Clip } from '@cq/providers'
+import type { Clip } from '@cq/platforms'
 import { Card, DangerButton, SecondaryButton } from '@cq/ui'
 
-import ProviderName from '@/components/ProviderName.vue'
+import PlatformName from '@/components/PlatformName.vue'
 import * as m from '@/paraglide/messages'
 
 export interface Props {
