@@ -8,6 +8,12 @@ import { useLogger } from '@/stores/logger'
 import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
 
+/**
+ * Providers Store
+ *
+ * Provides display metadata (SVG icons, names) and player configuration for clip providers.
+ * Clip fetching is handled by the backend via EventSub.
+ */
 export const useProviders = defineStore('providers', () => {
   const settings = useSettings()
   const logger = useLogger()
@@ -27,36 +33,17 @@ export const useProviders = defineStore('providers', () => {
     }
   })
 
+  const displayName = computed(() => {
+    return (provider: ClipProvider) => {
+      return providers.value[provider].displayName
+    }
+  })
+
   const isExperimental = computed(() => {
     return (provider: ClipProvider) => {
       return providers.value[provider].isExperimental
     }
   })
-
-  const hasCachedData = computed(() => {
-    return Object.values(providers.value).some((provider) => provider.hasCachedData)
-  })
-
-  function purge(): void {
-    for (const provider of Object.values(providers.value)) {
-      logger.debug(`[Providers]: Purging cache for provider: ${provider.name}.`)
-      provider.clearCache()
-    }
-  }
-
-  async function getClip(url: string): Promise<Clip | undefined> {
-    for (const enabledProvider of settings.queue.providers) {
-      const provider = providers.value[enabledProvider]
-      try {
-        const clip = await provider.getClip(url)
-        logger.debug(`[${provider.name}]: Successfully retrieved clip for URL: ${url}.`)
-        return clip
-      } catch (error) {
-        logger.error(`${error}`)
-        continue
-      }
-    }
-  }
 
   function getPlayerFormat(clip: Clip): PlayerFormat | undefined {
     if (!settings.queue.providers.includes(clip.provider)) {
@@ -82,10 +69,8 @@ export const useProviders = defineStore('providers', () => {
 
   return {
     svg,
+    displayName,
     isExperimental,
-    hasCachedData,
-    purge,
-    getClip,
     getPlayerFormat,
     getPlayerSource
   }

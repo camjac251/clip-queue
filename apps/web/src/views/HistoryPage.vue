@@ -110,7 +110,7 @@ import { Column, DangerButton, DataTable, InputText, SecondaryButton, useConfirm
 import ProviderName from '@/components/ProviderName.vue'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
-import { useQueue } from '@/stores/queue'
+import { useQueueServer as useQueue } from '@/stores/queue-server'
 
 const filters = ref({
   global: { value: null, matchMode: 'contains' }
@@ -126,12 +126,16 @@ const isQueueClipsDisabled = computed(() => {
   return selection.value.length === 0 || selection.value.every((c) => queue.upcoming.includes(c))
 })
 
-function queueClips() {
+async function queueClips() {
   const clips = selection.value
   selection.value = []
   logger.debug(`[History]: queuing ${clips.length} clip(s).`)
   for (const clip of clips) {
-    queue.add(clip, true)
+    try {
+      await queue.add(clip.url, clip.submitters[0] || 'unknown')
+    } catch (error) {
+      logger.error(`[History]: Failed to queue clip: ${error}`)
+    }
   }
 }
 

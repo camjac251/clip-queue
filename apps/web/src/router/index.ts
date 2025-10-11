@@ -5,6 +5,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { config } from '@/config'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
+import { useQueueServer as useQueue } from '@/stores/queue-server'
+import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
 import HistoryPage from '@/views/HistoryPage.vue'
 import HomePage from '@/views/HomePage.vue'
@@ -143,16 +145,31 @@ router.beforeEach(async (to, from, next) => {
   document.title = config.title
   const logger = useLogger()
   const user = useUser()
+  const queue = useQueue()
+  const settings = useSettings()
+
   // Attempt to validate the token if not previously done so. This is
   // to ensure the refresh returns you to the same route.
   if (!user.hasValidatedToken && !user.isLoggedIn) {
     logger.debug('[Router]: Attempting to auto-login user.')
     await user.autoLoginIfPossible()
   }
+
+  // Initialize WebSocket and settings after successful auto-login
+  if (user.isLoggedIn) {
+    queue.initialize()
+    settings.initialize()
+    await settings.loadSettings()
+  }
+
   // If the user is trying to login via twitch
   if (to.hash && to.hash !== '' && !user.isLoggedIn) {
     user.login(to.hash)
     logger.debug(`[Router]: User is logging in via Twitch ${user.ctx.username}.`)
+    // Initialize WebSocket connection and settings for the logged-in user
+    queue.initialize()
+    settings.initialize()
+    await settings.loadSettings()
     next({ name: RouteNameConstants.QUEUE, hash: '' })
     return
     // User is not logged in trying to access auth required route
@@ -163,6 +180,16 @@ router.beforeEach(async (to, from, next) => {
   }
   logger.debug(`[Router]: Navigating from ${from.fullPath} to ${to.fullPath}.`)
   next()
+})
+
+router.afterEach(() => {
+  const user = useUser()
+  const queue = useQueue()
+
+  // Cleanup WebSocket on logout
+  if (!user.isLoggedIn) {
+    queue.cleanup()
+  }
 })
 
 export default router

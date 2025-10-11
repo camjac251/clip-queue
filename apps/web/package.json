@@ -21,6 +21,7 @@
     "@sentry/vue": "^10.17.0",
     "pinia": "^3.0.3",
     "pinia-plugin-persistedstate": "^4.5.0",
+    "socket.io-client": "^4.8.1",
     "vue": "catalog:",
     "vue-router": "^4.5.1"
   },

@@ -1,0 +1,205 @@
+/**
+ * Setup Script - Get Twitch Bot Token via OAuth
+ *
+ * This script starts a temporary server to handle the OAuth callback,
+ * then opens your browser to authorize the app.
+ */
+
+import { config } from 'dotenv'
+import { resolve } from 'path'
+import express from 'express'
+import { createServer } from 'http'
+import open from 'open'
+
+// Load .env from project root
+config({ path: resolve(process.cwd(), '../../.env') })
+
+const SETUP_PORT = 3333
+const CLIENT_ID = process.env.TWITCH_CLIENT_ID
+const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET
+const REDIRECT_URI = `http://localhost:${SETUP_PORT}/auth/callback`
+
+if (!CLIENT_ID || !CLIENT_SECRET) {
+  console.error('❌ Missing environment variables!')
+  console.error('Required: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET')
+  console.error('\nAdd these to your .env file:')
+  console.error('TWITCH_CLIENT_ID=your_twitch_client_id')
+  console.error('TWITCH_CLIENT_SECRET=your_twitch_client_secret')
+  process.exit(1)
+}
+
+console.log('🔧 Twitch Bot Token Setup')
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+console.log('\nThis will open your browser to authorize the bot.')
+console.log('Scopes requested: user:read:chat')
+console.log()
+
+const app = express()
+const server = createServer(app)
+
+// Authorization URL
+const authUrl = new URL('https://id.twitch.tv/oauth2/authorize')
+authUrl.searchParams.set('client_id', CLIENT_ID)
+authUrl.searchParams.set('redirect_uri', REDIRECT_URI)
+authUrl.searchParams.set('response_type', 'code')
+authUrl.searchParams.set('scope', 'user:read:chat')
+
+// Callback endpoint
+app.get('/auth/callback', async (req, res) => {
+  const { code, error, error_description } = req.query
+
+  if (error) {
+    console.error(`\n❌ Authorization failed: ${error}`)
+    console.error(`   ${error_description}`)
+    res.send(`
+      <html>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <h1>❌ Authorization Failed</h1>
+          <p>${error}: ${error_description}</p>
+          <p>You can close this window.</p>
+        </body>
+      </html>
+    `)
+    setTimeout(() => process.exit(1), 1000)
+    return
+  }
+
+  if (!code) {
+    console.error('\n❌ No authorization code received')
+    res.send(`
+      <html>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <h1>❌ No Authorization Code</h1>
+          <p>You can close this window and try again.</p>
+        </body>
+      </html>
+    `)
+    setTimeout(() => process.exit(1), 1000)
+    return
+  }
+
+  try {
+    // Exchange code for access token
+    console.log('\n🔄 Exchanging code for access token...')
+    const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        code: code as string,
+        grant_type: 'authorization_code',
+        redirect_uri: REDIRECT_URI
+      })
+    })
+
+    if (!tokenResponse.ok) {
+      const error = await tokenResponse.text()
+      throw new Error(`Token exchange failed: ${tokenResponse.status} ${error}`)
+    }
+
+    const tokenData = (await tokenResponse.json()) as {
+      access_token: string
+      refresh_token: string
+      expires_in: number
+      scope: string[]
+      token_type: string
+    }
+
+    console.log('✅ Access token received!')
+    console.log(`   Scopes: ${tokenData.scope.join(', ')}`)
+    console.log(`   Expires in: ${tokenData.expires_in} seconds (${Math.floor(tokenData.expires_in / 86400)} days)`)
+
+    // Validate token
+    const validateResponse = await fetch('https://id.twitch.tv/oauth2/validate', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` }
+    })
+
+    if (!validateResponse.ok) {
+      throw new Error('Token validation failed')
+    }
+
+    const validateData = (await validateResponse.json()) as {
+      client_id: string
+      login: string
+      scopes: string[]
+      user_id: string
+      expires_in: number
+    }
+
+    console.log(`   User: ${validateData.login} (ID: ${validateData.user_id})`)
+
+    // Display token
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('✅ SUCCESS! Copy this token to your .env file:')
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log()
+    console.log('TWITCH_BOT_TOKEN=' + tokenData.access_token)
+    console.log()
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('\n💡 Tip: This token expires in ~60 days. Re-run this script when it expires.')
+    console.log()
+
+    res.send(`
+      <html>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <h1>✅ Authorization Successful!</h1>
+          <p>Your access token has been generated.</p>
+          <p><strong>Check your terminal for the token.</strong></p>
+          <p style="margin-top: 40px; color: #666;">You can close this window.</p>
+        </body>
+      </html>
+    `)
+
+    setTimeout(() => {
+      server.close()
+      process.exit(0)
+    }, 2000)
+  } catch (error) {
+    console.error('\n❌ Error:', error)
+    res.send(`
+      <html>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <h1>❌ Error</h1>
+          <p>${error}</p>
+          <p>You can close this window.</p>
+        </body>
+      </html>
+    `)
+    setTimeout(() => process.exit(1), 1000)
+  }
+})
+
+// Home page (just in case)
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <body style="font-family: system-ui; padding: 40px; text-align: center;">
+        <h1>Twitch Bot Setup</h1>
+        <p>Please check your terminal for instructions.</p>
+      </body>
+    </html>
+  `)
+})
+
+// Start server
+server.listen(SETUP_PORT, async () => {
+  console.log(`📡 Setup server running on http://localhost:${SETUP_PORT}`)
+  console.log('\n🌐 Opening browser...\n')
+
+  try {
+    await open(authUrl.toString())
+  } catch (error) {
+    console.log('Could not open browser automatically.')
+    console.log('Please open this URL manually:\n')
+    console.log(authUrl.toString())
+    console.log()
+  }
+})
+
+// Handle termination
+process.on('SIGINT', () => {
+  console.log('\n\n👋 Setup cancelled')
+  server.close()
+  process.exit(0)
+})

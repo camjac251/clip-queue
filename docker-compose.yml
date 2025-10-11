@@ -1,4 +1,49 @@
 services:
+  # Backend API + EventSub chat monitoring
+  clip-queue-backend:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: clip-queue-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+      - TWITCH_BOT_TOKEN=${TWITCH_BOT_TOKEN}
+      - TWITCH_CHANNEL_NAME=${TWITCH_CHANNEL_NAME}
+      - FRONTEND_URL=${FRONTEND_URL:-https://yourdomain.com}
+      - PORT=3000
+      - DB_PATH=/app/data/clips.db
+    volumes:
+      - ./data:/app/data  # Persist SQLite database
+    labels:
+      # Traefik configuration
+      - "traefik.enable=true"
+
+      # HTTP router
+      - "traefik.http.routers.clip-queue-api.rule=Host(`api.yourdomain.com`)"
+      - "traefik.http.routers.clip-queue-api.entrypoints=websecure"
+      - "traefik.http.routers.clip-queue-api.tls.certresolver=letsencrypt"
+
+      # Service
+      - "traefik.http.services.clip-queue-api.loadbalancer.server.port=3000"
+
+      # WebSocket support
+      - "traefik.http.routers.clip-queue-api.middlewares=clip-queue-headers"
+      - "traefik.http.middlewares.clip-queue-headers.headers.customrequestheaders.Upgrade=websocket"
+      - "traefik.http.middlewares.clip-queue-headers.headers.customrequestheaders.Connection=Upgrade"
+    networks:
+      - traefik
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend (optional - use Cloudflare Pages instead for production)
   web:
     build:
       context: .
@@ -11,3 +56,9 @@ services:
       - apps/web/.env
     ports:
       - 5173:5173
+    profiles:
+      - local  # Only run with 'docker-compose --profile local up'
+
+networks:
+  traefik:
+    external: true

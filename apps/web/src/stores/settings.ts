@@ -4,7 +4,32 @@ import { computed, ref } from 'vue'
 import { ClipProvider } from '@cq/providers'
 
 import type { LogLevel } from '@/stores/logger'
-import { Command } from '@/utils/commands'
+import type { WebSocketEventHandler } from './websocket'
+import { useWebSocket } from './websocket'
+
+/**
+ * Enumeration of available chat commands.
+ *
+ * Commands are executed by the backend server. This enum is used in the frontend
+ * settings UI to allow users to configure which commands are enabled.
+ */
+export enum Command {
+  OPEN = 'open',
+  CLOSE = 'close',
+  CLEAR = 'clear',
+  SET_LIMIT = 'setlimit',
+  REMOVE_LIMIT = 'removelimit',
+  PREV = 'prev',
+  NEXT = 'next',
+  REMOVE_BY_SUBMITTER = 'removebysubmitter',
+  REMOVE_BY_PROVIDER = 'removebyprovider',
+  ENABLE_PROVIDER = 'enableprovider',
+  DISABLE_PROVIDER = 'disableprovider',
+  ENABLE_AUTO_MODERATION = 'enableautomod',
+  DISABLE_AUTO_MODERATION = 'disableautomod',
+  PURGE_CACHE = 'purgecache',
+  PURGE_HISTORY = 'purgehistory'
+}
 
 /**
  * Settings for commands.
@@ -75,84 +100,143 @@ export const DEFAULT_LOGGER_SETTINGS: LoggerSettings = {
   limit: 100
 }
 
-export const useSettings = defineStore(
-  'settings',
-  () => {
-    const commands = ref<CommandSettings>({ ...DEFAULT_COMMAND_SETTINGS })
-    const queue = ref<QueueSettings>({ ...DEFAULT_QUEUE_SETTINGS })
-    const logger = ref<LoggerSettings>({ ...DEFAULT_LOGGER_SETTINGS })
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
-    const isCommandsSettingsModified = computed(() => {
-      return (c: CommandSettings) => {
-        return (
-          commands.value.prefix !== c.prefix ||
-          Object.values(Command).some(
-            (cmd) => commands.value.allowed.includes(cmd) !== c.allowed.includes(cmd)
-          )
-        )
-      }
-    })
+export const useSettings = defineStore('settings', () => {
+  const commands = ref<CommandSettings>({ ...DEFAULT_COMMAND_SETTINGS })
+  const queue = ref<QueueSettings>({ ...DEFAULT_QUEUE_SETTINGS })
+  const logger = ref<LoggerSettings>({ ...DEFAULT_LOGGER_SETTINGS })
+  const websocket = useWebSocket()
 
-    const isQueueSettingsModified = computed(() => {
-      return (q: QueueSettings) => {
-        return (
-          queue.value.hasAutoModerationEnabled !== q.hasAutoModerationEnabled ||
-          queue.value.limit !== q.limit ||
-          Object.values(ClipProvider).some(
-            (p) => queue.value.providers.includes(p) !== q.providers.includes(p)
-          )
-        )
-      }
-    })
-
-    const isLoggerSettingsModified = computed(() => {
-      return (l: LoggerSettings) => {
-        return logger.value.level !== l.level || logger.value.limit !== l.limit
-      }
-    })
-
-    const isModified = computed(() => {
+  const isCommandsSettingsModified = computed(() => {
+    return (c: CommandSettings) => {
       return (
-        isCommandsSettingsModified.value(DEFAULT_COMMAND_SETTINGS) ||
-        isQueueSettingsModified.value(DEFAULT_QUEUE_SETTINGS) ||
-        isLoggerSettingsModified.value(DEFAULT_LOGGER_SETTINGS)
+        commands.value.prefix !== c.prefix ||
+        Object.values(Command).some(
+          (cmd) => commands.value.allowed.includes(cmd) !== c.allowed.includes(cmd)
+        )
       )
-    })
-
-    function $reset(): void {
-      commands.value = DEFAULT_COMMAND_SETTINGS
-      queue.value = DEFAULT_QUEUE_SETTINGS
-      logger.value = DEFAULT_LOGGER_SETTINGS
     }
+  })
 
-    return {
-      commands,
-      queue,
-      logger,
-      isModified,
-      isCommandsSettingsModified,
-      isQueueSettingsModified,
-      isLoggerSettingsModified,
-      $reset
+  const isQueueSettingsModified = computed(() => {
+    return (q: QueueSettings) => {
+      return (
+        queue.value.hasAutoModerationEnabled !== q.hasAutoModerationEnabled ||
+        queue.value.limit !== q.limit ||
+        Object.values(ClipProvider).some(
+          (p) => queue.value.providers.includes(p) !== q.providers.includes(p)
+        )
+      )
     }
-  },
-  {
-    persist: {
-      key: 'cq-settings',
-      afterHydrate(context) {
-        // Ensure that the providers in the settings are valid.
-        const providers = context.store.queue.providers
-        const availableProviders = Object.values(ClipProvider)
-        context.store.queue.providers = providers.filter((p: ClipProvider) => {
-          return availableProviders.includes(p)
-        })
-        // Ensure that the commands allowed are valid.
-        const commands = context.store.commands.allowed
-        const availableCommands = Object.values(Command)
-        context.store.commands.allowed = commands.filter((c: Command) => {
-          return availableCommands.includes(c)
-        })
+  })
+
+  const isLoggerSettingsModified = computed(() => {
+    return (l: LoggerSettings) => {
+      return logger.value.level !== l.level || logger.value.limit !== l.limit
+    }
+  })
+
+  const isModified = computed(() => {
+    return (
+      isCommandsSettingsModified.value(DEFAULT_COMMAND_SETTINGS) ||
+      isQueueSettingsModified.value(DEFAULT_QUEUE_SETTINGS) ||
+      isLoggerSettingsModified.value(DEFAULT_LOGGER_SETTINGS)
+    )
+  })
+
+  function $reset(): void {
+    commands.value = DEFAULT_COMMAND_SETTINGS
+    queue.value = DEFAULT_QUEUE_SETTINGS
+    logger.value = DEFAULT_LOGGER_SETTINGS
+  }
+
+  /**
+   * Load settings from backend
+   */
+  async function loadSettings(): Promise<void> {
+    try {
+      const response = await fetch(`${API_URL}/api/settings`)
+      if (!response.ok) {
+        throw new Error(`Failed to load settings: ${response.statusText}`)
       }
+      const data = await response.json()
+
+      commands.value = data.commands
+      queue.value = data.queue
+      logger.value = data.logger
+    } catch (error) {
+      console.error('[Settings] Failed to load from backend:', error)
     }
   }
-)
+
+  /**
+   * Save settings to backend
+   */
+  async function saveSettings(): Promise<void> {
+    try {
+      const response = await fetch(`${API_URL}/api/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          commands: commands.value,
+          queue: queue.value,
+          logger: logger.value
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to save settings: ${response.statusText}`)
+      }
+
+      console.log('[Settings] Saved to backend')
+    } catch (error) {
+      console.error('[Settings] Failed to save to backend:', error)
+      throw error
+    }
+  }
+
+  /**
+   * WebSocket event handler for settings updates
+   */
+  const handleSettingsUpdated = ((data: {
+    commands: CommandSettings
+    queue: QueueSettings
+    logger: LoggerSettings
+  }) => {
+    console.log('[Settings] Received update from backend:', data)
+    commands.value = data.commands
+    queue.value = data.queue
+    logger.value = data.logger
+  }) as WebSocketEventHandler
+
+  /**
+   * Initialize settings (load from backend and listen for updates)
+   */
+  function initialize(): void {
+    // Listen for settings updates from backend
+    websocket.on('settings:updated', handleSettingsUpdated)
+  }
+
+  /**
+   * Cleanup WebSocket listeners
+   */
+  function cleanup(): void {
+    websocket.off('settings:updated', handleSettingsUpdated)
+  }
+
+  return {
+    commands,
+    queue,
+    logger,
+    isModified,
+    isCommandsSettingsModified,
+    isQueueSettingsModified,
+    isLoggerSettingsModified,
+    $reset,
+    loadSettings,
+    saveSettings,
+    initialize,
+    cleanup
+  }
+})

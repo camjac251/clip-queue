@@ -6,14 +6,12 @@ import twitch from '@cq/services/twitch'
 
 import { env } from '@/config'
 import { useLogger } from './logger'
-import { useSources } from './sources'
 
 const { CLIENT_ID, REDIRECT_URI } = env
 
 export const useUser = defineStore(
   'user',
   () => {
-    const sources = useSources()
     const logger = useLogger()
 
     const hasValidatedToken = ref<boolean>(false)
@@ -25,7 +23,7 @@ export const useUser = defineStore(
     })
 
     function redirect(): void {
-      twitch.redirect(ctx.value, REDIRECT_URI, ['openid', 'chat:read'])
+      twitch.redirect(ctx.value, REDIRECT_URI, ['openid', 'user:read:chat'])
     }
 
     async function autoLoginIfPossible(): Promise<void> {
@@ -34,7 +32,6 @@ export const useUser = defineStore(
       }
       if (ctx.value.token && (await twitch.isLoginValid(ctx.value))) {
         isLoggedIn.value = true
-        await sources.connect()
       } else {
         await logout()
       }
@@ -79,7 +76,6 @@ export const useUser = defineStore(
           ctx.value.username = decodedIdToken.preferred_username
         }
         isLoggedIn.value = true
-        await sources.connect()
       }
     }
 
@@ -91,7 +87,6 @@ export const useUser = defineStore(
         username: undefined
       }
       isLoggedIn.value = false
-      await sources.disconnect()
       if (originalCtx.id && originalCtx.token) {
         try {
           await twitch.logout(originalCtx)

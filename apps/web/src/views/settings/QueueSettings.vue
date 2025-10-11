@@ -103,14 +103,28 @@ function onReset() {
   formKey.value += 1
 }
 
-function onSubmit() {
-  settings.queue = formSettings.value
-  toast.add({
-    severity: 'success',
-    summary: m.success(),
-    detail: m.queue_settings_saved(),
-    life: 3000
-  })
-  onReset()
+async function onSubmit() {
+  try {
+    // Update local state
+    settings.queue = formSettings.value
+
+    // Save to backend
+    await settings.saveSettings()
+
+    toast.add({
+      severity: 'success',
+      summary: m.success(),
+      detail: m.queue_settings_saved(),
+      life: 3000
+    })
+    onReset()
+  } catch {
+    toast.add({
+      severity: 'error',
+      summary: m.error(),
+      detail: 'Failed to save settings',
+      life: 3000
+    })
+  }
 }
 </script>

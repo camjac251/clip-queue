@@ -8,6 +8,7 @@ import { BaseClipProvider, ClipProvider } from './types'
  */
 export class TwitchProvider extends BaseClipProvider {
   public name = ClipProvider.TWITCH
+  public displayName = 'Twitch'
   public svg = twitch.logo
 
   private ctx: ClipProviderCtxCallback = () => ({ id: '' })

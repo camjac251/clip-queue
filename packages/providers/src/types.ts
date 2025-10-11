@@ -5,11 +5,11 @@ export enum ClipProvider {
   /**
    * Kick.com clips.
    */
-  KICK = 'Kick',
+  KICK = 'kick',
   /**
    * Twitch.tv clips.
    */
-  TWITCH = 'Twitch'
+  TWITCH = 'twitch'
 }
 
 /**
@@ -72,9 +72,13 @@ export interface Clip {
  */
 export abstract class BaseClipProvider {
   /**
-   * The name of the provider.
+   * The identifier of the provider (lowercase).
    */
   public abstract name: ClipProvider
+  /**
+   * The display name of the provider.
+   */
+  public abstract displayName: string
   /**
    * The SVG of the provider.
    */

@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "prepare": "husky",
-    "web": "pnpm --filter @cq/web -- ",
-    "cfg": "pnpm --filter @cq/config -- ",
-    "player": "pnpm --filter @cq/player -- ",
-    "providers": "pnpm --filter @cq/providers -- ",
-    "services": "pnpm --filter @cq/services -- ",
-    "sources": "pnpm --filter @cq/sources -- ",
-    "ui": "pnpm --filter @cq/ui -- ",
+    "api": "pnpm --filter @cq/api --",
+    "web": "pnpm --filter @cq/web --",
+    "cfg": "pnpm --filter @cq/config --",
+    "player": "pnpm --filter @cq/player --",
+    "providers": "pnpm --filter @cq/providers --",
+    "services": "pnpm --filter @cq/services --",
+    "sources": "pnpm --filter @cq/sources --",
+    "ui": "pnpm --filter @cq/ui --",
     "build": "pnpm --recursive build",
     "lint": "pnpm --recursive lint",
     "lint:fix": "pnpm --recursive lint:fix",
@@ -21,7 +22,8 @@
     "typecheck": "pnpm --recursive typecheck",
     "deps:update": "corepack use pnpm@latest && pnpm up --latest && pnpm --recursive up --latest",
     "commitlint": "commitlint --edit",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "dev:all": "pnpm run --parallel --filter @cq/api --filter @cq/web dev"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",

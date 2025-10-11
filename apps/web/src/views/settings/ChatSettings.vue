@@ -64,7 +64,7 @@
               <template #option="{ option }: { option: Command }">
                 <div class="flex flex-col gap-1">
                   <p>{{ toCommandCall(option) }}</p>
-                  <small>{{ commands.help.value[option].description }}</small>
+                  <small>{{ commandHelp[option].description }}</small>
                 </div>
               </template>
             </MultiSelect>
@@ -96,6 +96,7 @@
 <script setup lang="ts">
 import { ref, toRaw } from 'vue'
 
+import { ClipSourceStatus } from '@cq/sources'
 import {
   Card,
   DangerButton,
@@ -108,21 +109,71 @@ import {
 
 import SourceIndicator from '@/components/SourceIndicator.vue'
 import * as m from '@/paraglide/messages'
-import { useSettings } from '@/stores/settings'
-import { useSources } from '@/stores/sources'
+import { Command, useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
-import commands, { Command } from '@/utils/commands'
+import { useWebSocket, WebSocketStatus } from '@/stores/websocket'
 
 const toast = useToast()
 const user = useUser()
 const settings = useSettings()
-const sources = useSources()
+const websocket = useWebSocket()
+
+// Map WebSocket status to source status for indicator
+const sources = {
+  logo: '<path fill="currentColor" d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.429h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>',
+  status:
+    websocket.status === WebSocketStatus.CONNECTED
+      ? ClipSourceStatus.CONNECTED
+      : websocket.status === WebSocketStatus.CONNECTING
+        ? ClipSourceStatus.UNKNOWN
+        : websocket.status === WebSocketStatus.ERROR
+          ? ClipSourceStatus.ERROR
+          : ClipSourceStatus.DISCONNECTED,
+  reconnect: () => {
+    const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    websocket.connect(serverUrl)
+  }
+}
+
+// Command help information (note: commands are handled by backend)
+const commandHelp: Record<Command, { description: string; args?: string[] }> = {
+  [Command.OPEN]: { description: m.command_open() },
+  [Command.CLOSE]: { description: m.command_close() },
+  [Command.CLEAR]: { description: m.command_clear() },
+  [Command.SET_LIMIT]: {
+    args: [m.number().toLocaleLowerCase()],
+    description: m.command_set_limit()
+  },
+  [Command.REMOVE_LIMIT]: { description: m.command_remove_limit() },
+  [Command.PREV]: { description: m.command_previous() },
+  [Command.NEXT]: { description: m.command_next() },
+  [Command.REMOVE_BY_SUBMITTER]: {
+    args: [m.submitter().toLocaleLowerCase()],
+    description: m.command_remove_by_submitter()
+  },
+  [Command.REMOVE_BY_PROVIDER]: {
+    args: [m.provider().toLocaleLowerCase()],
+    description: m.command_remove_by_provider()
+  },
+  [Command.ENABLE_PROVIDER]: {
+    args: [m.provider().toLocaleLowerCase()],
+    description: m.command_enable_provider()
+  },
+  [Command.DISABLE_PROVIDER]: {
+    args: [m.provider().toLocaleLowerCase()],
+    description: m.command_disable_provider()
+  },
+  [Command.ENABLE_AUTO_MODERATION]: { description: m.command_enable_auto_mod() },
+  [Command.DISABLE_AUTO_MODERATION]: { description: m.command_disable_auto_mod() },
+  [Command.PURGE_CACHE]: { description: m.command_purge_cache() },
+  [Command.PURGE_HISTORY]: { description: m.command_purge_history() }
+}
 
 const formKey = ref(1)
 const formSettings = ref(structuredClone(toRaw(settings.commands)))
 
 function toCommandCall(command: Command) {
-  const help = commands.help.value[command]
+  const help = commandHelp[command]
   let cmd = command.toString()
   if (help.args && help.args.length > 0) {
     cmd += ' '
@@ -136,14 +187,28 @@ function onReset() {
   formKey.value += 1
 }
 
-function onSubmit() {
-  settings.commands = formSettings.value
-  toast.add({
-    severity: 'success',
-    summary: m.success(),
-    detail: m.chat_settings_saved(),
-    life: 3000
-  })
-  onReset()
+async function onSubmit() {
+  try {
+    // Update local state
+    settings.commands = formSettings.value
+
+    // Save to backend
+    await settings.saveSettings()
+
+    toast.add({
+      severity: 'success',
+      summary: m.success(),
+      detail: m.chat_settings_saved(),
+      life: 3000
+    })
+    onReset()
+  } catch {
+    toast.add({
+      severity: 'error',
+      summary: m.error(),
+      detail: 'Failed to save settings',
+      life: 3000
+    })
+  }
 }
 </script>

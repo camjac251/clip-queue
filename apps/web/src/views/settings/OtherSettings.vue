@@ -21,26 +21,11 @@
         class="mb-2"
         fluid
         size="small"
-        :disabled="queue.history.empty()"
+        :disabled="queue.history.size() === 0"
         @click="purgeHistory()"
       ></DangerButton>
       <Message size="small" severity="secondary" variant="simple">{{
         m.purge_history_description()
-      }}</Message>
-    </template>
-  </Card>
-  <Card class="mx-auto mb-2 max-w-xl text-left">
-    <template #content>
-      <DangerButton
-        :label="m.purge_cache()"
-        class="mb-2"
-        fluid
-        size="small"
-        :disabled="!providers.hasCachedData"
-        @click="purgeCache()"
-      ></DangerButton>
-      <Message size="small" severity="secondary" variant="simple">{{
-        m.purge_cache_description()
       }}</Message>
     </template>
   </Card>
@@ -58,8 +43,7 @@ import { Card, DangerButton, Message, useConfirm, useToast } from '@cq/ui'
 
 import * as m from '@/paraglide/messages'
 import { usePreferences } from '@/stores/preferences'
-import { useProviders } from '@/stores/providers'
-import { useQueue } from '@/stores/queue'
+import { useQueueServer as useQueue } from '@/stores/queue-server'
 import { useSettings } from '@/stores/settings'
 
 const version = __APP_VERSION__
@@ -69,7 +53,6 @@ const confirm = useConfirm()
 const preferences = usePreferences()
 const queue = useQueue()
 const settings = useSettings()
-const providers = useProviders()
 
 async function resetSettingsToDefault() {
   confirm.require({
@@ -81,15 +64,29 @@ async function resetSettingsToDefault() {
     rejectProps: {
       label: m.cancel()
     },
-    accept: () => {
-      settings.$reset()
-      preferences.$reset()
-      toast.add({
-        severity: 'success',
-        summary: m.success(),
-        detail: m.settings_reset(),
-        life: 3000
-      })
+    accept: async () => {
+      try {
+        // Reset local state
+        settings.$reset()
+        preferences.$reset()
+
+        // Save to backend
+        await settings.saveSettings()
+
+        toast.add({
+          severity: 'success',
+          summary: m.success(),
+          detail: m.settings_reset(),
+          life: 3000
+        })
+      } catch {
+        toast.add({
+          severity: 'error',
+          summary: m.error(),
+          detail: 'Failed to reset settings',
+          life: 3000
+        })
+      }
     },
     reject: () => {}
   })
@@ -105,37 +102,23 @@ async function purgeHistory() {
     rejectProps: {
       label: m.cancel()
     },
-    accept: () => {
-      queue.purge()
-      toast.add({
-        severity: 'success',
-        summary: m.success(),
-        detail: m.clip_history_purged(),
-        life: 3000
-      })
-    },
-    reject: () => {}
-  })
-}
-
-async function purgeCache() {
-  confirm.require({
-    header: m.purge_cache(),
-    message: m.purge_cache_confirm(),
-    acceptProps: {
-      label: m.confirm()
-    },
-    rejectProps: {
-      label: m.cancel()
-    },
-    accept: () => {
-      providers.purge()
-      toast.add({
-        severity: 'success',
-        summary: m.success(),
-        detail: m.clip_cache_purged(),
-        life: 3000
-      })
+    accept: async () => {
+      try {
+        await queue.purge()
+        toast.add({
+          severity: 'success',
+          summary: m.success(),
+          detail: m.clip_history_purged(),
+          life: 3000
+        })
+      } catch {
+        toast.add({
+          severity: 'error',
+          summary: m.error(),
+          detail: 'Failed to purge history',
+          life: 3000
+        })
+      }
     },
     reject: () => {}
   })

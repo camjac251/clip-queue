@@ -8,11 +8,11 @@ import { BaseClipProvider, ClipProvider } from './types'
  */
 export class KickProvider extends BaseClipProvider {
   public name = ClipProvider.KICK
+  public displayName = 'Kick'
   public svg = kick.logo
 
   public async getClip(url: string): Promise<Clip> {
     const id = kick.getClipIdFromUrl(url)
-    console.error(id)
     if (!id) {
       throw new Error(`[${this.name}]: Invalid clip URL.`)
     }

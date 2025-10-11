@@ -19,3 +19,6 @@ catalog:
 catalogs:
   peers:
     vue: ^3.0.0
+
+onlyBuiltDependencies:
+  - better-sqlite3
