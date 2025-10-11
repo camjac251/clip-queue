@@ -18,13 +18,11 @@ import {
   initDatabase,
   closeDatabase,
   initSettings,
-  getSettings,
   updateSettings,
   upsertClip,
   getClipsByStatus,
   updateClipStatus,
   deleteClipsByStatus,
-  deleteClip,
   type Clip,
   type AppSettings
 } from './db.js'

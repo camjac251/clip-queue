@@ -6,7 +6,7 @@
 
 import Database from 'better-sqlite3'
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import { eq, and, inArray, asc, desc } from 'drizzle-orm'
+import { eq, inArray, asc, desc } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { join, dirname } from 'path'
 import { mkdirSync, existsSync } from 'fs'
