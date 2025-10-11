@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import { Platform } from '@cq/platforms'
 
 import type { LogLevel } from '@/stores/logger'
+import { useLogger } from '@/stores/logger'
 import type { WebSocketEventHandler } from './websocket'
 import { useWebSocket } from './websocket'
 
@@ -107,6 +108,7 @@ export const useSettings = defineStore('settings', () => {
   const queue = ref<QueueSettings>({ ...DEFAULT_QUEUE_SETTINGS })
   const logger = ref<LoggerSettings>({ ...DEFAULT_LOGGER_SETTINGS })
   const websocket = useWebSocket()
+  const log = useLogger()
 
   const isCommandsSettingsModified = computed(() => {
     return (c: CommandSettings) => {
@@ -166,7 +168,7 @@ export const useSettings = defineStore('settings', () => {
       queue.value = data.queue
       logger.value = data.logger
     } catch (error) {
-      console.error('[Settings] Failed to load from backend:', error)
+      log.error(`[Settings] Failed to load from backend: ${error}`)
     }
   }
 
@@ -189,9 +191,9 @@ export const useSettings = defineStore('settings', () => {
         throw new Error(`Failed to save settings: ${response.statusText}`)
       }
 
-      console.log('[Settings] Saved to backend')
+      log.info('[Settings] Saved to backend')
     } catch (error) {
-      console.error('[Settings] Failed to save to backend:', error)
+      log.error(`[Settings] Failed to save to backend: ${error}`)
       throw error
     }
   }
@@ -204,7 +206,7 @@ export const useSettings = defineStore('settings', () => {
     queue: QueueSettings
     logger: LoggerSettings
   }) => {
-    console.log('[Settings] Received update from backend:', data)
+    log.debug('[Settings] Received update from backend')
     commands.value = data.commands
     queue.value = data.queue
     logger.value = data.logger
