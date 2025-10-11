@@ -148,36 +148,40 @@ async function connectToChat() {
 
     // Listen for chat messages
     eventSubClient.onMessage(async (message) => {
-      console.log(`[Chat] ${message.username}: ${message.text}`)
+      try {
+        console.log(`[Chat] ${message.username}: ${message.text}`)
 
-      // Check if message is a command
-      if (message.text.startsWith(settings.commands.prefix)) {
-        // Only mods and broadcasters can use commands
-        if (message.isModerator || message.isBroadcaster) {
-          await handleChatCommand(message)
-        } else {
-          console.log(`[Chat] User ${message.username} is not allowed to use commands`)
+        // Check if message is a command
+        if (message.text.startsWith(settings.commands.prefix)) {
+          // Only mods and broadcasters can use commands
+          if (message.isModerator || message.isBroadcaster) {
+            await handleChatCommand(message)
+          } else {
+            console.log(`[Chat] User ${message.username} is not allowed to use commands`)
+          }
+          return
         }
-        return
-      }
 
-      // Extract URLs from message text
-      const urlRegex = /(https?:\/\/[^\s]+)/g
-      const urls = message.text.match(urlRegex) || []
+        // Extract URLs from message text
+        const urlRegex = /(https?:\/\/[^\s]+)/g
+        const urls = message.text.match(urlRegex) || []
 
-      // Check if user can auto-approve (moderator or broadcaster)
-      const canAutoApprove = message.isModerator || message.isBroadcaster
+        // Check if user can auto-approve (moderator or broadcaster)
+        const canAutoApprove = message.isModerator || message.isBroadcaster
 
-      // Submit each URL
-      for (const url of urls) {
-        // Check if it's a Twitch clip URL
-        if (url.includes('twitch.tv') && (url.includes('clip') || url.includes('/clips/'))) {
-          await handleClipSubmission(url, message.username, canAutoApprove)
+        // Submit each URL
+        for (const url of urls) {
+          // Check if it's a Twitch clip URL
+          if (url.includes('twitch.tv') && (url.includes('clip') || url.includes('/clips/'))) {
+            await handleClipSubmission(url, message.username, canAutoApprove)
+          }
+          // Check if it's a Kick clip URL (format: kick.com/channel/clips/clip_ID)
+          else if (url.includes('kick.com/') && url.includes('/clips/clip_')) {
+            await handleClipSubmission(url, message.username, canAutoApprove)
+          }
         }
-        // Check if it's a Kick clip URL (format: kick.com/channel/clips/clip_ID)
-        else if (url.includes('kick.com/') && url.includes('/clips/clip_')) {
-          await handleClipSubmission(url, message.username, canAutoApprove)
-        }
+      } catch (error) {
+        console.error(`[EventSub] Error processing message from ${message.username}:`, error)
       }
     })
 
