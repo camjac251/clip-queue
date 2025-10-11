@@ -96,7 +96,6 @@
 <script setup lang="ts">
 import { ref, toRaw } from 'vue'
 
-import { ClipSourceStatus } from '@cq/sources'
 import {
   Card,
   DangerButton,
@@ -111,24 +110,17 @@ import SourceIndicator from '@/components/SourceIndicator.vue'
 import * as m from '@/paraglide/messages'
 import { Command, useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
-import { useWebSocket, WebSocketStatus } from '@/stores/websocket'
+import { useWebSocket } from '@/stores/websocket'
 
 const toast = useToast()
 const user = useUser()
 const settings = useSettings()
 const websocket = useWebSocket()
 
-// Map WebSocket status to source status for indicator
+// Backend connection indicator
 const sources = {
   logo: '<path fill="currentColor" d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.429h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>',
-  status:
-    websocket.status === WebSocketStatus.CONNECTED
-      ? ClipSourceStatus.CONNECTED
-      : websocket.status === WebSocketStatus.CONNECTING
-        ? ClipSourceStatus.UNKNOWN
-        : websocket.status === WebSocketStatus.ERROR
-          ? ClipSourceStatus.ERROR
-          : ClipSourceStatus.DISCONNECTED,
+  status: websocket.status,
   reconnect: () => {
     const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
     websocket.connect(serverUrl)

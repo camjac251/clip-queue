@@ -120,7 +120,6 @@ packages/
   player/        Video.js clip player component
   platforms/     Clip fetching (TwitchPlatform, KickPlatform)
   services/      API clients (Twitch Helix API, Kick API)
-  sources/       ⚠️ Deprecated (chat moved to backend)
   ui/            PrimeVue component library
 ```
 

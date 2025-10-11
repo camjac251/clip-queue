@@ -146,7 +146,6 @@ pnpm format         # Format all packages
 - **`player`**: Clip player component (Video.js + Vue.js)
 - **`platforms`**: Clip fetching abstraction (Twitch, Kick)
 - **`services`**: API clients for external services
-- **`sources`**: ⚠️ *Deprecated* - Chat monitoring moved to backend server
 - **`ui`**: UI component library (Vue.js + TailwindCSS + PrimeVue)
 
 ### Available Package Shortcuts
