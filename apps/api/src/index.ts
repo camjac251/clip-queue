@@ -33,6 +33,15 @@ import { TwitchEventSubClient } from './eventsub.js'
 config({ path: resolve(process.cwd(), '../../.env') })
 
 /**
+ * Async route wrapper to catch errors and pass to Express error middleware
+ */
+function asyncHandler(fn: express.RequestHandler): express.RequestHandler {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next)
+  }
+}
+
+/**
  * Validate required environment variables
  */
 function validateEnvironment(): void {
@@ -381,7 +390,7 @@ app.get('/api/queue', (req, res) => {
   })
 })
 
-app.post('/api/queue/submit', async (req, res) => {
+app.post('/api/queue/submit', asyncHandler(async (req, res) => {
   const { url, submitter } = req.body as { url: string; submitter: string }
 
   if (!url || !submitter) {
@@ -390,7 +399,7 @@ app.post('/api/queue/submit', async (req, res) => {
 
   await handleClipSubmission(url, submitter, false)
   res.json({ success: true })
-})
+}))
 
 app.post('/api/queue/advance', (req, res) => {
   // Move current to history
@@ -547,6 +556,18 @@ app.put('/api/settings', (req, res) => {
     console.error('[Settings] Validation failed:', error)
     res.status(400).json({ error: 'Invalid settings', details: error })
   }
+})
+
+// Global error handling middleware
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('[Express] Unhandled error:', err)
+
+  // Send error response
+  const statusCode = res.statusCode !== 200 ? res.statusCode : 500
+  res.status(statusCode).json({
+    error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  })
 })
 
 // Start server
