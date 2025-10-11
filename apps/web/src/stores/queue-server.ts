@@ -32,6 +32,7 @@ export const useQueueServer = defineStore('queue-server', () => {
   const history = ref<BasicClipList>(new BasicClipList())
   const current = ref<Clip | undefined>(undefined)
   const upcoming = ref<ClipList>(new ClipList())
+  const isInitialized = ref<boolean>(false)
 
   // Computed
   const hasClips = computed(() => upcoming.value.size() > 0)
@@ -42,6 +43,14 @@ export const useQueueServer = defineStore('queue-server', () => {
    * Initialize WebSocket connection and listeners
    */
   function initialize(): void {
+    // Prevent multiple initializations
+    if (isInitialized.value) {
+      logger.debug('[Queue]: Already initialized, skipping')
+      return
+    }
+
+    isInitialized.value = true
+
     // Connect WebSocket
     websocket.connect(API_URL)
 
@@ -60,6 +69,8 @@ export const useQueueServer = defineStore('queue-server', () => {
    * Cleanup WebSocket connection
    */
   function cleanup(): void {
+    if (!isInitialized.value) return
+
     websocket.off('sync:state', handleSyncState as WebSocketEventHandler)
     websocket.off('clip:added', handleClipAdded as WebSocketEventHandler)
     websocket.off('clip:removed', handleClipRemoved as WebSocketEventHandler)
@@ -70,6 +81,7 @@ export const useQueueServer = defineStore('queue-server', () => {
     websocket.off('history:cleared', handleHistoryCleared as WebSocketEventHandler)
 
     websocket.disconnect()
+    isInitialized.value = false
   }
 
   /**

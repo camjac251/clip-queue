@@ -109,6 +109,7 @@ export const useSettings = defineStore('settings', () => {
   const logger = ref<LoggerSettings>({ ...DEFAULT_LOGGER_SETTINGS })
   const websocket = useWebSocket()
   const log = useLogger()
+  const isInitialized = ref<boolean>(false)
 
   const isCommandsSettingsModified = computed(() => {
     return (c: CommandSettings) => {
@@ -216,6 +217,14 @@ export const useSettings = defineStore('settings', () => {
    * Initialize settings (load from backend and listen for updates)
    */
   function initialize(): void {
+    // Prevent multiple initializations
+    if (isInitialized.value) {
+      log.debug('[Settings]: Already initialized, skipping')
+      return
+    }
+
+    isInitialized.value = true
+
     // Listen for settings updates from backend
     websocket.on('settings:updated', handleSettingsUpdated)
   }
@@ -224,7 +233,10 @@ export const useSettings = defineStore('settings', () => {
    * Cleanup WebSocket listeners
    */
   function cleanup(): void {
+    if (!isInitialized.value) return
+
     websocket.off('settings:updated', handleSettingsUpdated)
+    isInitialized.value = false
   }
 
   return {
