@@ -11,6 +11,7 @@ import express from 'express'
 import { Server as SocketIOServer } from 'socket.io'
 import { createServer } from 'http'
 import cors from 'cors'
+import helmet from 'helmet'
 import { ClipList, toClipUUID } from '@cq/platforms'
 import { TwitchPlatform } from '@cq/platforms'
 import {
@@ -74,6 +75,7 @@ const server = createServer(app)
 
 // CORS configuration
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+app.use(helmet())
 app.use(cors({ origin: FRONTEND_URL, credentials: true }))
 app.use(express.json())
 
