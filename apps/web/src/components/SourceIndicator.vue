@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, toRefs } from 'vue'
 
 import * as m from '@/paraglide/messages'
 import { WebSocketStatus } from '@/stores/websocket'
@@ -12,7 +12,8 @@ export interface Props {
   status: WebSocketStatus
 }
 
-const { status } = defineProps<Props>()
+const props = defineProps<Props>()
+const { status } = toRefs(props)
 
 const statusTranslations: Record<WebSocketStatus, () => string> = {
   [WebSocketStatus.ERROR]: m.error,
@@ -22,7 +23,7 @@ const statusTranslations: Record<WebSocketStatus, () => string> = {
 }
 
 const color = computed(() => {
-  switch (status) {
+  switch (status.value) {
     case WebSocketStatus.ERROR:
     case WebSocketStatus.DISCONNECTED:
       return 'text-red-600 dark:text-red-500'

@@ -40,6 +40,8 @@
 </template>
 
 <script setup lang="ts">
+import { toRefs } from 'vue'
+
 import type { Clip } from '@cq/platforms'
 import { toClipUUID } from '@cq/platforms'
 import { DangerButton, SecondaryButton } from '@cq/ui'
@@ -53,7 +55,11 @@ export interface Props {
   isOpen?: boolean
 }
 
-const { title = 'Queue', isOpen = false } = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  title: 'Queue',
+  isOpen: false
+})
+const { title, isOpen } = toRefs(props)
 
 const emit = defineEmits<{
   (e: 'play', value: Clip): void

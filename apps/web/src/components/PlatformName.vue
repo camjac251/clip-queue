@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, toRefs } from 'vue'
 
 import type { Platform } from '@cq/platforms'
 
@@ -25,10 +25,11 @@ export interface Props {
   platform: Platform
 }
 
-const { platform } = defineProps<Props>()
+const props = defineProps<Props>()
+const { platform } = toRefs(props)
 
 const platforms = usePlatforms()
 
-const svg = computed(() => platforms.svg(platform))
-const displayName = computed(() => platforms.displayName(platform))
+const svg = computed(() => platforms.svg(platform.value))
+const displayName = computed(() => platforms.displayName(platform.value))
 </script>

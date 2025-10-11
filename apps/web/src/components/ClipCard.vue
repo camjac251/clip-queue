@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, toRefs } from 'vue'
 
 import type { Clip } from '@cq/platforms'
 import { Card, DangerButton, SecondaryButton } from '@cq/ui'
@@ -64,13 +64,14 @@ export interface Props {
   clip: Clip
 }
 
-const { clip } = defineProps<Props>()
+const props = defineProps<Props>()
+const { clip } = toRefs(props)
 
 const subtitle = computed(() => {
-  if (clip.category) {
-    return `${clip.channel} - ${clip.category}`
+  if (clip.value.category) {
+    return `${clip.value.channel} - ${clip.value.category}`
   }
-  return clip.channel
+  return clip.value.channel
 })
 
 const emit = defineEmits<{

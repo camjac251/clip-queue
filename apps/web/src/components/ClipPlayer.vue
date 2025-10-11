@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, toRefs } from 'vue'
 
 import type { Clip, PlayerFormat } from '@cq/platforms'
 import { Player } from '@cq/player'
@@ -74,7 +74,10 @@ export interface Props {
   previousDisabled?: boolean
 }
 
-const { clip, previousDisabled = false } = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  previousDisabled: false
+})
+const { clip, previousDisabled } = toRefs(props)
 
 const logger = useLogger()
 
@@ -96,11 +99,11 @@ const emit = defineEmits<{
 const platforms = usePlatforms()
 
 const playerFormat = computed<PlayerFormat | undefined>(() => {
-  return platforms.getPlayerFormat(clip)
+  return platforms.getPlayerFormat(clip.value)
 })
 
 const playerSource = computed<string | undefined>(() => {
-  return platforms.getPlayerSource(clip)
+  return platforms.getPlayerSource(clip.value)
 })
 </script>
 

@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import videojs from 'video.js'
-import { onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
+import { onBeforeUnmount, onMounted, toRefs, useTemplateRef } from 'vue'
 
 import 'video.js/dist/video-js.css'
 
@@ -15,7 +15,11 @@ export interface Props {
   title?: string
 }
 
-const { poster, source, autoplay = true, title = undefined } = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  autoplay: true,
+  title: undefined
+})
+const { poster, source, autoplay, title } = toRefs(props)
 
 const videoElement = useTemplateRef('videoElement')
 
@@ -29,12 +33,12 @@ onMounted(() => {
       videoElement.value,
       // https://videojs.com/guides/options/
       {
-        autoplay,
-        title,
+        autoplay: autoplay.value,
+        title: title.value,
         controls: true,
         fluid: true,
-        poster,
-        sources: [source]
+        poster: poster.value,
+        sources: [source.value]
       },
       () => {}
     )

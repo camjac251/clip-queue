@@ -10,13 +10,18 @@
 </template>
 
 <script setup lang="ts">
+import { toRefs } from 'vue'
+
 import Button from '../volt/Button.vue'
 
 export interface Props {
-  isDarkMode: boolean
+  isDarkMode?: boolean
 }
 
-const { isDarkMode = false } = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  isDarkMode: false
+})
+const { isDarkMode } = toRefs(props)
 
 const emit = defineEmits<{
   (e: 'toggle'): void
