@@ -325,19 +325,9 @@ export class TwitchEventSubClient {
     this.messageHandlers.add(handler)
   }
 
-  /** Unregister message handler */
-  offMessage(handler: EventSubMessageHandler): void {
-    this.messageHandlers.delete(handler)
-  }
-
   /** Register handler for disconnect events */
   onDisconnect(handler: EventSubDisconnectHandler): void {
     this.disconnectHandlers.add(handler)
-  }
-
-  /** Unregister disconnect handler */
-  offDisconnect(handler: EventSubDisconnectHandler): void {
-    this.disconnectHandlers.delete(handler)
   }
 
   /** Disconnect from EventSub and cleanup resources */
