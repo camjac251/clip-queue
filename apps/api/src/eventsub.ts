@@ -291,9 +291,7 @@ export class TwitchEventSubClient {
       ]
       const staleSubscriptions = data.data.filter((sub) => staleStatuses.includes(sub.status))
 
-      for (const sub of staleSubscriptions) {
-        await this.deleteSubscription(sub.id)
-      }
+      await Promise.all(staleSubscriptions.map((sub) => this.deleteSubscription(sub.id)))
 
       if (staleSubscriptions.length > 0) {
         console.log(`[EventSub] Cleaned up ${staleSubscriptions.length} orphaned subscriptions`)

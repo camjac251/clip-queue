@@ -10,8 +10,8 @@
     <div class="mt-12 text-left">
       <div class="grid grid-cols-1 gap-y-6 md:grid-cols-3 md:gap-x-6">
         <FeatureCard
-          v-for="(feature, index) in features"
-          :key="index"
+          v-for="feature in features"
+          :key="feature.title"
           :title="feature.title"
           :description="feature.description"
           :icon="feature.icon"
