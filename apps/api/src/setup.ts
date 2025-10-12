@@ -8,11 +8,83 @@
 import { config } from 'dotenv'
 import express from 'express'
 import { createServer } from 'http'
+import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'fs'
 import open from 'open'
 import { resolveFromRoot } from './paths.js'
 
 // Load .env from project root
 config({ path: resolveFromRoot('.env') })
+
+/**
+ * Updates the TWITCH_BOT_TOKEN in .env file
+ */
+function updateEnvFile(token: string): void {
+  const envPath = resolveFromRoot('.env')
+  const envExamplePath = resolveFromRoot('.env.example')
+
+  // Create .env from .env.example if it doesn't exist
+  if (!existsSync(envPath) && existsSync(envExamplePath)) {
+    console.log('📝 Creating .env from .env.example...')
+    copyFileSync(envExamplePath, envPath)
+  }
+
+  // Read current .env content
+  let envContent = ''
+  try {
+    envContent = readFileSync(envPath, 'utf-8')
+  } catch (error) {
+    console.error('❌ Could not read .env file:', error)
+    return
+  }
+
+  // Split into lines and update/add TWITCH_BOT_TOKEN
+  const lines = envContent.split('\n')
+  let tokenLineIndex = -1
+
+  // Find existing TWITCH_BOT_TOKEN line (including commented ones)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]?.trim() ?? ''
+    if (line.startsWith('TWITCH_BOT_TOKEN=') || line.startsWith('#TWITCH_BOT_TOKEN=')) {
+      tokenLineIndex = i
+      break
+    }
+  }
+
+  const newTokenLine = `TWITCH_BOT_TOKEN=${token}`
+
+  if (tokenLineIndex !== -1) {
+    // Replace existing line
+    lines[tokenLineIndex] = newTokenLine
+  } else {
+    // Add after TWITCH_CLIENT_SECRET or at the end of Twitch config section
+    let insertIndex = -1
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i]?.includes('TWITCH_CLIENT_SECRET=')) {
+        insertIndex = i + 1
+        // Skip any blank lines or comments after CLIENT_SECRET
+        while (insertIndex < lines.length && (lines[insertIndex]?.trim() === '' || lines[insertIndex]?.trim().startsWith('#'))) {
+          insertIndex++
+        }
+        break
+      }
+    }
+
+    if (insertIndex !== -1) {
+      lines.splice(insertIndex, 0, newTokenLine)
+    } else {
+      // Fallback: append at end
+      lines.push('', newTokenLine)
+    }
+  }
+
+  // Write updated content back
+  try {
+    writeFileSync(envPath, lines.join('\n'), 'utf-8')
+    console.log('✅ Updated .env file with TWITCH_BOT_TOKEN')
+  } catch (error) {
+    console.error('❌ Could not write to .env file:', error)
+  }
+}
 
 const SETUP_PORT = 3333
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID
@@ -129,13 +201,13 @@ app.get('/auth/callback', async (req, res) => {
 
     console.log(`   User: ${validateData.login} (ID: ${validateData.user_id})`)
 
-    // Display token
+    // Update .env file
+    console.log()
+    updateEnvFile(tokenData.access_token)
+
+    // Display success
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log('✅ SUCCESS! Copy this token to your .env file:')
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log()
-    console.log('TWITCH_BOT_TOKEN=' + tokenData.access_token)
-    console.log()
+    console.log('✅ SUCCESS! Your .env file has been updated.')
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     console.log('\n💡 Tip: This token expires in ~60 days. Re-run this script when it expires.')
     console.log()
@@ -144,8 +216,8 @@ app.get('/auth/callback', async (req, res) => {
       <html>
         <body style="font-family: system-ui; padding: 40px; text-align: center;">
           <h1>✅ Authorization Successful!</h1>
-          <p>Your access token has been generated.</p>
-          <p><strong>Check your terminal for the token.</strong></p>
+          <p>Your access token has been generated and saved to <code>.env</code></p>
+          <p><strong>You're all set! Start the server with <code>pnpm dev</code></strong></p>
           <p style="margin-top: 40px; color: #666;">You can close this window.</p>
         </body>
       </html>

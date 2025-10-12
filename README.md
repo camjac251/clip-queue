@@ -3,7 +3,7 @@
   <img width="150" height="150" src="./apps/web/public/icon.png" alt="Logo">
   <h1 align="center"><b>Clip Queue</b></h1>
   <p align="center">
-    An enhanced clip viewing experience.
+    Self-hosted clip queue for Twitch streamers.
     <br />
     <a href="https://clipqueue.vercel.app/"><strong>clipqueue.vercel.app »</strong></a>
     <br />
@@ -11,175 +11,110 @@
   </p>
 </p>
 
-Clip Queue integrates into a user's chat and queues clips submitted in chat by their viewers. Clips can be easily viewed through the web interface.
+Monitors your Twitch chat via EventSub and automatically queues clips submitted by viewers. Supports Twitch and Kick platforms.
 
-## 🚀 Quick Start
+## Quick Start
 
-**New Architecture:** Self-hosted backend + Cloudflare Pages frontend for continuous daemon operation!
+**Prerequisites:**
+- Node.js 20+
+- [Twitch Developer Application](https://dev.twitch.tv/console/apps) (Client ID & Secret)
 
-### 1. Set Up Environment
+**Setup:**
 
 ```bash
+# Install dependencies
+corepack enable && pnpm install
+
+# Configure environment
 cp .env.example .env
-```
+# Edit .env with: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL_NAME, SESSION_SECRET
 
-Edit `.env` and set:
-
-- `TWITCH_CLIENT_ID` - Your Twitch app client ID
-- `TWITCH_CLIENT_SECRET` - Your Twitch app secret
-- `TWITCH_CHANNEL_NAME` - Your Twitch channel (lowercase)
-
-### 2. Get Your Bot Token
-
-```bash
+# Get bot token (opens browser)
 pnpm api setup
-# Or: make api-setup
-```
 
-This opens your browser to authorize the app. Copy the token it prints and paste it into `.env`:
-
-```bash
-TWITCH_BOT_TOKEN=your_token_here
-```
-
-### 3. Start the App
-
-**Option A: Both servers in one command**
-
-```bash
+# Start servers
 pnpm dev:all
 ```
 
-**Option B: Separate terminals**
+Open http://localhost:5173 and post a clip URL in your Twitch chat to test.
 
-```bash
-# Terminal 1 - Backend
-pnpm api dev
-# Or: make api-dev
+## Chat Commands
 
-# Terminal 2 - Frontend
-pnpm web dev
-# Or: make web-dev
+Moderators and broadcasters can control the queue via chat:
+
+```
+!cq open/close        Open/close queue for submissions
+!cq next/prev         Navigate clips
+!cq clear             Clear all clips
+!cq setlimit <n>      Set max queue size
+!cq enableautomod     Require manual approval
+!cq disableautomod    Auto-approve clips
 ```
 
-💡 All commands work from the project root - no need to `cd`!
-
-### 4. Test It
-
-1. Open http://localhost:5173
-2. Post a Twitch clip URL in your chat (e.g., `https://clips.twitch.tv/...`)
-3. Clip appears in the queue! 🎉
-
-**Chat Commands** (mod/broadcaster only):
-
-- `!cq open` - Open queue for clip submissions
-- `!cq close` - Close queue (mods can still submit)
-- `!cq clear` - Clear all clips from queue
-- `!cq next` - Skip to next clip
-- `!cq prev` - Go back to previous clip
-- `!cq purgehistory` - Clear history
+See [CLAUDE.md](./CLAUDE.md) for full command list.
 
 ## Architecture
 
-**Backend:** Self-hosted Node.js server
+**Backend:** Node.js + Express + SQLite
+- Twitch EventSub WebSocket client for persistent chat monitoring
+- REST API with ETag-optimized HTTP polling for state sync
+- Drizzle ORM for database operations
 
-- 🔄 Persistent Twitch EventSub chat monitoring
-- 📡 HTTP polling with ETag optimization for real-time sync
-- 💾 SQLite database for persistence
-- 🐳 Docker-ready with Traefik support
+**Frontend:** Vue.js + PrimeVue
+- HTTP polling client (2-second intervals)
+- Twitch OAuth for authentication
+- Multi-device sync via shared backend state
 
-**Frontend:** Vue.js SPA (Cloudflare Pages or self-hosted)
-
-- 🌐 HTTP polling client (2-second intervals)
-- 📦 Real-time queue updates across all clients
-- 🎨 PrimeVue UI components
-
-## Features
-
-- ✅ **Persistent chat monitoring** via Twitch EventSub (no browser needed!)
-- ✅ **Multi-user support** - Share queue across multiple devices/viewers
-- ✅ **Real-time synchronization** - All connected clients see updates instantly
-- ✅ Automatically detect clips submitted by viewers in chat
-- ✅ Duplicate clip prevention
-- ✅ Popular clips rise up in the queue (sorted by submitter count)
-- ✅ Support for multiple clip platforms: [Twitch](https://www.twitch.tv/), [Kick](https://kick.com/)
-- ✅ Automatic moderation and clip removal
-- ✅ Settings customization to personalize for your needs
-- ✅ UI customization to personalize your experience
-- ✅ Multilingual support
+**Features:** Duplicate detection, popularity-based sorting, batch operations, manual moderation, history tracking, 13 languages.
 
 ## Development
 
-This is a pnpm monorepo with Turborepo for intelligent task orchestration, caching, and parallel execution. You can run any package script from the project root:
-
-### Common Commands
+pnpm monorepo with Turborepo. All commands run from project root.
 
 ```bash
 # Development
-pnpm dev:all        # Run backend + frontend in parallel
+pnpm dev:all           # Run backend + frontend
+pnpm api dev           # Backend only
+pnpm web dev           # Frontend only
 
-# Frontend (apps/web)
-pnpm web dev        # Start dev server
-pnpm web build      # Build for production
+# Build & test
+pnpm build             # Build all packages
+pnpm typecheck         # Type check all packages
+pnpm test              # Run all tests
+pnpm lint              # Lint all packages
 
-# Backend (apps/api)
-pnpm api dev          # Start dev server
-pnpm api setup        # Get bot token
-pnpm api build        # Build for production
-
-# Database operations
-pnpm api db:generate  # Generate migration
-pnpm api db:studio    # Open Drizzle Studio GUI
-
-# All packages
-pnpm build          # Build everything
-pnpm typecheck      # Type check everything
-pnpm test           # Run all tests
-pnpm lint           # Lint all packages
-pnpm format         # Format all packages
+# Makefile shortcuts
+make help              # List all available commands
+make api-setup         # Get bot token
+make dev-all           # Run both servers
 ```
 
-### Monorepo Structure
+**Structure:**
+- `apps/api` - Backend server
+- `apps/web` - Frontend SPA
+- `packages/` - Shared libraries (platforms, services, ui, etc)
 
-**Apps:**
-
-- **`server`**: Node.js backend server (Express REST API + EventSub + SQLite)
-- **`web`**: Vue.js SPA frontend (HTTP polling client)
-
-**Packages:**
-
-- **`config`**: Common configurations shared between other apps and packages
-- **`player`**: Clip player component (Video.js + Vue.js)
-- **`platforms`**: Clip fetching abstraction (Twitch, Kick)
-- **`services`**: API clients for external services
-- **`ui`**: UI component library (Vue.js + TailwindCSS + PrimeVue)
-
-### Available Package Shortcuts
-
-| Shortcut             | Package       | Location           |
-| -------------------- | ------------- | ------------------ |
-| `pnpm web ...`       | @cq/web       | apps/web           |
-| `pnpm api ...`       | @cq/api       | apps/api           |
-| `pnpm player ...`    | @cq/player    | packages/player    |
-| `pnpm platforms ...` | @cq/platforms | packages/platforms |
-| `pnpm services ...`  | @cq/services  | packages/services  |
-| `pnpm ui ...`        | @cq/ui        | packages/ui        |
-
-### Examples
-
-```bash
-# Type check specific package
-pnpm web typecheck
-pnpm api typecheck
-
-# Build specific package
-pnpm api build
-
-# Install dependency in specific package
-pnpm web add vue-router
-pnpm api add express
-```
+See [CLAUDE.md](./CLAUDE.md) for architecture details.
 
 ## Deployment
 
-See `apps/api/README.md` for Docker deployment instructions.
+**Docker:**
+```bash
+docker-compose up -d clip-queue-backend
+```
+
+**Manual:**
+```bash
+pnpm build
+pnpm --filter @cq/api start
+```
+
+Frontend can be deployed to Cloudflare Pages, Vercel, or served statically.
+
+## Troubleshooting
+
+| Issue                      | Solution                                           |
+| -------------------------- | -------------------------------------------------- |
+| EventSub won't connect     | Re-run `pnpm api setup` to refresh token           |
+| Clips not being added      | Check queue is open (`!cq open`) and server logs   |
+| Token expired              | Tokens expire after 60 days, re-run setup          |

@@ -19,10 +19,10 @@ pnpm install
 cp .env.example .env
 # Edit .env with: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL_NAME
 
-# Generate bot token (opens browser for OAuth)
+# Generate bot token (opens browser for OAuth, automatically updates .env)
 pnpm api setup
 # Or: make api-setup
-# Copy token output into .env as TWITCH_BOT_TOKEN
+# Token automatically written to TWITCH_BOT_TOKEN in .env
 ```
 
 ### Running Locally
