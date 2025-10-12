@@ -28,50 +28,52 @@ install:
 	pnpm install
 
 api-setup:
-	pnpm --filter @cq/api run setup
+	turbo run setup --filter=@cq/api
 
 # Development
 api-dev:
-	pnpm --filter @cq/api run dev
+	turbo run dev --filter=@cq/api
 
 web-dev:
-	pnpm --filter @cq/web run dev
+	turbo run dev --filter=@cq/web
 
 dev-all:
-	pnpm run --parallel --filter @cq/api --filter @cq/web dev
+	turbo run dev --filter=@cq/api --filter=@cq/web
 
 # Build
 api-build:
-	pnpm --filter @cq/api run build
+	turbo run build --filter=@cq/api
 
 web-build:
-	pnpm --filter @cq/web run build
+	turbo run build --filter=@cq/web
 
 build:
-	pnpm --recursive build
+	turbo run build
 
 # Utilities
 clean:
 	find . -name 'dist' -type d -prune -exec rm -rf {} +
 	find . -name 'node_modules' -type d -prune -exec rm -rf {} +
+	find . -name '.turbo' -type d -prune -exec rm -rf {} +
+	rm -rf .turbo
 
 typecheck:
-	pnpm --recursive typecheck
+	turbo run typecheck
 
 lint:
-	pnpm --recursive lint
+	turbo run lint
 
 lint-fix:
-	pnpm --recursive lint:fix
+	turbo run lint:fix
 
 format:
-	pnpm --recursive format
+	turbo run format
 
 test:
-	pnpm test
+	turbo run test
 
 test-coverage:
-	pnpm test:coverage
+	turbo run test:coverage
 
 # Docker
 docker-build:

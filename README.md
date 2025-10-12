@@ -84,13 +84,13 @@ pnpm web dev
 **Backend:** Self-hosted Node.js server
 
 - 🔄 Persistent Twitch EventSub chat monitoring
-- 📡 WebSocket (Socket.io) for real-time sync
+- 📡 HTTP polling with ETag optimization for real-time sync
 - 💾 SQLite database for persistence
 - 🐳 Docker-ready with Traefik support
 
 **Frontend:** Vue.js SPA (Cloudflare Pages or self-hosted)
 
-- 🌐 WebSocket connection to backend
+- 🌐 HTTP polling client (2-second intervals)
 - 📦 Real-time queue updates across all clients
 - 🎨 PrimeVue UI components
 
@@ -110,7 +110,7 @@ pnpm web dev
 
 ## Development
 
-This is a pnpm monorepo. You can run any package script from the project root:
+This is a pnpm monorepo with Turborepo for intelligent task orchestration, caching, and parallel execution. You can run any package script from the project root:
 
 ### Common Commands
 
@@ -143,8 +143,8 @@ pnpm format         # Format all packages
 
 **Apps:**
 
-- **`server`**: Node.js backend server (Express + Socket.io + EventSub + SQLite)
-- **`web`**: Vue.js SPA frontend (WebSocket client)
+- **`server`**: Node.js backend server (Express REST API + EventSub + SQLite)
+- **`web`**: Vue.js SPA frontend (HTTP polling client)
 
 **Packages:**
 
@@ -176,7 +176,7 @@ pnpm api typecheck
 pnpm api build
 
 # Install dependency in specific package
-pnpm web add socket.io-client
+pnpm web add vue-router
 pnpm api add express
 ```
 

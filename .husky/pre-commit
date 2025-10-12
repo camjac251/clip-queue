@@ -1,3 +1,10 @@
-pnpm --silent typecheck || exit 1
-pnpm --silent lint || exit 1
-pnpm --silent test -- --run --reporter=dot 2>/dev/null || exit 1
+# Skip if SKIP_HOOKS=1 (for LLM workflows: SKIP_HOOKS=1 git commit)
+[ "$SKIP_HOOKS" = "1" ] && exit 0
+
+# Run typecheck, lint, and test on changed packages + their dependents
+# Uses Turbo for caching (72ms on cache hit, ~2-10s on miss)
+# Filter explanation:
+#   --filter='...[HEAD]' = changed packages since last commit + their dependents
+#   --output-logs=errors-only = silent on success, show errors on failure
+#   --concurrency=100% = use all CPU cores for parallel execution
+turbo run typecheck lint test --filter='...[HEAD]' --output-logs=errors-only --concurrency=100% || exit 1

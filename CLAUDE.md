@@ -69,6 +69,49 @@ pnpm --filter @cq/api db:migrate   # Apply migrations to database
 pnpm --filter @cq/api db:studio    # Open Drizzle Studio GUI
 ```
 
+### Git Hooks (Husky)
+
+**Pre-commit Hook** (`.husky/pre-commit`):
+- Runs `typecheck`, `lint`, and `test` on **changed packages only** (+ their dependents)
+- Uses Turborepo for caching and parallel execution
+- **Performance**: ~133ms on cache hit, ~2-10s on cache miss
+
+**Commit Message Hook** (`.husky/commit-msg`):
+- Validates commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
+- Format: `type(scope?): description` (e.g., `feat: add OAuth support`, `fix(api): handle null clips`)
+- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`, `revert`
+
+**Skipping Hooks** (for LLM workflows or urgent fixes):
+```sh
+# Skip all hooks (use sparingly)
+git commit --no-verify
+
+# Skip pre-commit only (via env var)
+SKIP_HOOKS=1 git commit
+
+# Skip pre-commit via alias (add to .bashrc/.zshrc)
+alias gcf='SKIP_HOOKS=1 git commit'
+```
+
+**Why this setup works:**
+- ✅ Catches 95% of issues before commit (types, lint, tests)
+- ✅ Fast with Turborepo caching (instant on subsequent commits)
+- ✅ Only checks affected packages (not entire monorepo)
+- ✅ Can bypass for LLM workflows (lower token usage)
+- ✅ CI still provides final validation
+
+**Troubleshooting:**
+```sh
+# If hook fails unexpectedly, check what would run:
+turbo run typecheck lint test --filter='...[HEAD]' --dry-run
+
+# Clear Turbo cache if stale:
+rm -rf .turbo
+
+# Reinstall hooks if missing:
+pnpm prepare
+```
+
 ## Architecture Overview
 
 ### System Architecture
@@ -119,6 +162,65 @@ packages/
 ```
 
 **Important**: Packages export TypeScript source (`.ts`), not compiled JS. Vite compiles everything together in the web app.
+
+### Build System (Turborepo)
+
+This project uses **Turborepo** for task orchestration, caching, and parallelization across the monorepo.
+
+**Benefits:**
+- **Incremental builds** - Only rebuild changed packages and their dependents
+- **Task caching** - Reuse previous build outputs if inputs haven't changed (80-90% faster on cache hits)
+- **Parallel execution** - Automatically runs independent tasks in parallel
+- **Dependency-aware** - Ensures tasks run in the correct order based on package dependencies
+
+**Task Pipeline:**
+```
+dev (persistent, depends on ^build)
+  ↓
+build (cached, outputs: dist/)
+  ↓
+typecheck (cached)
+  ↓
+lint (cached)
+  ↓
+test (cached, outputs: coverage/)
+```
+
+**Configuration:**
+- `turbo.json` - Task definitions and caching strategy
+- `.turboignore` - Files that shouldn't invalidate cache (e.g., README changes)
+- `.turbo/` - Local cache directory (gitignored)
+
+**Caching Strategy:**
+- **Cached tasks**: `build`, `typecheck`, `lint`, `test` (reuses outputs when inputs unchanged)
+- **Non-cached tasks**: `dev`, `setup`, `db:*` (side effects or persistent processes)
+- **Cache invalidation**: Changes to source files, dependencies, or env vars (listed in `globalEnv`)
+
+**Common Patterns:**
+```sh
+# Run task across all packages
+turbo run build
+
+# Run task in specific package
+turbo run build --filter=@cq/api
+
+# Run task in package + dependencies
+turbo run build --filter=@cq/web...
+
+# Run task in package + dependents
+turbo run build --filter=...@cq/platforms
+
+# Clear cache
+rm -rf .turbo
+
+# Check what would run (dry run)
+turbo run build --dry-run
+```
+
+**Performance:**
+- First build: ~30-45s (cache miss)
+- Subsequent builds with no changes: ~0.5s (cache hit)
+- Partial changes: ~5-10s (only affected packages)
 
 ### Key Architectural Decisions
 

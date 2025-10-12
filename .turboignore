@@ -1,0 +1,8 @@
+# Files that shouldn't invalidate cache
+*.md
+!CLAUDE.md
+LICENSE
+.github/
+.vscode/
+.idea/
+*.log

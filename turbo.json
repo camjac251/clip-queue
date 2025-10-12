@@ -1,0 +1,79 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        ".vite/**"
+      ],
+      "cache": true
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "lint": {
+      "dependsOn": ["typecheck"],
+      "cache": true
+    },
+    "lint:fix": {
+      "dependsOn": ["typecheck"],
+      "cache": false
+    },
+    "format": {
+      "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "cache": true,
+      "env": ["CI"]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "cache": true
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "persistent": true,
+      "cache": false
+    },
+    "setup": {
+      "cache": false
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false
+    },
+    "db:studio": {
+      "cache": false
+    }
+  },
+  "globalDependencies": [
+    "pnpm-workspace.yaml",
+    "turbo.json",
+    ".env",
+    "tsconfig.json"
+  ],
+  "globalEnv": [
+    "NODE_ENV",
+    "TWITCH_CLIENT_ID",
+    "TWITCH_CLIENT_SECRET",
+    "TWITCH_BOT_TOKEN",
+    "TWITCH_CHANNEL_NAME",
+    "SESSION_SECRET",
+    "API_URL",
+    "FRONTEND_URL",
+    "PORT",
+    "DB_PATH",
+    "VITE_TWITCH_CLIENT_ID",
+    "VITE_API_URL",
+    "VITE_TWITCH_REDIRECT_URI"
+  ]
+}

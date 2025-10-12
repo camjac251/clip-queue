@@ -5,9 +5,9 @@ Backend service for multi-user clip queue with persistent Twitch EventSub chat m
 ## Architecture
 
 - **Express** - REST API server
-- **Socket.io** - Real-time WebSocket synchronization
+- **HTTP Polling** - Real-time synchronization with ETag optimization
 - **EventSub** - Twitch chat monitoring (official API)
-- **SQLite** - Persistent clip storage
+- **SQLite** - Persistent clip storage (Drizzle ORM)
 - **Docker** - Containerized deployment
 
 ## Development
@@ -181,30 +181,15 @@ POST /api/queue/close
 
 Enable/disable clip submissions from chat.
 
-## WebSocket Events
-
-### Server → Client
-
-- `sync:state` - Initial state sync on connection
-- `clip:added` - New clip added to queue
-- `clip:removed` - Clip removed from queue
-- `queue:current` - Current clip changed
-- `queue:cleared` - Queue was cleared
-- `queue:opened` - Queue opened for submissions
-- `queue:closed` - Queue closed for submissions
-
-### Client → Server
-
-No client events currently - clients use REST API for commands.
-
 ## How It Works
 
 1. **EventSub Connection**: Server connects to Twitch EventSub WebSocket and subscribes to `channel.chat.message` events
 2. **Message Processing**: When a chat message contains a Twitch clip URL, the server fetches clip metadata
 3. **Auto-Approval**: Messages from moderators/broadcaster are auto-approved and added to queue
-4. **Queue Management**: Clips are stored in memory (ClipList) and persisted to SQLite
-5. **Real-Time Sync**: All queue changes broadcast via Socket.io to connected clients
-6. **Reconnection**: Auto-reconnects if EventSub connection drops
+4. **Queue Management**: Clips are stored in memory (ClipList) and persisted to SQLite (Drizzle ORM)
+5. **HTTP Polling**: Clients poll `GET /api/queue` every 2 seconds with ETag headers for efficient state synchronization
+6. **ETag Optimization**: Server returns `304 Not Modified` when state unchanged (minimal bandwidth)
+7. **Reconnection**: Auto-reconnects if EventSub connection drops
 
 ## Troubleshooting
 
@@ -221,11 +206,12 @@ No client events currently - clients use REST API for commands.
 - Test with a moderator account (auto-approved)
 - Check queue is open (default: open)
 
-### WebSocket Clients Can't Connect
+### Clients Not Receiving Updates
 
 - Verify `FRONTEND_URL` is set correctly for CORS
-- Check Traefik is routing to port 3000
-- Ensure WebSocket upgrade headers are configured (see docker-compose.yml)
+- Check HTTP polling endpoint: `curl http://localhost:3000/api/queue`
+- Verify ETag header is present in response
+- Check browser console for 304 responses (expected behavior)
 
 ## Database
 

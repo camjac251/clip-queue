@@ -3,6 +3,9 @@ dist
 node_modules
 .DS_Store
 
+# Turborepo
+.turbo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
