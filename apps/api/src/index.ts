@@ -171,7 +171,10 @@ const io = new SocketIOServer(server, {
   cors: {
     origin: corsOrigin,
     credentials: true
-  }
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  connectTimeout: 45000
 })
 
 // Socket.io authentication middleware
