@@ -8,3 +8,6 @@
 #   --output-logs=errors-only = silent on success, show errors on failure
 #   --concurrency=100% = use all CPU cores for parallel execution
 turbo run format typecheck lint test --filter='...[HEAD]' --output-logs=errors-only --concurrency=100% || exit 1
+
+# Re-stage formatted files
+git add -u
