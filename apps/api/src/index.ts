@@ -15,7 +15,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import cookieParser from 'cookie-parser'
 import { createHash } from 'crypto'
 import { z } from 'zod'
-import { ClipList, toClipUUID } from '@cq/platforms'
+import { ClipList, toClipUUID, TwitchPlatform, KickPlatform } from '@cq/platforms'
 import { advanceQueue, previousClip, clearQueue, playClip } from '@cq/queue-ops'
 
 /**
@@ -49,7 +49,6 @@ class Mutex {
 // Mutexes for preventing race conditions
 const clipSubmissionMutex = new Mutex()
 const queueOperationMutex = new Mutex()
-import { TwitchPlatform } from '@cq/platforms'
 import {
   initDatabase,
   closeDatabase,
@@ -210,10 +209,13 @@ function getQueueState() {
   }
 }
 
-const platform = new TwitchPlatform(() => ({
-  id: process.env.TWITCH_CLIENT_ID!,
-  token: process.env.TWITCH_BOT_TOKEN
-}))
+const platforms = {
+  twitch: new TwitchPlatform(() => ({
+    id: process.env.TWITCH_CLIENT_ID!,
+    token: process.env.TWITCH_BOT_TOKEN
+  })),
+  kick: new KickPlatform()
+}
 
 // Restore queue and history from database
 function restoreQueueFromDatabase() {
@@ -547,8 +549,9 @@ async function handleClipSubmission(
       return
     }
 
-    // Fetch clip data using existing platform
-    const clip = await platform.getClip(url)
+    // Detect platform and fetch clip data
+    const platformInstance = url.includes('kick.com') ? platforms.kick : platforms.twitch
+    const clip = await platformInstance.getClip(url)
     if (!clip) {
       console.log(`[Queue] Failed to fetch clip: ${url}`)
       return
