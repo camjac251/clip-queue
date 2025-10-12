@@ -505,7 +505,7 @@ export class TwitchEventSubClient {
     }
 
     const data = (await response.json()) as { data: Array<{ id: string; login: string }> }
-    return data.data[0] || null
+    return data.data[0] ?? null
   }
 
   private cleanup(): void {
