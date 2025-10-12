@@ -4,14 +4,12 @@
   <h1 align="center"><b>Clip Queue</b></h1>
   <p align="center">
     Self-hosted clip queue for Twitch streamers.
-    <br />
-    <a href="https://clipqueue.vercel.app/"><strong>clipqueue.vercel.app »</strong></a>
-    <br />
-    <br />
   </p>
 </p>
 
-Monitors your Twitch chat via EventSub and automatically queues clips submitted by viewers. Supports Twitch and Kick platforms.
+Monitors your Twitch chat via EventSub and automatically queues clips submitted by viewers.
+
+> **Note:** This is a fork of the [original Clip Queue project](https://github.com/jordanshatford/clip-queue) by [Jordan Shatford](https://github.com/jordanshatford) with additional features and enhancements.
 
 ## Quick Start
 
@@ -37,6 +35,11 @@ pnpm dev:all
 ```
 
 Open http://localhost:5173 and post a clip URL in your Twitch chat to test.
+
+## Supported Platforms
+
+- **Twitch** — Clips
+- **Kick** — Clips
 
 ## Chat Commands
 
