@@ -73,13 +73,18 @@ export interface UserPreferences {
    * The surface color.
    */
   surface: ColorOption
+  /**
+   * Whether to automatically advance to the next clip when the current one ends.
+   */
+  autoplay: boolean
 }
 
 export const DEFAULTS: UserPreferences = {
   language: getInferredDefaultLanguage(baseLocale),
   theme: getInferredDefaultTheme('light'),
   primary: structuredClone(colors[12]!), // Purple
-  surface: structuredClone(surfaces[2]!) // Zinc
+  surface: structuredClone(surfaces[2]!), // Zinc
+  autoplay: false
 }
 
 export const usePreferences = defineStore(
@@ -97,7 +102,8 @@ export const usePreferences = defineStore(
           preferences.value.language !== p.language ||
           preferences.value.theme !== p.theme ||
           preferences.value.primary.name !== p.primary.name ||
-          preferences.value.surface.name !== p.surface.name
+          preferences.value.surface.name !== p.surface.name ||
+          preferences.value.autoplay !== p.autoplay
         )
       }
     })

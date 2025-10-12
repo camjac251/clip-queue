@@ -10,7 +10,7 @@
       frameborder="0"
     ></iframe>
     <div v-else-if="format === 'video'" class="player">
-      <VideoJS :poster="thumbnailUrl" :source :title autoplay />
+      <VideoJS :poster="thumbnailUrl" :source :title autoplay @ended="emit('ended')" />
     </div>
     <div
       v-else
@@ -37,6 +37,10 @@ const {
   source = undefined,
   thumbnailUrl = undefined
 } = defineProps<Props>()
+
+const emit = defineEmits<{
+  (e: 'ended'): void
+}>()
 </script>
 
 <style>

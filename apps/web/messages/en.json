@@ -8,6 +8,8 @@
   "application_version": "Application version: v{version}",
   "auto_mod": "Auto Moderation:",
   "auto_mod_description": "When a user has their chat message deleted, is timed out, or banned, the clips they submitted will be removed.",
+  "autoplay": "Autoplay",
+  "autoplay_description": "Automatically advance to the next clip when the current clip ends.",
   "blue": "Blue",
   "cancel": "Cancel",
   "chat_settings_saved": "Chat settings saved.",

@@ -5,6 +5,7 @@
       :format="playerFormat"
       :source="playerSource"
       :thumbnail-url="clip.thumbnailUrl"
+      @ended="handleVideoEnded"
     >
       <template #unsupported>{{ m.unsupported_clip() }}</template>
     </Player>
@@ -22,7 +23,13 @@
             <i class="pi pi-external-link"></i>
           </a>
         </div>
-        <div v-if="canControl" class="flex gap-2">
+        <div v-if="canControl" class="flex items-center gap-2">
+          <div class="flex items-center gap-2">
+            <ToggleSwitch v-model="preferences.preferences.autoplay" input-id="autoplay" />
+            <label for="autoplay" class="text-surface-700 dark:text-surface-300 text-sm">{{
+              m.autoplay()
+            }}</label>
+          </div>
           <SecondaryButton
             icon="pi pi-backward"
             :label="m.previous()"
@@ -61,13 +68,14 @@ import { computed, toRefs } from 'vue'
 
 import type { Clip, PlayerFormat } from '@cq/platforms'
 import { Player } from '@cq/player'
-import { SecondaryButton } from '@cq/ui'
+import { SecondaryButton, ToggleSwitch } from '@cq/ui'
 
 import PlatformName from '@/components/PlatformName.vue'
 import { useKeydown } from '@/composables/keydown'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
 import { usePlatforms } from '@/stores/platforms'
+import { usePreferences } from '@/stores/preferences'
 
 export interface Props {
   clip: Clip
@@ -82,6 +90,7 @@ const props = withDefaults(defineProps<Props>(), {
 const { clip, previousDisabled, canControl } = toRefs(props)
 
 const logger = useLogger()
+const preferences = usePreferences()
 
 useKeydown((event) => {
   // Check permissions before handling keyboard shortcuts
@@ -100,6 +109,14 @@ const emit = defineEmits<{
   (e: 'previous'): void
   (e: 'next'): void
 }>()
+
+function handleVideoEnded() {
+  logger.debug('[Player]: Video ended')
+  if (preferences.preferences.autoplay) {
+    logger.debug('[Player]: Autoplay enabled, advancing to next clip')
+    emit('next')
+  }
+}
 
 const platforms = usePlatforms()
 

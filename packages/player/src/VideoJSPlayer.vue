@@ -21,6 +21,10 @@ const props = withDefaults(defineProps<Props>(), {
 })
 const { poster, source, autoplay, title } = toRefs(props)
 
+const emit = defineEmits<{
+  (e: 'ended'): void
+}>()
+
 const videoElement = useTemplateRef('videoElement')
 
 // TODO(jordan): fix typing once video.js is updated.
@@ -42,6 +46,11 @@ onMounted(() => {
       },
       () => {}
     )
+
+    // Listen for the ended event
+    player.on('ended', () => {
+      emit('ended')
+    })
   }
 })
 
