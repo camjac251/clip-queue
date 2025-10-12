@@ -5,7 +5,10 @@
       :format="playerFormat"
       :source="playerSource"
       :thumbnail-url="clip.thumbnailUrl"
+      :clip-id="clip.id"
+      :clip-platform="clip.platform"
       @ended="handleVideoEnded"
+      @error="handleVideoError"
     >
       <template #unsupported>{{ m.unsupported_clip() }}</template>
     </Player>
@@ -43,6 +46,10 @@ function handleVideoEnded() {
     logger.debug('[Player]: Autoplay enabled, advancing to next clip')
     emit('ended')
   }
+}
+
+function handleVideoError(error: string) {
+  logger.error(`[Player]: ${error}`)
 }
 
 const platforms = usePlatforms()

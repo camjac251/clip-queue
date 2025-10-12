@@ -61,6 +61,7 @@ import {
   getClip,
   getClipsByStatus,
   updateClipStatus,
+  updateClipVideoUrl,
   deleteClipsByStatus,
   clips,
   type Clip,
@@ -186,6 +187,20 @@ const queue = new ClipList()
 const history = new ClipList()
 let currentClip: Clip | null = null
 let isQueueOpen = true
+
+// Load approved clips from database on startup (bulk add for O(n log n) performance)
+const approvedClips = getClipsByStatus(db, 'approved')
+if (approvedClips.length > 0) {
+  queue.add(...approvedClips)
+}
+console.log(`[Queue] Loaded ${approvedClips.length} approved clips from database`)
+
+// Load played clips into history on startup (load all for long-term history preservation)
+const playedClips = getClipsByStatus(db, 'played')
+if (playedClips.length > 0) {
+  history.add(...playedClips)
+}
+console.log(`[Queue] Loaded ${playedClips.length} played clips into history from database`)
 
 /**
  * Generate ETag hash from queue state
@@ -1141,6 +1156,79 @@ app.post('/api/queue/history/:clipId/replay', authenticate, authFailureLimiter, 
     res.json({ success: true, state: getQueueState() })
   } finally {
     release()
+  }
+}))
+
+// Refresh expired video URL (public endpoint for Video.js error recovery)
+app.post('/api/queue/refresh-video-url', publicReadLimiter, asyncHandler(async (req, res) => {
+  // Validate input
+  const parseResult = ClipIdSchema.safeParse(req.body)
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: parseResult.error.issues
+    })
+  }
+
+  const { clipId } = parseResult.data
+
+  // Find clip in database (supports queue, history, or current)
+  const clip = getClip(db, clipId)
+
+  if (!clip) {
+    return res.status(404).json({
+      error: 'CLIP_NOT_FOUND',
+      message: 'Clip not found in database.',
+      clipId
+    })
+  }
+
+  // Only refresh Twitch clips (Kick URLs don't expire)
+  if (clip.platform !== 'twitch') {
+    return res.json({
+      success: true,
+      videoUrl: clip.videoUrl,
+      message: 'Non-Twitch clip, URL does not expire'
+    })
+  }
+
+  try {
+    const clientId = process.env.TWITCH_CLIENT_ID
+    if (!clientId) {
+      throw new Error('TWITCH_CLIENT_ID not configured')
+    }
+
+    // Fetch fresh video URL from Twitch
+    const newVideoUrl = await twitch.getDirectUrl(clip.id, clientId)
+
+    // Update database
+    updateClipVideoUrl(db, toClipUUID(clip), newVideoUrl)
+
+    // Update in-memory objects (queue, history, current)
+    const updateClipInMemory = (c: Clip) => {
+      if (toClipUUID(c) === clipId) {
+        c.videoUrl = newVideoUrl
+      }
+    }
+
+    queue.toArray().forEach(updateClipInMemory)
+    history.toArray().forEach(updateClipInMemory)
+    if (currentClip && toClipUUID(currentClip) === clipId) {
+      currentClip.videoUrl = newVideoUrl
+    }
+
+    // Invalidate ETag to push update to clients
+    invalidateETag()
+
+    console.log(`[Queue] Refreshed video URL for clip: ${clip.title}`)
+    res.json({
+      success: true,
+      videoUrl: newVideoUrl,
+      message: 'Video URL refreshed successfully'
+    })
+  } catch (error) {
+    console.error(`[Queue] Failed to refresh video URL: ${error}`)
+    throw error
   }
 }))
 

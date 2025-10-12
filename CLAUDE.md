@@ -406,6 +406,7 @@ app.get('/api/queue', (req, res) => {
   - `POST /api/queue/batch/remove` → remove multiple clips (moderator)
   - `POST /api/queue/batch/approve` → approve multiple pending clips (moderator)
   - `POST /api/queue/batch/reject` → reject multiple pending clips (moderator)
+  - `POST /api/queue/refresh-video-url` → refresh expired Twitch video URL (public)
   - `DELETE /api/queue` → clear queue (broadcaster)
   - `DELETE /api/queue/history` → clear history (broadcaster)
   - `PUT /api/settings` → update app settings (broadcaster)
@@ -544,6 +545,15 @@ function initialize() {
 - All successful mutations call `invalidateETag()` to trigger client updates
 - POST responses include full `state: QueueState` for immediate client sync
 - Batch operations only invalidate ETag if at least one operation succeeds
+
+**POST /api/queue/refresh-video-url** (Public)
+- Refreshes expired Twitch video URLs (Twitch signed URLs expire after ~24 hours)
+- Body: `{ clipId: string }` (format: `twitch:abc123`)
+- Returns: `{ success: true, videoUrl: string, message: string }`
+- Error 404: Clip not found in database
+- Use case: Video.js player automatically calls this on playback error (403/404)
+- Implementation: Fetches fresh signed URL from Twitch GraphQL API, updates database + in-memory state
+- Note: Kick clips ignored (URLs don't expire)
 
 #### 6. Platform/Service Separation
 
@@ -764,11 +774,11 @@ VITE_TWITCH_REDIRECT_URI=http://localhost:5173  # OAuth callback URL
 **Backend**:
 
 1. `apps/api/src/server.ts` - Bootstrap entry point (loads .env, validates env vars, imports index.ts)
-2. `apps/api/src/index.ts` - Main server, event handlers, API endpoints
+2. `apps/api/src/index.ts` - Main server, event handlers, API endpoints, video URL refresh endpoint
 3. `apps/api/src/eventsub.ts` - Twitch EventSub WebSocket client (backend-to-Twitch only)
 4. `apps/api/src/auth.ts` - Authentication middleware, token validation, role checking
 5. `apps/api/src/oauth.ts` - OAuth router (Authorization Code + PKCE flow)
-6. `apps/api/src/db.ts` - Database operations (Drizzle)
+6. `apps/api/src/db.ts` - Database operations (Drizzle), video URL updates
 7. `apps/api/src/schema.ts` - Database schema + Zod validators
 8. `apps/api/src/paths.ts` - Workspace path resolution utilities
 9. `apps/api/src/setup.ts` - OAuth setup script for bot token generation
@@ -787,11 +797,13 @@ VITE_TWITCH_REDIRECT_URI=http://localhost:5173  # OAuth callback URL
 2. `packages/platforms/src/types.ts` - `Clip` interface
 3. `packages/platforms/src/twitch.ts` - Twitch clip fetching
 4. `packages/platforms/src/kick.ts` - Kick clip fetching
-5. `packages/utils/src/http.ts` - HTTP utilities (fetch wrappers)
-6. `packages/utils/src/cache.ts` - TTL cache implementation
-7. `packages/queue-ops/src/index.ts` - Queue operations (advance, previous, clear)
-8. `packages/constants/src/commands.ts` - Chat command constants
-9. `packages/schemas/src/auth.ts` - Auth-related Zod schemas
+5. `packages/player/src/VideoJSPlayer.vue` - Video.js wrapper with automatic expired URL refresh
+6. `packages/player/src/CqPlayer.vue` - Player component router (iframe vs video)
+7. `packages/utils/src/http.ts` - HTTP utilities (fetch wrappers)
+8. `packages/utils/src/cache.ts` - TTL cache implementation
+9. `packages/queue-ops/src/index.ts` - Queue operations (advance, previous, clear)
+10. `packages/constants/src/commands.ts` - Chat command constants
+11. `packages/schemas/src/auth.ts` - Auth-related Zod schemas
 
 ### Common Patterns
 

@@ -10,7 +10,16 @@
       frameborder="0"
     ></iframe>
     <div v-else-if="format === 'video'" class="player">
-      <VideoJS :poster="thumbnailUrl" :source :title autoplay @ended="emit('ended')" />
+      <VideoJS
+        :poster="thumbnailUrl"
+        :source
+        :title
+        :clip-id="clipId"
+        :clip-platform="clipPlatform"
+        autoplay
+        @ended="emit('ended')"
+        @error="(error) => emit('error', error)"
+      />
     </div>
     <div
       v-else
@@ -29,17 +38,22 @@ export interface Props {
   title?: string
   source?: string
   thumbnailUrl?: string
+  clipId?: string
+  clipPlatform?: string
 }
 
 const {
   format = 'unknown',
   title = undefined,
   source = undefined,
-  thumbnailUrl = undefined
+  thumbnailUrl = undefined,
+  clipId = undefined,
+  clipPlatform = undefined
 } = defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'ended'): void
+  (e: 'error', error: string): void
 }>()
 </script>
 
