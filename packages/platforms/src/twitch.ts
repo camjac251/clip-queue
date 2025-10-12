@@ -29,12 +29,14 @@ export class TwitchPlatform extends BasePlatform {
       return this.cache[id]
     }
     try {
-      const clips = await twitch.getClips(await this.ctx(), [id])
+      const ctx = await this.ctx()
+      const clips = await twitch.getClips(ctx, [id])
       const clip = clips[0]
       if (!clip) {
         throw new Error(`[${this.name}]: Clip not found for ID ${id}.`)
       }
-      const games = await twitch.getGames(await this.ctx(), [clip.game_id])
+      const games = await twitch.getGames(ctx, [clip.game_id])
+      const videoUrl = await twitch.getDirectUrl(id, ctx.id)
       const response: Clip = {
         id: clip.id,
         title: clip.title,
@@ -44,6 +46,7 @@ export class TwitchPlatform extends BasePlatform {
         createdAt: clip.created_at,
         url,
         embedUrl: clip.embed_url,
+        videoUrl,
         thumbnailUrl: clip.thumbnail_url,
         platform: this.name,
         submitters: []
@@ -56,10 +59,10 @@ export class TwitchPlatform extends BasePlatform {
   }
 
   public getPlayerFormat(): PlayerFormat {
-    return 'iframe'
+    return 'video'
   }
 
   public getPlayerSource(clip: Clip): string {
-    return `${clip.embedUrl}&autoplay=true&parent=${window.location.hostname}`
+    return clip.videoUrl || `${clip.embedUrl}&autoplay=true&parent=${window.location.hostname}`
   }
 }

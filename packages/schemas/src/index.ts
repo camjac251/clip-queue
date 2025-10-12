@@ -33,3 +33,10 @@ export {
   type TwitchUsersResponse,
   type TwitchModeratorsResponse
 } from './twitch.js'
+
+// Clip
+export {
+  Platform,
+  ClipSchema,
+  type Clip
+} from './clip.js'

@@ -30,6 +30,7 @@ export class KickPlatform extends BasePlatform {
         createdAt: clip.created_at,
         url,
         embedUrl: clip.clip_url,
+        videoUrl: clip.video_url,
         thumbnailUrl: clip.thumbnail_url,
         platform: this.name,
         submitters: []
@@ -46,6 +47,6 @@ export class KickPlatform extends BasePlatform {
   }
 
   public getPlayerSource(clip: Clip): string {
-    return clip.embedUrl
+    return clip.videoUrl || clip.embedUrl
   }
 }

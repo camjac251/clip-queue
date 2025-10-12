@@ -319,6 +319,9 @@ importers:
 
   packages/platforms:
     dependencies:
+      '@cq/schemas':
+        specifier: workspace:*
+        version: link:../schemas
       '@cq/services':
         specifier: workspace:*
         version: link:../services

@@ -2,12 +2,14 @@
  * Drizzle ORM Schema and Zod Validation
  *
  * Defines database schema with type-safe queries and runtime validation.
+ *
+ * IMPORTANT: This file imports clip types from @cq/schemas (not @cq/platforms)
+ * to avoid transitive ESM dependencies that break drizzle-kit's CommonJS loader.
  */
 
 import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { Platform } from '@cq/platforms'
 import {
   CommandSettingsSchema,
   QueueSettingsSchema,
@@ -18,8 +20,8 @@ import {
   type LoggerSettings,
   type AppSettings
 } from '@cq/schemas/settings'
+import { Platform, type Clip } from '@cq/schemas/clip'
 
-export type { Clip } from '@cq/platforms'
 export type {
   CommandSettings,
   QueueSettings,
@@ -32,6 +34,9 @@ export {
   LoggerSettingsSchema,
   AppSettingsSchema
 }
+
+// Re-export clip types for convenience
+export { Platform, type Clip }
 
 /**
  * Clips Table
@@ -46,6 +51,7 @@ export const clips = sqliteTable(
     clipId: text('clip_id').notNull(), // The actual clip ID from platform
     url: text('url').notNull(),
     embedUrl: text('embed_url').notNull(),
+    videoUrl: text('video_url'), // Direct video URL for Video.js playback
     thumbnailUrl: text('thumbnail_url').notNull(),
     title: text('title').notNull(),
     channel: text('channel').notNull(),

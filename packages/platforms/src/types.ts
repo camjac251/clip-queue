@@ -1,71 +1,18 @@
+import type { Clip } from '@cq/schemas/clip'
+import { Platform } from '@cq/schemas/clip'
+
 /**
- * Enumeration of clip platforms.
+ * Platform and Clip types imported from @cq/schemas
+ * (single source of truth for domain types)
  */
-export enum Platform {
-  /**
-   * Kick.com clips.
-   */
-  KICK = 'kick',
-  /**
-   * Twitch.tv clips.
-   */
-  TWITCH = 'twitch'
-}
+
+// Re-export for consumers
+export { Platform, type Clip }
 
 /**
  * The format of the player.
  */
 export type PlayerFormat = 'iframe' | 'video' | 'unknown'
-
-/**
- * A clip.
- */
-export interface Clip {
-  /**
-   * The platform of the clip.
-   */
-  platform: Platform
-  /**
-   * The ID of the clip.
-   */
-  id: string
-  /**
-   * The URL of the clip.
-   */
-  url: string
-  /**
-   * The embed URL of the clip.
-   */
-  embedUrl: string
-  /**
-   * The thumbnail URL of the clip.
-   */
-  thumbnailUrl: string
-  /**
-   * The title of the clip.
-   */
-  title: string
-  /**
-   * The channel of the clip.
-   */
-  channel: string
-  /**
-   * The creator of the clip.
-   */
-  creator: string
-  /**
-   * The submitters of the clip.
-   */
-  submitters: string[]
-  /**
-   * The category of the clip.
-   */
-  category?: string
-  /**
-   * The created at time of the clip.
-   */
-  createdAt?: string
-}
 
 /**
  * The base clip platform.

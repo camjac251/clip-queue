@@ -79,8 +79,62 @@ export async function getUsers(ctx: TwitchUserCtx, ids: string[]): Promise<Twitc
   return data.data
 }
 
+/**
+ * Get direct video URL for a Twitch clip using GraphQL API.
+ * @param id - The clip ID.
+ * @param clientId - The Twitch client ID.
+ * @returns The direct video URL.
+ * @throws Will throw an error if the fetch fails or clip not found.
+ */
+export async function getDirectUrl(id: string, clientId: string): Promise<string> {
+  if (!clientId) {
+    throw new Error('Client ID is required.')
+  }
+
+  const data = [
+    {
+      operationName: 'ClipsDownloadButton',
+      variables: {
+        slug: id
+      },
+      extensions: {
+        persistedQuery: {
+          version: 1,
+          sha256Hash: '6e465bb8446e2391644cf079851c0cb1b96928435a240f07ed4b240f0acc6f1b'
+        }
+      }
+    }
+  ]
+
+  const response = await fetch('https://gql.twitch.tv/gql', {
+    method: 'POST',
+    headers: {
+      'Client-Id': clientId,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch direct URL for clip ${id}: ${response.statusText}`)
+  }
+
+  const responseData = await response.json()
+  const [respData] = responseData
+  const playbackAccessToken = respData.data.clip.playbackAccessToken
+  const url =
+    respData.data.clip.videoQualities[0].sourceURL +
+    '?sig=' +
+    playbackAccessToken.signature +
+    '&token=' +
+    encodeURIComponent(playbackAccessToken.value)
+
+  return url
+}
+
 export default {
   getClips,
   getGames,
-  getUsers
+  getUsers,
+  getDirectUrl
 }
