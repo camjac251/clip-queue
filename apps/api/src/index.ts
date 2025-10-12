@@ -184,7 +184,21 @@ let isQueueOpen = true
  * Used for efficient HTTP caching (304 Not Modified responses)
  * Includes clip IDs, submitter counts, queue status, and settings for accurate change detection
  */
+// Cached ETag for state hash optimization
+let cachedETag: string | null = null
+
+/**
+ * Invalidate cached ETag when state changes
+ * Must be called after any state mutation
+ */
+function invalidateETag() {
+  cachedETag = null
+}
+
 function generateStateHash(): string {
+  // Return cached ETag if available
+  if (cachedETag) return cachedETag
+
   const state = {
     current: currentClip?.id || null,
     currentSubmitters: currentClip?.submitters.length || 0,
@@ -194,7 +208,8 @@ function generateStateHash(): string {
     settings: settings // Include settings in hash for change detection
   }
   // Use full SHA256 hash (64 hex chars) to minimize collision risk
-  return createHash('sha256').update(JSON.stringify(state)).digest('hex')
+  cachedETag = createHash('sha256').update(JSON.stringify(state)).digest('hex')
+  return cachedETag
 }
 
 /**
@@ -237,6 +252,9 @@ function restoreQueueFromDatabase() {
 
   console.log(`[Queue] Restored ${approvedClips.length} clips from database`)
   console.log(`[History] Restored ${playedClips.length} clips from database`)
+
+  // Invalidate ETag after restoring state
+  invalidateETag()
 }
 
 restoreQueueFromDatabase()
@@ -369,6 +387,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
           }
         )
         console.log(`[Command] Queue cleared by ${message.username}`)
+        invalidateETag()
       } catch (error) {
         console.error(`[Command] Failed to clear queue: ${error}`)
       }
@@ -388,6 +407,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
       settings.queue.limit = limit
       updateSettings(db, settings)
       console.log(`[Command] Queue limit set to ${limit} by ${message.username}`)
+      invalidateETag()
       break
     }
 
@@ -395,6 +415,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
       settings.queue.limit = null
       updateSettings(db, settings)
       console.log(`[Command] Queue limit removed by ${message.username}`)
+      invalidateETag()
       break
 
     case 'next': {
@@ -412,6 +433,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
 
         // Broadcast change
         console.log(`[Command] Advanced to next clip by ${message.username}`)
+        invalidateETag()
       } catch (error) {
         console.error(`[Command] Failed to advance to next clip: ${error}`)
       }
@@ -426,6 +448,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
 
       // Broadcast change
       console.log(`[Command] Went to previous clip by ${message.username}`)
+      invalidateETag()
       break
     }
 
@@ -448,6 +471,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
       }
 
       console.log(`[Command] Removed ${removedCount} clips by ${submitter} (requested by ${message.username})`)
+      if (removedCount > 0) invalidateETag()
       break
     }
 
@@ -470,6 +494,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
       }
 
       console.log(`[Command] Removed ${removedCount} ${platformArg} clips (requested by ${message.username})`)
+      if (removedCount > 0) invalidateETag()
       break
     }
 
@@ -484,6 +509,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
         settings.queue.platforms.push(platformArg as 'twitch' | 'kick')
         updateSettings(db, settings)
         console.log(`[Command] Enabled ${platformArg} platform (requested by ${message.username})`)
+        invalidateETag()
       } else {
         console.log(`[Command] ${platformArg} platform already enabled`)
       }
@@ -502,6 +528,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
         settings.queue.platforms.splice(index, 1)
         updateSettings(db, settings)
         console.log(`[Command] Disabled ${platformArg} platform (requested by ${message.username})`)
+        invalidateETag()
       } else {
         console.log(`[Command] ${platformArg} platform already disabled`)
       }
@@ -512,12 +539,14 @@ async function handleChatCommand(message: { username: string; text: string }): P
       settings.queue.hasAutoModerationEnabled = true
       updateSettings(db, settings)
       console.log(`[Command] Auto-moderation enabled by ${message.username}`)
+      invalidateETag()
       break
 
     case 'disableautomod':
       settings.queue.hasAutoModerationEnabled = false
       updateSettings(db, settings)
       console.log(`[Command] Auto-moderation disabled by ${message.username}`)
+      invalidateETag()
       break
 
     case 'purgecache':
@@ -594,6 +623,7 @@ async function handleClipSubmission(
 
       // Broadcast update
       console.log(`[Queue] Added submitter to existing clip: ${clip.title} (${submitter})`)
+      invalidateETag()
       return
     }
 
@@ -612,6 +642,7 @@ async function handleClipSubmission(
     if (status === 'approved') {
       queue.add(savedClip)
       console.log(`[Queue] Added clip: ${clip.title} (submitted by ${submitter})`)
+      invalidateETag()
     } else {
       console.log(`[Queue] Clip pending moderation: ${clip.title} (submitted by ${submitter})`)
     }
@@ -698,6 +729,7 @@ app.post(
     currentClip = state.current
 
     // Broadcast change
+    invalidateETag()
 
     console.log(`[Queue] Advanced to next clip: ${currentClip?.title || 'none'}`)
     res.json({ success: true, state: getQueueState() })
@@ -714,6 +746,7 @@ app.post('/api/queue/previous', authenticate, authFailureLimiter, authenticatedL
     currentClip = state.current
 
     // Broadcast change
+    invalidateETag()
 
     console.log(`[Queue] Went to previous clip: ${currentClip?.title || 'none'}`)
     res.json({ success: true, state: getQueueState() })
@@ -734,6 +767,7 @@ app.delete('/api/queue', authenticate, authFailureLimiter, authenticatedLimiter,
     )
 
     console.log('[Queue] Cleared queue')
+    invalidateETag()
     res.json({ success: true, state: getQueueState() })
   } catch (error) {
     throw error // Let asyncHandler catch and respond with error
@@ -748,6 +782,7 @@ app.delete('/api/queue/history', authenticate, authFailureLimiter, authenticated
     deleteClipsByStatus(db, 'played')
 
     // Broadcast history cleared event
+    invalidateETag()
 
     console.log('[Queue] Cleared history')
     res.json({ success: true, state: getQueueState() })
@@ -762,12 +797,14 @@ app.delete('/api/queue/history', authenticate, authFailureLimiter, authenticated
 app.post('/api/queue/open', authenticate, authFailureLimiter, authenticatedLimiter, requireBroadcaster, (req, res) => {
   isQueueOpen = true
   console.log('[Queue] Queue opened')
+  invalidateETag()
   res.json({ success: true, state: getQueueState() })
 })
 
 app.post('/api/queue/close', authenticate, authFailureLimiter, authenticatedLimiter, requireBroadcaster, (req, res) => {
   isQueueOpen = false
   console.log('[Queue] Queue closed')
+  invalidateETag()
   res.json({ success: true, state: getQueueState() })
 })
 
@@ -794,6 +831,7 @@ app.post('/api/queue/remove', authenticate, authFailureLimiter, authenticatedLim
       updateClipStatus(db, clipId, 'rejected')
 
       // Broadcast removal
+      invalidateETag()
 
       console.log(`[Queue] Removed clip: ${clip.title}`)
       res.json({ success: true, state: getQueueState() })
@@ -839,6 +877,7 @@ app.post('/api/queue/approve', authenticate, authFailureLimiter, authenticatedLi
   queue.add(clip)
 
   console.log(`[Queue] Approved pending clip: ${clip.title}`)
+  invalidateETag()
   res.json({ success: true, state: getQueueState() })
 }))
 
@@ -904,6 +943,7 @@ app.post('/api/queue/play', authenticate, authFailureLimiter, authenticatedLimit
     currentClip = state.current
 
     // Broadcast change
+    invalidateETag()
 
     console.log(`[Queue] Playing clip: ${currentClip?.title}`)
     res.json({ success: true, state: getQueueState() })
@@ -988,6 +1028,7 @@ app.put('/api/settings', authenticate, authFailureLimiter, authenticatedLimiter,
     settings = newSettings
 
     // Broadcast to all connected clients
+    invalidateETag()
 
     console.log('[Settings] Updated:', settings)
     res.json({ success: true, settings })
