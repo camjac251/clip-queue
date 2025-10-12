@@ -14,7 +14,7 @@
       }}</Message>
     </template>
   </Card>
-  <Card v-if="user.isBroadcaster" class="mx-auto mb-2 max-w-xl text-left">
+  <Card v-if="user.isBroadcaster" class="mx-auto max-w-xl text-left">
     <template #content>
       <DangerButton
         :label="m.purge_history()"
@@ -29,13 +29,6 @@
       }}</Message>
     </template>
   </Card>
-  <Card class="mx-auto max-w-xl">
-    <template #content>
-      <p class="text-surface-400 text-sm">
-        {{ m.application_version({ version }) }}
-      </p>
-    </template>
-  </Card>
 </template>
 
 <script setup lang="ts">
@@ -46,8 +39,6 @@ import { usePreferences } from '@/stores/preferences'
 import { useQueueServer as useQueue } from '@/stores/queue-server'
 import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
-
-const version = __APP_VERSION__
 
 const toast = useToast()
 const confirm = useConfirm()

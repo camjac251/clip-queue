@@ -12,6 +12,7 @@ import HistoryPage from '@/views/HistoryPage.vue'
 import HomePage from '@/views/HomePage.vue'
 import LogsPage from '@/views/LogsPage.vue'
 import QueuePage from '@/views/QueuePage.vue'
+import AboutSettings from '@/views/settings/AboutSettings.vue'
 import ChatSettings from '@/views/settings/ChatSettings.vue'
 import LoggerSettings from '@/views/settings/LoggerSettings.vue'
 import OtherSettings from '@/views/settings/OtherSettings.vue'
@@ -35,7 +36,8 @@ export enum RouteNameConstants {
   SETTINGS_QUEUE = 'settings_queue',
   SETTINGS_PREFERENCES = 'settings_preferences',
   SETTINGS_LOGS = 'settings_logs',
-  SETTINGS_OTHER = 'settings_other'
+  SETTINGS_OTHER = 'settings_other',
+  SETTINGS_ABOUT = 'settings_about'
 }
 
 export const routes: RouteRecordRaw[] = [
@@ -109,6 +111,15 @@ export const routes: RouteRecordRaw[] = [
         component: OtherSettings,
         meta: {
           icon: 'pi pi-cog',
+          requiresAuth: true
+        }
+      },
+      {
+        path: 'about',
+        name: RouteNameConstants.SETTINGS_ABOUT,
+        component: AboutSettings,
+        meta: {
+          icon: 'pi pi-info-circle',
           requiresAuth: true
         }
       }
@@ -188,7 +199,8 @@ export const routeTranslations = {
   [RouteNameConstants.SETTINGS_QUEUE]: m.settings_queue,
   [RouteNameConstants.SETTINGS_PREFERENCES]: m.settings_preferences,
   [RouteNameConstants.SETTINGS_LOGS]: m.logs,
-  [RouteNameConstants.SETTINGS_OTHER]: m.settings_other
+  [RouteNameConstants.SETTINGS_OTHER]: m.settings_other,
+  [RouteNameConstants.SETTINGS_ABOUT]: m.settings_about
 }
 
 /**

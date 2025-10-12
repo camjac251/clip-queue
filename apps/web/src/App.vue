@@ -9,16 +9,14 @@
       </main>
     </div>
   </div>
-  <Footer :copyright="config.copyright" :github="config.github" />
 </template>
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 
-import { ConfirmDialog, Footer, Toast, useToast } from '@cq/ui'
+import { ConfirmDialog, Toast, useToast } from '@cq/ui'
 
 import AppNavBar from '@/components/AppNavBar.vue'
-import { config } from '@/config'
 import { usePreferences } from './stores/preferences'
 import { useQueueServer } from './stores/queue-server'
 import { useUser } from './stores/user'
