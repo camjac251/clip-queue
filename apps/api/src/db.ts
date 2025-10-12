@@ -204,6 +204,7 @@ export function upsertClip(
         .set({
           title: validated.title,
           thumbnailUrl: validated.thumbnailUrl,
+          videoUrl: validated.videoUrl,
           category: validated.category
         })
         .where(eq(clips.id, clipId))
@@ -249,6 +250,7 @@ export function upsertClip(
           clipId: validated.id,
           url: validated.url,
           embedUrl: validated.embedUrl,
+          videoUrl: validated.videoUrl,
           thumbnailUrl: validated.thumbnailUrl,
           title: validated.title,
           channel: validated.channel,

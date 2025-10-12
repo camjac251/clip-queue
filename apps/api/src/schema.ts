@@ -126,6 +126,7 @@ export const ClipSchema = z.object({
   id: z.string(),
   url: z.string().url(),
   embedUrl: z.string().url(),
+  videoUrl: z.string().url().optional(), // Direct video URL for Video.js playback
   thumbnailUrl: z.string().url(),
   title: z.string(),
   channel: z.string(),

@@ -18,6 +18,8 @@ import { z } from 'zod'
 import { ClipList, toClipUUID, TwitchPlatform, KickPlatform } from '@cq/platforms'
 import { advanceQueue, previousClip, clearQueue, playClip } from '@cq/queue-ops'
 import { TTLCache } from '@cq/utils'
+import twitch from '@cq/services/twitch'
+import kick from '@cq/services/kick'
 
 /**
  * Simple async mutex for preventing race conditions
@@ -317,12 +319,12 @@ async function connectToChat() {
 
         // Submit each URL
         for (const url of urls) {
-          // Check if it's a Twitch clip URL
-          if (url.includes('twitch.tv') && (url.includes('clip') || url.includes('/clips/'))) {
+          // Check if it's a Twitch clip URL (use proper parser)
+          if (twitch.getClipIdFromUrl(url)) {
             await handleClipSubmission(url, message.username, canAutoApprove)
           }
-          // Check if it's a Kick clip URL (format: kick.com/channel/clips/clip_ID)
-          else if (url.includes('kick.com/') && url.includes('/clips/clip_')) {
+          // Check if it's a Kick clip URL (use proper parser)
+          else if (kick.getClipIdFromUrl(url)) {
             await handleClipSubmission(url, message.username, canAutoApprove)
           }
         }

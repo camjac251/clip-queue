@@ -42,7 +42,14 @@ onMounted(() => {
         controls: true,
         fluid: true,
         poster: poster.value,
-        sources: [source.value]
+        sources: source.value
+          ? [
+              {
+                src: source.value,
+                type: source.value.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+              }
+            ]
+          : []
       },
       () => {}
     )
