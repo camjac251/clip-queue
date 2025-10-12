@@ -17,6 +17,7 @@ import { createHash } from 'crypto'
 import { z } from 'zod'
 import { ClipList, toClipUUID, TwitchPlatform, KickPlatform } from '@cq/platforms'
 import { advanceQueue, previousClip, clearQueue, playClip } from '@cq/queue-ops'
+import { TTLCache } from '@cq/utils'
 
 /**
  * Simple async mutex for preventing race conditions
@@ -217,6 +218,9 @@ const platforms = {
   })),
   kick: new KickPlatform()
 }
+
+// Per-user rate limiting cache (tracks last submission time per user)
+const userSubmissionCache = new TTLCache<string, number>(60000) // 1 minute TTL
 
 // Restore queue and history from database
 function restoreQueueFromDatabase() {
@@ -544,6 +548,14 @@ async function handleClipSubmission(
 ): Promise<void> {
   const release = await clipSubmissionMutex.acquire()
   try {
+    // Per-user rate limiting (prevent spam)
+    const lastSubmission = userSubmissionCache.get(submitter)
+    if (lastSubmission && Date.now() - lastSubmission < 10000) {
+      console.log(`[Queue] Rate limit: ${submitter} submitted too recently`)
+      return
+    }
+    userSubmissionCache.set(submitter, Date.now())
+
     // Check if queue is open
     if (!isQueueOpen && !autoApprove) {
       console.log(`[Queue] Queue closed, ignoring clip from ${submitter}`)
