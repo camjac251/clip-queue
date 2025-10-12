@@ -385,7 +385,7 @@ export class TwitchEventSubClient {
     if (!session) return
 
     this.sessionId = session.id
-    this.reconnectUrl = session.reconnect_url || null
+    this.reconnectUrl = session.reconnect_url ?? null
     this.keepaliveTimeoutMs = session.keepalive_timeout_seconds * 1000
     this.resetKeepaliveTimer()
 

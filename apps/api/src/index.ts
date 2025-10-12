@@ -269,7 +269,7 @@ async function handleChatCommand(message: { username: string; text: string }): P
 
         // Get next clip
         const nextClip = queue.shift()
-        currentClip = nextClip || null
+        currentClip = nextClip ?? null
 
         // Broadcast change
         io.emit('queue:current', { clip: currentClip })
@@ -436,7 +436,7 @@ app.post('/api/queue/advance', asyncHandler(async (req, res) => {
 
     // Get next clip
     const nextClip = queue.shift()
-    currentClip = nextClip || null
+    currentClip = nextClip ?? null
 
     // Broadcast change
     io.emit('queue:current', { clip: currentClip })

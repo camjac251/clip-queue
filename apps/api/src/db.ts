@@ -317,7 +317,7 @@ export function getClipsByStatus(
   if (status === 'approved') {
     query = query.orderBy(asc(clips.submittedAt)) as any
   } else if (status === 'played') {
-    query = query.orderBy(desc(clips.playedAt)).limit(limit || 50) as any
+    query = query.orderBy(desc(clips.playedAt)).limit(limit ?? 50) as any
   }
 
   const rows = query.all()
