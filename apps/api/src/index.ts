@@ -591,9 +591,23 @@ async function handleClipSubmission(
       return
     }
 
-    // Detect platform and fetch clip data
+    // Detect platform and fetch clip data with timeout
     const platformInstance = url.includes('kick.com') ? platforms.kick : platforms.twitch
-    const clip = await platformInstance.getClip(url)
+    const PLATFORM_API_TIMEOUT = 10000 // 10 seconds
+
+    let clip
+    try {
+      clip = await Promise.race([
+        platformInstance.getClip(url),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error('Platform API timeout')), PLATFORM_API_TIMEOUT)
+        )
+      ])
+    } catch (error) {
+      console.log(`[Queue] Failed to fetch clip (${error instanceof Error ? error.message : 'timeout'}): ${url}`)
+      return
+    }
+
     if (!clip) {
       console.log(`[Queue] Failed to fetch clip: ${url}`)
       return
