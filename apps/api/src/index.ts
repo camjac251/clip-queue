@@ -55,6 +55,7 @@ import {
   initSettings,
   updateSettings,
   upsertClip,
+  getClip,
   getClipsByStatus,
   updateClipStatus,
   deleteClipsByStatus,
@@ -792,6 +793,67 @@ app.post('/api/queue/remove', authenticate, authFailureLimiter, authenticatedLim
   } else {
     res.status(404).json({ error: 'Clip not found' })
   }
+}))
+
+// GET /api/queue/pending - List pending clips awaiting approval (broadcaster/moderator only)
+app.get('/api/queue/pending', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, (req, res) => {
+  const pendingClips = getClipsByStatus(db, 'pending')
+  res.json({ clips: pendingClips })
+})
+
+// POST /api/queue/approve - Approve a pending clip (broadcaster/moderator only)
+app.post('/api/queue/approve', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
+  // Validate input
+  const parseResult = ClipIdSchema.safeParse(req.body)
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: parseResult.error.issues
+    })
+  }
+
+  const { clipId } = parseResult.data
+
+  // Get clip from database
+  const clip = getClip(db, clipId)
+  if (!clip) {
+    return res.status(404).json({ error: 'Clip not found' })
+  }
+
+  // Update status in database
+  updateClipStatus(db, clipId, 'approved')
+
+  // Add to in-memory queue
+  queue.add(clip)
+
+  console.log(`[Queue] Approved pending clip: ${clip.title}`)
+  res.json({ success: true, state: getQueueState() })
+}))
+
+// POST /api/queue/reject - Reject a pending clip (broadcaster/moderator only)
+app.post('/api/queue/reject', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
+  // Validate input
+  const parseResult = ClipIdSchema.safeParse(req.body)
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: parseResult.error.issues
+    })
+  }
+
+  const { clipId } = parseResult.data
+
+  // Get clip from database
+  const clip = getClip(db, clipId)
+  if (!clip) {
+    return res.status(404).json({ error: 'Clip not found' })
+  }
+
+  // Update status to rejected
+  updateClipStatus(db, clipId, 'rejected')
+
+  console.log(`[Queue] Rejected pending clip: ${clip.title}`)
+  res.json({ success: true, state: getQueueState() })
 }))
 
 app.post('/api/queue/play', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
