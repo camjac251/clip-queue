@@ -24,6 +24,7 @@ cp .env.example .env
 ```
 
 Edit `.env` and set:
+
 - `TWITCH_CLIENT_ID` - Your Twitch app client ID
 - `TWITCH_CLIENT_SECRET` - Your Twitch app secret
 - `TWITCH_CHANNEL_NAME` - Your Twitch channel (lowercase)
@@ -44,11 +45,13 @@ TWITCH_BOT_TOKEN=your_token_here
 ### 3. Start the App
 
 **Option A: Both servers in one command**
+
 ```bash
 pnpm dev:all
 ```
 
 **Option B: Separate terminals**
+
 ```bash
 # Terminal 1 - Backend
 pnpm api dev
@@ -68,6 +71,7 @@ pnpm web dev
 3. Clip appears in the queue! 🎉
 
 **Chat Commands** (mod/broadcaster only):
+
 - `!cq open` - Open queue for clip submissions
 - `!cq close` - Close queue (mods can still submit)
 - `!cq clear` - Clear all clips from queue
@@ -78,12 +82,14 @@ pnpm web dev
 ## Architecture
 
 **Backend:** Self-hosted Node.js server
+
 - 🔄 Persistent Twitch EventSub chat monitoring
 - 📡 WebSocket (Socket.io) for real-time sync
 - 💾 SQLite database for persistence
 - 🐳 Docker-ready with Traefik support
 
 **Frontend:** Vue.js SPA (Cloudflare Pages or self-hosted)
+
 - 🌐 WebSocket connection to backend
 - 📦 Real-time queue updates across all clients
 - 🎨 PrimeVue UI components
@@ -138,10 +144,12 @@ pnpm format         # Format all packages
 ### Monorepo Structure
 
 **Apps:**
+
 - **`server`**: Node.js backend server (Express + Socket.io + EventSub + SQLite)
 - **`web`**: Vue.js SPA frontend (WebSocket client)
 
 **Packages:**
+
 - **`config`**: Common configurations shared between other apps and packages
 - **`player`**: Clip player component (Video.js + Vue.js)
 - **`platforms`**: Clip fetching abstraction (Twitch, Kick)
@@ -150,14 +158,14 @@ pnpm format         # Format all packages
 
 ### Available Package Shortcuts
 
-| Shortcut | Package | Location |
-|----------|---------|----------|
-| `pnpm web ...` | @cq/web | apps/web |
-| `pnpm api ...` | @cq/api | apps/api |
-| `pnpm player ...` | @cq/player | packages/player |
+| Shortcut             | Package       | Location           |
+| -------------------- | ------------- | ------------------ |
+| `pnpm web ...`       | @cq/web       | apps/web           |
+| `pnpm api ...`       | @cq/api       | apps/api           |
+| `pnpm player ...`    | @cq/player    | packages/player    |
 | `pnpm platforms ...` | @cq/platforms | packages/platforms |
-| `pnpm services ...` | @cq/services | packages/services |
-| `pnpm ui ...` | @cq/ui | packages/ui |
+| `pnpm services ...`  | @cq/services  | packages/services  |
+| `pnpm ui ...`        | @cq/ui        | packages/ui        |
 
 ### Examples
 

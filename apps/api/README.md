@@ -51,6 +51,7 @@ pnpm dev
 ```
 
 The server will:
+
 1. Connect to Twitch EventSub WebSocket
 2. Subscribe to chat messages for your channel
 3. Start Express server on port 3000
@@ -99,6 +100,7 @@ pnpm start
 ## API Endpoints
 
 ### Health Check
+
 ```
 GET /api/health
 ```
@@ -106,6 +108,7 @@ GET /api/health
 Returns server status and chat connection state.
 
 ### Get Queue
+
 ```
 GET /api/queue
 ```
@@ -113,6 +116,7 @@ GET /api/queue
 Returns current clip, upcoming queue, and history.
 
 ### Submit Clip
+
 ```
 POST /api/queue/submit
 Body: { "url": "https://...", "submitter": "username" }
@@ -121,6 +125,7 @@ Body: { "url": "https://...", "submitter": "username" }
 Manually submit a clip (used for testing, clips normally come from chat).
 
 ### Advance Queue
+
 ```
 POST /api/queue/advance
 ```
@@ -128,6 +133,7 @@ POST /api/queue/advance
 Move to next clip.
 
 ### Previous Clip
+
 ```
 POST /api/queue/previous
 ```
@@ -135,6 +141,7 @@ POST /api/queue/previous
 Go back to previous clip.
 
 ### Clear Queue
+
 ```
 DELETE /api/queue
 ```
@@ -142,6 +149,7 @@ DELETE /api/queue
 Clear all upcoming clips.
 
 ### Open/Close Queue
+
 ```
 POST /api/queue/open
 POST /api/queue/close

@@ -6,8 +6,8 @@ Setting up the project for local development will require all of the following t
 
 - [git](https://git-scm.com/) (version `2.39` or higher)
 - [node](https://nodejs.org/en) (version `20.0` or higher)
-- *optionally* [docker](https://www.docker.com/) (version `24.0` or higher)
-> NOTE: docker is an alternative way to develop. If you are using docker, all other dependencies above will not be required except for git.
+- _optionally_ [docker](https://www.docker.com/) (version `24.0` or higher)
+  > NOTE: docker is an alternative way to develop. If you are using docker, all other dependencies above will not be required except for git.
 
 ## Setting up for development
 
@@ -21,6 +21,7 @@ Setting up the project using docker is simple. Simply run the following command 
 # NOTE: ensure to specify the dev docker compose file for features like hot reload when code changes
 docker compose -f docker-compose.dev.yml up --build
 ```
+
 > NOTE: using this method will only allow running the project. You must setup the project without docker to be able to format, lint, and check the project.
 
 ### Without Docker

@@ -15,6 +15,7 @@ pnpm setup
 ```
 
 This will:
+
 1. Start a temporary OAuth server on port 3333
 2. Open your browser to Twitch authorization
 3. Print your access token to the terminal
@@ -53,6 +54,7 @@ TWITCH_BOT_TOKEN=abc123def456...
 ### Prerequisites
 
 Your `.env` must have:
+
 ```bash
 TWITCH_CLIENT_ID=your_client_id
 TWITCH_CLIENT_SECRET=your_client_secret
@@ -61,17 +63,21 @@ TWITCH_CLIENT_SECRET=your_client_secret
 ## Troubleshooting
 
 ### "Missing environment variables"
+
 Add your client ID and secret to `.env` first.
 
 ### Browser doesn't open
+
 The URL will be printed to the terminal. Copy and paste it manually.
 
 ### "Authorization failed"
+
 - Make sure port 3333 is not in use
 - Check your client ID and secret are correct
 - Try the manual setup method instead
 
 ### Token expires
+
 Tokens expire after ~60 days. Just re-run `pnpm api setup` (or `make api-setup`) to get a fresh token.
 
 ## Security Note
