@@ -1,6 +1,7 @@
 <template>
-  <div class="grid-container">
-    <div class="player-section">
+  <div class="queue-page">
+    <!-- Main Player Section -->
+    <div class="player-container">
       <div class="player-wrapper">
         <ClipPlayer
           v-if="queue.current && queue.current.id"
@@ -25,24 +26,41 @@
         </div>
       </div>
 
-      <div class="mt-2">
-        <div class="flex items-center justify-between">
-          <div
-            v-if="queue.current && queue.current.id"
-            class="text-surface-500 flex items-center gap-2 text-2xl font-bold"
-          >
-            <span>{{ queue.current.title }}</span>
-            <a
-              v-if="queue.current.url"
-              :href="queue.current.url"
-              target="_blank"
-              rel="noreferrer"
-              class="hover:text-surface-600 dark:hover:text-surface-200 text-base no-underline"
-            >
-              <i class="pi pi-external-link"></i>
-            </a>
+      <!-- Player Info and Controls -->
+      <div class="player-info">
+        <div class="info-content">
+          <div class="clip-details">
+            <h1 v-if="queue.current && queue.current.id" class="clip-title">
+              {{ queue.current.title }}
+              <a
+                v-if="queue.current.url"
+                :href="queue.current.url"
+                target="_blank"
+                rel="noreferrer"
+                class="external-link"
+              >
+                <i class="pi pi-external-link"></i>
+              </a>
+            </h1>
+            <div v-if="queue.current && queue.current.id" class="clip-metadata">
+              <PlatformName :platform="queue.current.platform" />
+              <span class="metadata-separator">•</span>
+              <span>{{ queue.current.channel }}</span>
+              <span v-if="queue.current.category" class="metadata-separator">•</span>
+              <span v-if="queue.current.category">{{ queue.current.category }}</span>
+              <span v-if="queue.current.creator" class="metadata-separator">•</span>
+              <span v-if="queue.current.creator" class="metadata-creator">
+                {{ m.creator_name({ name: queue.current.creator }) }}
+              </span>
+              <span v-if="queue.current.submitters[0]" class="metadata-separator">•</span>
+              <span v-if="queue.current.submitters[0]" class="metadata-submitter">
+                {{ m.submitter_name({ name: queue.current.submitters[0] }) }}
+              </span>
+            </div>
           </div>
-          <div v-if="user.canControlQueue" class="control-buttons">
+
+          <!-- Controls -->
+          <div v-if="user.canControlQueue" class="player-controls">
             <div class="autoplay-control">
               <ToggleSwitch v-model="preferences.preferences.autoplay" input-id="autoplay" />
               <label for="autoplay" class="autoplay-label">{{ m.autoplay() }}</label>
@@ -54,6 +72,7 @@
                 icon="pi pi-backward"
                 text
                 rounded
+                size="large"
                 :disabled="queue.history.size() === 0"
                 @click="handlePrevious()"
               />
@@ -62,43 +81,64 @@
                 icon="pi pi-forward"
                 text
                 rounded
+                size="large"
                 @click="handleNext()"
+              />
+            </div>
+            <div class="button-separator"></div>
+            <div class="queue-management">
+              <SecondaryButton
+                v-if="user.isBroadcaster"
+                :icon="queue.isOpen ? 'pi pi-lock' : 'pi pi-lock-open'"
+                :label="queue.isOpen ? m.close() : m.open()"
+                :severity="queue.isOpen ? 'danger' : 'success'"
+                size="small"
+                @click="queue.isOpen ? handleClose() : handleOpen()"
+              />
+              <SecondaryButton
+                v-if="user.isBroadcaster"
+                icon="pi pi-trash"
+                :label="m.clear()"
+                severity="danger"
+                size="small"
+                :disabled="queue.upcoming.size() === 0"
+                @click="handleClear()"
               />
             </div>
           </div>
         </div>
-        <div
-          v-if="queue.current && queue.current.id"
-          class="text-surface-400 flex flex-col gap-1 text-sm font-normal"
-        >
-          <span>
-            {{ queue.current.channel }}
-            <span v-if="queue.current.category"> - {{ queue.current.category }} </span>
-            <span v-if="queue.current.creator">
-              - {{ m.creator_name({ name: queue.current.creator }) }}</span
-            >
-            <span v-if="queue.current.submitters[0]">
-              - {{ m.submitter_name({ name: queue.current.submitters[0] }) }}</span
-            >
-          </span>
-          <PlatformName :platform="queue.current.platform" />
-        </div>
       </div>
     </div>
 
-    <div class="queue-section">
-      <ClipQueue
-        :title="m.upcoming_clips()"
-        :clips="queue.upcoming.toArray()"
-        :is-open="queue.isOpen"
-        :can-control="user.canControlQueue"
-        :can-manage="user.isBroadcaster"
-        @open="queue.open()"
-        @close="queue.close()"
-        @remove="handleRemove"
-        @play="handlePlay"
-        @clear="handleClear()"
-      />
+    <!-- Timeline View -->
+    <TimelineView
+      :current-clip="queue.current"
+      :history-clips="queue.history.toArray().slice().reverse()"
+      :upcoming-clips="queue.upcoming.toArray()"
+      :can-control="user.canControlQueue"
+      @replay="handleReplay"
+      @play="handlePlay"
+    />
+
+    <!-- Queue Stats Footer -->
+    <div class="queue-stats">
+      <div class="stat-item">
+        <i class="pi pi-history stat-icon"></i>
+        <span class="stat-label">{{ m.history() }}</span>
+        <span class="stat-value">{{ queue.history.size() }}</span>
+      </div>
+      <div class="stat-separator"></div>
+      <div class="stat-item">
+        <i class="pi pi-clock stat-icon"></i>
+        <span class="stat-label">{{ m.upcoming_clips() }}</span>
+        <span class="stat-value">{{ queue.upcoming.size() }}</span>
+      </div>
+      <div class="stat-separator"></div>
+      <div class="stat-item">
+        <i class="pi pi-info-circle stat-icon"></i>
+        <span class="stat-label">{{ m.queue() }}</span>
+        <span class="stat-value">{{ queue.isOpen ? m.open() : m.close() }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -109,8 +149,8 @@ import { toClipUUID } from '@cq/platforms'
 import { SecondaryButton, ToggleSwitch } from '@cq/ui'
 
 import ClipPlayer from '@/components/ClipPlayer.vue'
-import ClipQueue from '@/components/ClipQueue.vue'
 import PlatformName from '@/components/PlatformName.vue'
+import TimelineView from '@/components/TimelineView.vue'
 import { useKeydown } from '@/composables/keydown'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
@@ -154,17 +194,19 @@ async function handleNext() {
   }
 }
 
-async function handleRemove(clip: Clip) {
+async function handleReplay(clip: Clip) {
   try {
-    await queue.remove(toClipUUID(clip))
+    await queue.replayFromHistory(toClipUUID(clip))
+    logger.info(`[Queue]: Replaying clip from history: ${clip.title}`)
   } catch (error) {
-    logger.error(`[Queue]: Failed to remove clip: ${error}`)
+    logger.error(`[Queue]: Failed to replay clip: ${error}`)
   }
 }
 
 async function handlePlay(clip: Clip) {
   try {
     await queue.play(toClipUUID(clip))
+    logger.info(`[Queue]: Playing clip from queue: ${clip.title}`)
   } catch (error) {
     logger.error(`[Queue]: Failed to play clip: ${error}`)
   }
@@ -177,32 +219,56 @@ async function handleClear() {
     logger.error(`[Queue]: Failed to clear queue: ${error}`)
   }
 }
+
+async function handleOpen() {
+  try {
+    await queue.open()
+  } catch (error) {
+    logger.error(`[Queue]: Failed to open queue: ${error}`)
+  }
+}
+
+async function handleClose() {
+  try {
+    await queue.close()
+  } catch (error) {
+    logger.error(`[Queue]: Failed to close queue: ${error}`)
+  }
+}
 </script>
 
 <style scoped>
-.grid-container {
-  display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 1.5rem;
-  padding: 1.5rem;
-  height: 100vh;
-}
-
-.player-section {
+.queue-page {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 1920px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: linear-gradient(to bottom, rgb(9 9 11) 0%, rgb(24 24 27) 100%);
+}
+
+/* Player Container */
+.player-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .player-wrapper {
   position: relative;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
   background: linear-gradient(to bottom, rgb(0 0 0 / 0.95), rgb(0 0 0 / 0.98));
-  border-radius: 0.75rem;
+  border-radius: 1rem;
   overflow: hidden;
   box-shadow:
-    0 4px 6px -1px rgb(0 0 0 / 0.1),
-    0 2px 4px -2px rgb(0 0 0 / 0.1),
-    0 0 0 1px rgb(255 255 255 / 0.05);
+    0 20px 25px -5px rgb(0 0 0 / 0.3),
+    0 8px 10px -6px rgb(0 0 0 / 0.3),
+    0 0 0 1px rgb(255 255 255 / 0.05),
+    0 0 40px rgb(139 92 246 / 0.1);
 }
 
 .empty-state {
@@ -210,92 +276,269 @@ async function handleClear() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  min-height: 500px;
   aspect-ratio: 16 / 9;
   color: rgb(161 161 170);
   background: linear-gradient(135deg, rgb(24 24 27 / 0.8) 0%, rgb(39 39 42 / 0.6) 100%);
 }
 
 .empty-state-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  opacity: 0.6;
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.5;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
 .empty-state-text {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem 0;
-  color: rgb(212 212 216);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem 0;
+  color: rgb(228 228 231);
 }
 
 .empty-state-subtext {
-  font-size: 0.875rem;
+  font-size: 1rem;
   margin: 0;
   opacity: 0.7;
 }
 
-.control-buttons {
+/* Player Info */
+.player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.info-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+  padding: 1.5rem;
+  background: rgb(24 24 27 / 0.6);
+  border-radius: 0.75rem;
+  border: 1px solid rgb(63 63 70 / 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.clip-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.clip-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem 0;
+  color: rgb(244 244 245);
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.5rem 0.75rem;
-  background: rgb(39 39 42 / 0.5);
-  border-radius: 0.5rem;
+  gap: 0.75rem;
+  line-height: 1.2;
+}
+
+.external-link {
+  color: rgb(161 161 170);
+  text-decoration: none;
+  font-size: 1.25rem;
+  transition: color 0.2s ease;
+}
+
+.external-link:hover {
+  color: rgb(139 92 246);
+}
+
+.clip-metadata {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  color: rgb(161 161 170);
+}
+
+.metadata-separator {
+  color: rgb(82 82 91);
+}
+
+.metadata-creator {
+  color: rgb(139 92 246);
+  font-weight: 500;
+}
+
+.metadata-submitter {
+  color: rgb(168 85 247);
+  font-weight: 500;
+}
+
+/* Player Controls */
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: rgb(39 39 42 / 0.6);
+  border-radius: 0.75rem;
+  border: 1px solid rgb(63 63 70 / 0.5);
   backdrop-filter: blur(8px);
 }
 
 .autoplay-control {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .autoplay-label {
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   color: rgb(212 212 216);
   user-select: none;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .button-separator {
   width: 1px;
-  height: 1.5rem;
+  height: 2rem;
   background: rgb(82 82 91 / 0.5);
 }
 
 .navigation-controls {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
-.queue-section {
+.queue-management {
   display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  max-height: calc(100vh - 3rem);
-  background: rgb(24 24 27 / 0.4);
-  border-radius: 0.75rem;
-  padding: 1rem;
-  border: 1px solid rgb(63 63 70 / 0.3);
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
 }
 
-@media (max-width: 1024px) {
-  .grid-container {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    gap: 1rem;
+/* Queue Stats */
+.queue-stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1.5rem;
+  background: rgb(24 24 27 / 0.6);
+  border-radius: 0.75rem;
+  border: 1px solid rgb(63 63 70 / 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.stat-icon {
+  font-size: 1.25rem;
+  color: rgb(139 92 246);
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(161 161 170);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: rgb(228 228 231);
+}
+
+.stat-separator {
+  width: 1px;
+  height: 2rem;
+  background: rgb(82 82 91 / 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .info-content {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .player-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .queue-management {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .queue-page {
+    padding: 1rem;
+    gap: 1.5rem;
+  }
+
+  .player-wrapper {
+    border-radius: 0.75rem;
+  }
+
+  .clip-title {
+    font-size: 1.25rem;
+  }
+
+  .player-controls {
+    flex-wrap: wrap;
     padding: 1rem;
   }
 
-  .queue-section {
-    max-height: none;
+  .button-separator {
+    display: none;
   }
 
-  .control-buttons {
-    flex-wrap: wrap;
+  .autoplay-control,
+  .navigation-controls,
+  .queue-management {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .queue-stats {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .stat-separator {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .clip-metadata {
+    font-size: 0.75rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+  }
+
+  .stat-value {
+    font-size: 1rem;
   }
 }
 </style>
