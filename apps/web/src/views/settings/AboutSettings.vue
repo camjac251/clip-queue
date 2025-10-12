@@ -22,6 +22,27 @@
       </template>
     </Card>
 
+    <!-- Features Section -->
+    <Card>
+      <template #content>
+        <div class="space-y-4 text-left">
+          <h3 class="text-surface-800 dark:text-surface-100 text-lg font-semibold">
+            {{ m.about_features() }}
+          </h3>
+          <div class="space-y-3">
+            <div v-for="feature in features" :key="feature.title" class="space-y-1">
+              <div class="text-surface-900 dark:text-surface-50 text-sm font-semibold">
+                {{ feature.title }}
+              </div>
+              <div class="text-surface-600 dark:text-surface-400 text-sm leading-relaxed">
+                {{ feature.description }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </Card>
+
     <!-- Credits & License Card -->
     <Card>
       <template #content>
@@ -53,10 +74,45 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import { Card } from '@cq/ui'
 
 import { config } from '@/config'
 import * as m from '@/paraglide/messages'
 
 const version = __APP_VERSION__
+
+const features = computed(() => [
+  {
+    title: m.about_feature_connect_title(),
+    description: m.about_feature_connect_description(),
+    icon: 'pi pi-comments'
+  },
+  {
+    title: m.about_feature_duplicate_prevent_title(),
+    description: m.about_feature_duplicate_prevent_description(),
+    icon: 'pi pi-copy'
+  },
+  {
+    title: m.about_feature_popularity_title(),
+    description: m.about_feature_popularity_description(),
+    icon: 'pi pi-chart-line'
+  },
+  {
+    title: m.about_feature_commands_title(),
+    description: m.about_feature_commands_description(),
+    icon: 'pi pi-bolt'
+  },
+  {
+    title: m.about_feature_moderation_title(),
+    description: m.about_feature_moderation_description(),
+    icon: 'pi pi-flag'
+  },
+  {
+    title: m.about_feature_settings_title(),
+    description: m.about_feature_settings_description(),
+    icon: 'pi pi-cog'
+  }
+])
 </script>

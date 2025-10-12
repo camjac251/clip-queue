@@ -4,7 +4,10 @@
   >
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <RouterLink :to="{ name: RouteNameConstants.HOME }" class="mr-2 flex shrink-0 items-center">
+        <RouterLink
+          :to="{ name: RouteNameConstants.QUEUE }"
+          class="mr-2 flex shrink-0 items-center"
+        >
           <img class="aspect-square w-10" src="/icon.png" />
         </RouterLink>
         <div v-for="route in allowedRoutes" :key="route.name">
@@ -57,6 +60,6 @@ const router = useRouter()
 
 async function handleLogout() {
   await user.logout()
-  await router.push({ name: RouteNameConstants.HOME })
+  await router.push({ name: RouteNameConstants.QUEUE })
 }
 </script>

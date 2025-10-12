@@ -9,7 +9,6 @@ import { useQueueServer as useQueue } from '@/stores/queue-server'
 import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
 import HistoryPage from '@/views/HistoryPage.vue'
-import HomePage from '@/views/HomePage.vue'
 import LogsPage from '@/views/LogsPage.vue'
 import QueuePage from '@/views/QueuePage.vue'
 import AboutSettings from '@/views/settings/AboutSettings.vue'
@@ -27,7 +26,6 @@ declare module 'vue-router' {
 }
 
 export enum RouteNameConstants {
-  HOME = 'home',
   QUEUE = 'queue',
   HISTORY = 'history',
   LOGS = 'logs',
@@ -42,12 +40,12 @@ export enum RouteNameConstants {
 
 export const routes: RouteRecordRaw[] = [
   {
-    path: '/queue',
+    path: '/',
     name: RouteNameConstants.QUEUE,
     component: QueuePage,
     meta: {
       icon: 'pi pi-list',
-      requiresAuth: true
+      requiresAuth: false
     }
   },
   {
@@ -130,11 +128,7 @@ export const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    {
-      path: '/',
-      name: RouteNameConstants.HOME,
-      component: HomePage
-    },
+    ...routes,
     {
       path: '/logs',
       name: RouteNameConstants.LOGS,
@@ -144,10 +138,9 @@ const router = createRouter({
         requiresAuth: true
       }
     },
-    ...routes,
     {
       path: '/:pathMatch(.*)*',
-      redirect: { name: RouteNameConstants.HOME }
+      redirect: { name: RouteNameConstants.QUEUE }
     }
   ]
 })
@@ -159,17 +152,19 @@ router.beforeEach(async (to, from, next) => {
   const queue = useQueue()
   const settings = useSettings()
 
-  // Initialize polling and settings if logged in
+  // Initialize queue polling for all users (read-only for unauthenticated)
+  queue.initialize()
+
+  // Initialize settings only for logged in users
   if (user.isLoggedIn) {
-    queue.initialize()
     settings.initialize()
     await settings.loadSettings()
   }
 
-  // Redirect to home if trying to access protected route while not logged in
+  // Redirect to queue if trying to access protected route while not logged in
   if (!user.isLoggedIn && to.meta.requiresAuth) {
-    logger.debug(`[Router]: User is not logged in, redirecting to home page from ${to.fullPath}.`)
-    next({ name: RouteNameConstants.HOME })
+    logger.debug(`[Router]: User is not logged in, redirecting to queue page from ${to.fullPath}.`)
+    next({ name: RouteNameConstants.QUEUE })
     return
   }
   logger.debug(`[Router]: Navigating from ${from.fullPath} to ${to.fullPath}.`)
@@ -190,7 +185,6 @@ export default router
 
 // Translations for each of the routes.
 export const routeTranslations = {
-  [RouteNameConstants.HOME]: () => '',
   [RouteNameConstants.QUEUE]: m.queue,
   [RouteNameConstants.HISTORY]: m.history,
   [RouteNameConstants.LOGS]: m.logs,
