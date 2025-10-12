@@ -588,6 +588,241 @@ export const useQueueServer = defineStore('queue-server', () => {
     }
   }
 
+  async function removeFromHistory(clipId: string): Promise<void> {
+    markActivity()
+
+    // Optimistic update
+    const previousHistory = history.value.toArray()
+    const clipToRemove = previousHistory.find((c) => c.id === clipId)
+
+    try {
+      // Optimistically remove clip from history
+      if (clipToRemove) {
+        history.value.remove(clipToRemove)
+      }
+
+      const response = await fetchWithAuth(`${API_URL}/api/queue/history/${clipId}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info('[Queue]: Removed clip from history')
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to remove clip from history: ${error}`)
+
+      // Revert optimistic update
+      history.value = new BasicClipList(...previousHistory)
+
+      throw error
+    }
+  }
+
+  async function batchRemove(clipIds: string[]): Promise<void> {
+    markActivity()
+
+    // Optimistic update
+    const previousUpcoming = upcoming.value.toArray()
+
+    try {
+      // Optimistically remove clips
+      clipIds.forEach((clipId) => {
+        const clipToRemove = upcoming.value.toArray().find((c) => c.id === clipId)
+        if (clipToRemove) {
+          upcoming.value.remove(clipToRemove)
+        }
+      })
+
+      const response = await fetchWithAuth(`${API_URL}/api/queue/batch/remove`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ clipIds })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info(`[Queue]: Removed ${clipIds.length} clips`)
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to batch remove clips: ${error}`)
+
+      // Revert optimistic update
+      upcoming.value = new ClipList(...previousUpcoming)
+
+      throw error
+    }
+  }
+
+  async function batchApprove(clipIds: string[]): Promise<void> {
+    markActivity()
+
+    // No optimistic update (pending clips not shown in UI)
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/batch/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ clipIds })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info(`[Queue]: Approved ${clipIds.length} clips`)
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to batch approve clips: ${error}`)
+      throw error
+    }
+  }
+
+  async function batchReject(clipIds: string[]): Promise<void> {
+    markActivity()
+
+    // No optimistic update (pending clips not shown in UI)
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/batch/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ clipIds })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info(`[Queue]: Rejected ${clipIds.length} clips`)
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to batch reject clips: ${error}`)
+      throw error
+    }
+  }
+
+  async function fetchRejectedClips(): Promise<Clip[]> {
+    markActivity()
+
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/rejected`, {
+        method: 'GET',
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      logger.debug(`[Queue]: Fetched ${data.clips?.length || 0} rejected clips`)
+
+      return data.clips || []
+    } catch (error) {
+      logger.error(`[Queue]: Failed to fetch rejected clips: ${error}`)
+      throw error
+    }
+  }
+
+  async function restoreRejectedClip(clipId: string): Promise<void> {
+    markActivity()
+
+    // No optimistic update (restored clip goes to pending/approved)
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/rejected/${clipId}/restore`, {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info('[Queue]: Restored rejected clip')
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to restore rejected clip: ${error}`)
+      throw error
+    }
+  }
+
+  async function replayFromHistory(clipId: string): Promise<void> {
+    markActivity()
+
+    // Optimistic update
+    const previousCurrent = current.value
+    const previousHistory = history.value.toArray()
+    const clipToReplay = previousHistory.find((c) => c.id === clipId)
+
+    try {
+      // Optimistically replay clip from history
+      if (clipToReplay) {
+        if (current.value) {
+          history.value.add(current.value)
+        }
+        history.value.remove(clipToReplay)
+        current.value = clipToReplay
+      }
+
+      const response = await fetchWithAuth(`${API_URL}/api/queue/history/${clipId}/replay`, {
+        method: 'POST'
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info('[Queue]: Replaying clip from history')
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to replay clip from history: ${error}`)
+
+      // Revert optimistic update
+      current.value = previousCurrent
+      history.value = new BasicClipList(...previousHistory)
+
+      throw error
+    }
+  }
+
   return {
     // State
     current,
@@ -611,6 +846,13 @@ export const useQueueServer = defineStore('queue-server', () => {
     clearHistory,
     submit,
     remove,
-    play
+    play,
+    removeFromHistory,
+    batchRemove,
+    batchApprove,
+    batchReject,
+    fetchRejectedClips,
+    restoreRejectedClip,
+    replayFromHistory
   }
 })

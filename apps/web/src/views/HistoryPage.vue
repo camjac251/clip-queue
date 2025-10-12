@@ -9,6 +9,14 @@
       @click="deleteClips()"
     ></DangerButton>
     <SecondaryButton
+      icon="pi pi-history"
+      :label="m.play()"
+      :disabled="!selection.length"
+      severity="secondary"
+      size="small"
+      @click="replayClips()"
+    ></SecondaryButton>
+    <SecondaryButton
       icon="pi pi-plus"
       :label="m.queue()"
       :disabled="isQueueClipsDisabled"
@@ -104,7 +112,16 @@
 import { computed, ref } from 'vue'
 
 import type { Clip } from '@cq/platforms'
-import { Column, DangerButton, DataTable, InputText, SecondaryButton, useConfirm } from '@cq/ui'
+import { toClipUUID } from '@cq/platforms'
+import {
+  Column,
+  DangerButton,
+  DataTable,
+  InputText,
+  SecondaryButton,
+  useConfirm,
+  useToast
+} from '@cq/ui'
 
 import PlatformName from '@/components/PlatformName.vue'
 import * as m from '@/paraglide/messages'
@@ -117,6 +134,7 @@ const filters = ref({
 })
 
 const confirm = useConfirm()
+const toast = useToast()
 const queue = useQueue()
 const logger = useLogger()
 const user = useUser()
@@ -140,6 +158,53 @@ async function queueClips() {
   }
 }
 
+async function replayClips() {
+  const clips = [...selection.value]
+  logger.debug(`[History]: replaying ${clips.length} clip(s).`)
+
+  const results = { succeeded: 0, failed: 0 }
+
+  for (const clip of clips) {
+    try {
+      await queue.replayFromHistory(toClipUUID(clip))
+      results.succeeded++
+      logger.debug(`[History]: Replayed clip: ${clip.title}`)
+    } catch (error) {
+      results.failed++
+      logger.error(`[History]: Failed to replay clip ${clip.title}: ${error}`)
+    }
+  }
+
+  // Clear selection on success
+  if (results.succeeded > 0) {
+    selection.value = []
+  }
+
+  // Show appropriate toast based on results
+  if (results.failed === 0) {
+    toast.add({
+      severity: 'success',
+      summary: m.success(),
+      detail: `Replayed ${results.succeeded} clip${results.succeeded === 1 ? '' : 's'} from history`,
+      life: 3000
+    })
+  } else if (results.succeeded === 0) {
+    toast.add({
+      severity: 'error',
+      summary: m.error(),
+      detail: `Failed to replay ${results.failed} clip${results.failed === 1 ? '' : 's'}`,
+      life: 3000
+    })
+  } else {
+    toast.add({
+      severity: 'warning',
+      summary: m.warning(),
+      detail: `Replayed ${results.succeeded} clip${results.succeeded === 1 ? '' : 's'}, ${results.failed} failed`,
+      life: 3000
+    })
+  }
+}
+
 function deleteClips() {
   const clips = [...selection.value]
   logger.debug(`[History]: attempting to delete ${clips.length} clip(s).`)
@@ -152,10 +217,48 @@ function deleteClips() {
     acceptProps: {
       label: m.confirm()
     },
-    accept: () => {
-      logger.warn(`[History]: Individual clip deletion not supported - use Clear History instead`)
-      // Note: Individual history clip deletion not implemented in backend
-      // Users must use Clear History to remove all history
+    accept: async () => {
+      const results = { succeeded: 0, failed: 0 }
+
+      for (const clip of clips) {
+        try {
+          await queue.removeFromHistory(toClipUUID(clip))
+          results.succeeded++
+          logger.debug(`[History]: Deleted clip: ${clip.title}`)
+        } catch (error) {
+          results.failed++
+          logger.error(`[History]: Failed to delete clip ${clip.title}: ${error}`)
+        }
+      }
+
+      // Clear selection on success
+      if (results.succeeded > 0) {
+        selection.value = []
+      }
+
+      // Show appropriate toast based on results
+      if (results.failed === 0) {
+        toast.add({
+          severity: 'success',
+          summary: m.success(),
+          detail: `Deleted ${results.succeeded} clip${results.succeeded === 1 ? '' : 's'} from history`,
+          life: 3000
+        })
+      } else if (results.succeeded === 0) {
+        toast.add({
+          severity: 'error',
+          summary: m.error(),
+          detail: `Failed to delete ${results.failed} clip${results.failed === 1 ? '' : 's'}`,
+          life: 3000
+        })
+      } else {
+        toast.add({
+          severity: 'warning',
+          summary: m.warning(),
+          detail: `Deleted ${results.succeeded} clip${results.succeeded === 1 ? '' : 's'}, ${results.failed} failed`,
+          life: 3000
+        })
+      }
     },
     reject: () => {
       logger.debug(`[History]: deletion of ${clips.length} clip(s) was cancelled.`)

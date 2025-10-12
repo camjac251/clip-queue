@@ -62,9 +62,11 @@ import {
   getClipsByStatus,
   updateClipStatus,
   deleteClipsByStatus,
+  clips,
   type Clip,
   type AppSettings
 } from './db.js'
+import { eq } from 'drizzle-orm'
 import { TwitchEventSubClient } from './eventsub.js'
 import { authenticate, requireBroadcaster, requireModerator, validateTwitchToken, checkChannelRole, invalidateTokenCache, invalidateRoleCache, clearAllCaches, getCacheStats, type AuthenticatedRequest } from './auth.js'
 import oauthRouter from './oauth.js'
@@ -88,6 +90,10 @@ const SubmitClipSchema = z.object({
 
 const ClipIdSchema = z.object({
   clipId: z.string().min(1).max(200)
+})
+
+const BatchClipIdsSchema = z.object({
+  clipIds: z.array(z.string().min(1).max(200)).min(1).max(100)
 })
 
 const app = express()
@@ -809,6 +815,49 @@ app.delete('/api/queue/history', authenticate, authFailureLimiter, authenticated
   }
 }))
 
+// DELETE /api/queue/history/:clipId - Remove individual clip from history (moderator only)
+app.delete('/api/queue/history/:clipId', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
+  const { clipId } = req.params
+
+  // Validate clipId format
+  if (!clipId || clipId.length === 0 || clipId.length > 200) {
+    return res.status(400).json({
+      error: 'INVALID_CLIP_ID',
+      message: 'Clip ID must be between 1 and 200 characters'
+    })
+  }
+
+  // Find clip in history
+  const historyClips = history.toArray()
+  const clip = historyClips.find((c) => toClipUUID(c) === clipId)
+
+  if (!clip) {
+    return res.status(404).json({
+      error: 'CLIP_NOT_FOUND',
+      message: 'Clip not found in history',
+      clipId
+    })
+  }
+
+  try {
+    // Remove from in-memory history
+    history.remove(clip)
+
+    // Delete from database
+    db.delete(clips).where(eq(clips.id, clipId)).run()
+
+    // Invalidate ETag
+    invalidateETag()
+
+    console.log(`[Queue] Removed clip from history: ${clip.title}`)
+    res.json({ success: true, state: getQueueState() })
+  } catch (error) {
+    // Roll back in-memory changes on database failure
+    history.add(clip)
+    throw error // Let asyncHandler catch and respond with error
+  }
+}))
+
 // Queue control (broadcaster only)
 app.post('/api/queue/open', authenticate, authFailureLimiter, authenticatedLimiter, requireBroadcaster, (req, res) => {
   isQueueOpen = true
@@ -935,6 +984,63 @@ app.post('/api/queue/reject', authenticate, authFailureLimiter, authenticatedLim
   res.json({ success: true, state: getQueueState() })
 }))
 
+// GET /api/queue/rejected - List rejected clips (broadcaster/moderator only)
+app.get('/api/queue/rejected', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, (req, res) => {
+  const rejectedClips = getClipsByStatus(db, 'rejected')
+  res.json({ clips: rejectedClips })
+})
+
+// POST /api/queue/rejected/:clipId/restore - Restore a rejected clip to approved status (broadcaster/moderator only)
+app.post('/api/queue/rejected/:clipId/restore', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
+  // Validate input
+  const parseResult = ClipIdSchema.safeParse({ clipId: req.params.clipId })
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: parseResult.error.issues
+    })
+  }
+
+  const { clipId } = parseResult.data
+
+  // Get clip from database
+  const clip = getClip(db, clipId)
+  if (!clip) {
+    return res.status(404).json({
+      error: 'REJECTED_CLIP_NOT_FOUND',
+      message: 'Rejected clip not found. It may have been deleted.',
+      clipId
+    })
+  }
+
+  // Verify clip is actually rejected
+  const dbClip = db.select().from(clips).where(eq(clips.id, clipId)).get()
+  if (!dbClip || dbClip.status !== 'rejected') {
+    return res.status(404).json({
+      error: 'CLIP_NOT_REJECTED',
+      message: 'Clip is not in rejected status. Only rejected clips can be restored.',
+      clipId,
+      currentStatus: dbClip?.status || 'unknown'
+    })
+  }
+
+  try {
+    // Update status to approved in database
+    updateClipStatus(db, clipId, 'approved')
+
+    // Add to in-memory queue
+    queue.add(clip)
+
+    console.log(`[Queue] Restored rejected clip: ${clip.title}`)
+    invalidateETag()
+    res.json({ success: true, state: getQueueState() })
+  } catch (error) {
+    // Roll back in-memory changes on database failure
+    queue.remove(clip)
+    throw error // Let asyncHandler catch and respond with error
+  }
+}))
+
 app.post('/api/queue/play', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
   // Validate input
   const parseResult = ClipIdSchema.safeParse(req.body)
@@ -982,6 +1088,207 @@ app.post('/api/queue/play', authenticate, authFailureLimiter, authenticatedLimit
   } finally {
     release()
   }
+}))
+
+// Replay clip from history (moderators only)
+app.post('/api/queue/history/:clipId/replay', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
+  // Validate input
+  const parseResult = ClipIdSchema.safeParse({ clipId: req.params.clipId })
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: parseResult.error.issues
+    })
+  }
+
+  const { clipId } = parseResult.data
+
+  const release = await queueOperationMutex.acquire()
+  try {
+    // Find clip in history
+    const historyClips = history.toArray()
+    const clip = historyClips.find((c) => toClipUUID(c) === clipId)
+
+    if (!clip) {
+      release()
+      return res.status(404).json({
+        error: 'CLIP_NOT_IN_HISTORY',
+        message: 'Clip not found in history. It may have been cleared or never played.',
+        clipId
+      })
+    }
+
+    // Remove from history
+    history.remove(clip)
+
+    // Add to queue
+    queue.add(clip)
+
+    // Update database status from 'played' to 'approved'
+    try {
+      updateClipStatus(db, clipId, 'approved')
+    } catch (error) {
+      // Rollback: remove from queue and re-add to history
+      queue.remove(clip)
+      history.add(clip)
+      throw error
+    }
+
+    // Broadcast change
+    invalidateETag()
+
+    console.log(`[Queue] Replayed clip from history: ${clip.title}`)
+    res.json({ success: true, state: getQueueState() })
+  } finally {
+    release()
+  }
+}))
+
+// Batch clip operations (moderators only)
+app.post('/api/queue/batch/remove', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
+  // Validate input
+  const parseResult = BatchClipIdsSchema.safeParse(req.body)
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: parseResult.error.issues
+    })
+  }
+
+  const { clipIds } = parseResult.data
+  const queueClips = queue.toArray()
+  const results = { removed: 0, failed: [] as string[], notFound: [] as string[] }
+
+  // Process each clip - use partial success pattern
+  for (const clipId of clipIds) {
+    const clip = queueClips.find((c) => toClipUUID(c) === clipId)
+
+    if (!clip) {
+      results.notFound.push(clipId)
+      continue
+    }
+
+    try {
+      queue.remove(clip)
+      updateClipStatus(db, clipId, 'rejected')
+      results.removed++
+    } catch (error) {
+      // Roll back in-memory change on database failure
+      queue.add(clip)
+      results.failed.push(clipId)
+      console.error(`[Queue] Failed to remove clip ${clipId}:`, error)
+    }
+  }
+
+  // Invalidate ETag only if at least one clip was removed
+  if (results.removed > 0) {
+    invalidateETag()
+  }
+
+  console.log(`[Queue] Batch remove: ${results.removed} removed, ${results.failed.length} failed, ${results.notFound.length} not found`)
+
+  res.json({
+    success: true,
+    removed: results.removed,
+    failed: results.failed,
+    notFound: results.notFound,
+    state: getQueueState()
+  })
+}))
+
+app.post('/api/queue/batch/approve', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
+  // Validate input
+  const parseResult = BatchClipIdsSchema.safeParse(req.body)
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: parseResult.error.issues
+    })
+  }
+
+  const { clipIds } = parseResult.data
+  const results = { approved: 0, failed: [] as string[], notFound: [] as string[] }
+
+  // Process each clip - use partial success pattern
+  for (const clipId of clipIds) {
+    const clip = getClip(db, clipId)
+
+    if (!clip) {
+      results.notFound.push(clipId)
+      continue
+    }
+
+    try {
+      // Update status in database
+      updateClipStatus(db, clipId, 'approved')
+
+      // Add to in-memory queue
+      queue.add(clip)
+
+      results.approved++
+    } catch (error) {
+      results.failed.push(clipId)
+      console.error(`[Queue] Failed to approve clip ${clipId}:`, error)
+    }
+  }
+
+  // Invalidate ETag only if at least one clip was approved
+  if (results.approved > 0) {
+    invalidateETag()
+  }
+
+  console.log(`[Queue] Batch approve: ${results.approved} approved, ${results.failed.length} failed, ${results.notFound.length} not found`)
+
+  res.json({
+    success: true,
+    approved: results.approved,
+    failed: results.failed,
+    notFound: results.notFound,
+    state: getQueueState()
+  })
+}))
+
+app.post('/api/queue/batch/reject', authenticate, authFailureLimiter, authenticatedLimiter, requireModerator, asyncHandler(async (req, res) => {
+  // Validate input
+  const parseResult = BatchClipIdsSchema.safeParse(req.body)
+  if (!parseResult.success) {
+    return res.status(400).json({
+      error: 'Invalid input',
+      details: parseResult.error.issues
+    })
+  }
+
+  const { clipIds } = parseResult.data
+  const results = { rejected: 0, failed: [] as string[], notFound: [] as string[] }
+
+  // Process each clip - use partial success pattern
+  for (const clipId of clipIds) {
+    const clip = getClip(db, clipId)
+
+    if (!clip) {
+      results.notFound.push(clipId)
+      continue
+    }
+
+    try {
+      // Update status to rejected
+      updateClipStatus(db, clipId, 'rejected')
+      results.rejected++
+    } catch (error) {
+      results.failed.push(clipId)
+      console.error(`[Queue] Failed to reject clip ${clipId}:`, error)
+    }
+  }
+
+  console.log(`[Queue] Batch reject: ${results.rejected} rejected, ${results.failed.length} failed, ${results.notFound.length} not found`)
+
+  res.json({
+    success: true,
+    rejected: results.rejected,
+    failed: results.failed,
+    notFound: results.notFound,
+    state: getQueueState()
+  })
 }))
 
 // Auth API endpoints

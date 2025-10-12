@@ -357,16 +357,26 @@ app.get('/api/queue', (req, res) => {
   - `GET /api/health` → server health check
   - `GET /api/queue` → get current queue state
   - `GET /api/settings` → get app settings
-  - `POST /api/queue/submit` → manually add clip
-  - `POST /api/queue/advance` → next clip
-  - `POST /api/queue/previous` → previous clip
-  - `POST /api/queue/open` → open queue
-  - `POST /api/queue/close` → close queue
-  - `POST /api/queue/play` → play specific clip
-  - `POST /api/queue/remove` → remove specific clip
-  - `DELETE /api/queue` → clear queue
-  - `DELETE /api/queue/history` → clear history
-  - `PUT /api/settings` → update app settings
+  - `GET /api/queue/pending` → list pending clips (moderator)
+  - `GET /api/queue/rejected` → list rejected clips (moderator)
+  - `POST /api/queue/submit` → manually add clip (moderator)
+  - `POST /api/queue/advance` → next clip (moderator)
+  - `POST /api/queue/previous` → previous clip (moderator)
+  - `POST /api/queue/open` → open queue (broadcaster)
+  - `POST /api/queue/close` → close queue (broadcaster)
+  - `POST /api/queue/play` → play specific clip (moderator)
+  - `POST /api/queue/remove` → remove specific clip (moderator)
+  - `POST /api/queue/approve` → approve pending clip (moderator)
+  - `POST /api/queue/reject` → reject pending clip (moderator)
+  - `POST /api/queue/rejected/:clipId/restore` → restore rejected clip to queue (moderator)
+  - `POST /api/queue/history/:clipId/replay` → replay clip from history (moderator)
+  - `DELETE /api/queue/history/:clipId` → delete individual history clip (moderator)
+  - `POST /api/queue/batch/remove` → remove multiple clips (moderator)
+  - `POST /api/queue/batch/approve` → approve multiple pending clips (moderator)
+  - `POST /api/queue/batch/reject` → reject multiple pending clips (moderator)
+  - `DELETE /api/queue` → clear queue (broadcaster)
+  - `DELETE /api/queue/history` → clear history (broadcaster)
+  - `PUT /api/settings` → update app settings (broadcaster)
 
 **Polling Implementation**:
 
@@ -415,7 +425,95 @@ function initialize() {
 10. **Error Recovery**: Stops polling after 5 consecutive errors, clears stale state
 11. **Settings Synchronization**: Settings included in queue state and ETag - all clients stay in sync
 
-#### 5. Platform/Service Separation
+#### 5. API Endpoints Reference
+
+**Queue Management Endpoints:**
+
+**GET /api/queue/pending** (Moderator)
+- Lists all clips pending approval when auto-moderation is enabled
+- Returns: `{ clips: Clip[] }`
+- Use case: Review queue for manual moderation
+
+**POST /api/queue/approve** (Moderator)
+- Approves a pending clip and adds it to the active queue
+- Body: `{ clipId: string }`
+- Returns: `{ success: true, state: QueueState }`
+- Error 404: Clip not found or already processed
+
+**POST /api/queue/reject** (Moderator)
+- Rejects a pending clip (sets status to 'rejected')
+- Body: `{ clipId: string }`
+- Returns: `{ success: true, state: QueueState }`
+- Error 404: Clip not found or already processed
+
+**GET /api/queue/rejected** (Moderator)
+- Lists all rejected clips
+- Returns: `{ clips: Clip[] }`
+- Use case: Review rejected clips, restore false positives
+
+**POST /api/queue/rejected/:clipId/restore** (Moderator)
+- Restores a rejected clip back to approved status and adds to queue
+- URL param: `clipId` (e.g., `twitch:abc123`)
+- Returns: `{ success: true, state: QueueState }`
+- Error 404: Clip not found or not in rejected status
+- Error 400: Invalid clipId parameter
+
+**POST /api/queue/history/:clipId/replay** (Moderator)
+- Moves a played clip from history back to the active queue
+- URL param: `clipId` (e.g., `twitch:abc123`)
+- Returns: `{ success: true, state: QueueState }`
+- Error 404: Clip not found in history
+- Error 400: Invalid clipId parameter
+- Use case: Replay popular clips, requeue accidentally skipped clips
+
+**DELETE /api/queue/history/:clipId** (Moderator)
+- Permanently removes a specific clip from history
+- URL param: `clipId` (e.g., `twitch:abc123`)
+- Returns: `{ success: true, state: QueueState }`
+- Error 404: Clip not found in history
+- Error 400: Invalid clipId parameter
+- Use case: Clean up history without clearing entire list
+
+**Batch Operations Endpoints:**
+
+**POST /api/queue/batch/remove** (Moderator)
+- Removes multiple clips from queue at once (sets status to 'rejected')
+- Body: `{ clipIds: string[] }` (max 100 clips)
+- Returns: `{ success: true, removed: number, failed: string[], notFound: string[], state: QueueState }`
+- Partial success pattern: Some clips may fail while others succeed
+- Use case: Mass cleanup of spam or off-topic clips
+
+**POST /api/queue/batch/approve** (Moderator)
+- Approves multiple pending clips at once
+- Body: `{ clipIds: string[] }` (max 100 clips)
+- Returns: `{ success: true, approved: number, failed: string[], notFound: string[], state: QueueState }`
+- Partial success pattern: Some clips may fail while others succeed
+- Use case: Bulk approval after manual review
+
+**POST /api/queue/batch/reject** (Moderator)
+- Rejects multiple pending clips at once
+- Body: `{ clipIds: string[] }` (max 100 clips)
+- Returns: `{ success: true, rejected: number, failed: string[], notFound: string[], state: QueueState }`
+- Partial success pattern: Some clips may fail while others succeed
+- Use case: Bulk rejection of low-quality submissions
+
+**Input Validation:**
+- All endpoints validate input with Zod schemas
+- `clipId`: 1-200 characters, format: `platform:id` (e.g., `twitch:abc123`)
+- `clipIds`: Array of 1-100 clipIds
+- Invalid input returns 400 with error details
+
+**Error Handling:**
+- All async endpoints wrapped in `asyncHandler()` for consistent error responses
+- Database failures trigger automatic rollback of in-memory state changes
+- Structured error responses: `{ error: string, message: string, details?: any }`
+
+**State Synchronization:**
+- All successful mutations call `invalidateETag()` to trigger client updates
+- POST responses include full `state: QueueState` for immediate client sync
+- Batch operations only invalidate ETag if at least one operation succeeds
+
+#### 6. Platform/Service Separation
 
 **Services** (`packages/services`): Low-level API clients
 
@@ -440,7 +538,7 @@ if (url.includes('twitch.tv') && (url.includes('clip') || url.includes('/clips/'
 if (url.includes('kick.com/') && url.includes('/clips/clip_'))
 ```
 
-#### 6. Chat Commands
+#### 7. Chat Commands
 
 **Detection** (`apps/api/src/index.ts`):
 
@@ -465,7 +563,7 @@ if (url.includes('kick.com/') && url.includes('/clips/clip_'))
 - `purgecache` → clear authentication caches
 - `purgehistory` → clear history
 
-#### 7. Authentication & Authorization
+#### 8. Authentication & Authorization
 
 **Backend** (`apps/api/src/auth.ts`, `apps/api/src/index.ts`):
 
@@ -488,7 +586,11 @@ if (url.includes('kick.com/') && url.includes('/clips/clip_'))
 **Protected Routes:**
 
 - **Public**: `/api/health`, `/api/queue` (GET), `/api/settings` (GET)
-- **Moderator**: `/api/queue/submit|advance|previous|remove|play` (POST)
+- **Moderator**:
+  - Single clip operations: `/api/queue/submit|advance|previous|remove|play|approve|reject` (POST)
+  - Pending/rejected management: `/api/queue/pending` (GET), `/api/queue/rejected` (GET), `/api/queue/rejected/:clipId/restore` (POST)
+  - History operations: `/api/queue/history/:clipId/replay` (POST), `/api/queue/history/:clipId` (DELETE)
+  - Batch operations: `/api/queue/batch/remove|approve|reject` (POST)
 - **Broadcaster**: `/api/queue/open|close` (POST), `/api/queue` (DELETE), `/api/queue/history` (DELETE), `/api/settings` (PUT), `/api/auth/cache/*`
 
 **Frontend** (`apps/web/src/stores/user.ts`, `apps/web/src/utils/api.ts`):
@@ -501,7 +603,7 @@ if (url.includes('kick.com/') && url.includes('/clips/clip_'))
 - UI conditionally shows/hides controls based on permissions
 - `fetchWithAuth()` utility with 30-second timeout, handles 401/403 responses
 
-#### 8. OAuth Router (Authorization Code + PKCE)
+#### 9. OAuth Router (Authorization Code + PKCE)
 
 **Implementation** (`apps/api/src/oauth.ts`):
 
@@ -525,7 +627,7 @@ if (url.includes('kick.com/') && url.includes('/clips/clip_'))
 - SameSite=strict for CSRF protection
 - 60-day token lifetime (matches Twitch refresh token)
 
-#### 9. Path Resolution Utilities
+#### 10. Path Resolution Utilities
 
 **Implementation** (`apps/api/src/paths.ts`):
 
@@ -555,7 +657,7 @@ const dbPath = resolveFromRoot('apps', 'api', 'data', 'clips.db')
 const migrationsPath = resolveFromRoot('apps', 'api', 'drizzle')
 ```
 
-#### 10. Bootstrap Pattern (server.ts)
+#### 11. Bootstrap Pattern (server.ts)
 
 **Problem**: ESM (ES Modules) **hoists all imports** to the top before running any module body code. This causes issues when modules access `process.env` at import time (e.g., creating `session()` middleware), because dotenv hasn't loaded yet.
 
