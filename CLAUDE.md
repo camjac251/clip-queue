@@ -67,7 +67,39 @@ pnpm format             # Auto-format all files
 pnpm --filter @cq/api db:generate  # Generate migration from schema changes
 pnpm --filter @cq/api db:migrate   # Apply migrations to database
 pnpm --filter @cq/api db:studio    # Open Drizzle Studio GUI
+
+# Internationalization (i18n)
+pnpm web i18n:check      # Check for missing translation keys
+pnpm web i18n:sync       # Sync missing keys from en.json (adds English placeholders)
+pnpm web i18n:translate  # Machine translate all untranslated keys
 ```
+
+### Internationalization (i18n)
+
+**Framework**: [@inlang/paraglide-js](https://inlang.com/m/gerre34r/library-inlang-paraglideJs) v2.4.0
+- Zero runtime overhead, type-safe translations
+- 13 locales: ar, de, en, es, fr, hi, it, ja, ko, pt, ru, tr, zh
+- Messages stored in `apps/web/messages/*.json`
+- Usage: `import * as m from '@/paraglide/messages'` then `m.login()`
+
+**Workflow**:
+1. **Add new keys** to `apps/web/messages/en.json` (base locale)
+2. **Sync keys** to other locales: `pnpm web i18n:sync` (adds English placeholders)
+3. **Machine translate**: `pnpm web i18n:translate` (uses inlang CLI AI translation)
+4. **Check completeness**: `pnpm web i18n:check` (validates all locales have same keys)
+
+**Scripts** (`apps/web/scripts/`):
+- `check-i18n.ts` - TypeScript script to validate translation completeness
+- `sync-i18n.ts` - TypeScript script to sync missing keys across locales
+
+**Turborepo Integration**:
+- Tasks defined in `turbo.json`: `i18n:check`, `i18n:sync`, `i18n:translate`
+- No caching (translation files change frequently)
+
+**Translation Quality**:
+- Machine translations via [@inlang/cli](https://inlang.com/m/2qj2w8pu/app-inlang-cli) are generally good for UI text
+- Technical terms and proper nouns may remain in English
+- Manual review recommended for user-facing strings
 
 ### Git Hooks (Husky)
 

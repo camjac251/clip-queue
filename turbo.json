@@ -53,6 +53,20 @@
     },
     "db:studio": {
       "cache": false
+    },
+    "i18n:check": {
+      "inputs": ["messages/*.json", "project.inlang/**", "scripts/check-i18n.ts"],
+      "cache": false
+    },
+    "i18n:sync": {
+      "inputs": ["messages/en.json", "scripts/sync-i18n.ts"],
+      "outputs": ["messages/*.json"],
+      "cache": false
+    },
+    "i18n:translate": {
+      "inputs": ["messages/*.json", "project.inlang/**"],
+      "outputs": ["messages/*.json"],
+      "cache": false
     }
   },
   "globalDependencies": [
