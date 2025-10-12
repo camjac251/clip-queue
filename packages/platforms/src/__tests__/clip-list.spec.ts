@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { Platform } from '@cq/platforms'
-
 import { ClipList } from '../clip-list'
+import { Platform } from '../types'
 import { clipFromKick, clipFromTwitch } from './mocks'
 
 describe('clip-list.ts', () => {
