@@ -855,7 +855,11 @@ app.post('/api/queue/remove', authenticate, authFailureLimiter, authenticatedLim
       throw error // Let asyncHandler catch and respond with error
     }
   } else {
-    res.status(404).json({ error: 'Clip not found' })
+    res.status(404).json({
+      error: 'CLIP_NOT_FOUND',
+      message: 'Clip not found in queue',
+      clipId
+    })
   }
 }))
 
@@ -881,7 +885,11 @@ app.post('/api/queue/approve', authenticate, authFailureLimiter, authenticatedLi
   // Get clip from database
   const clip = getClip(db, clipId)
   if (!clip) {
-    return res.status(404).json({ error: 'Clip not found' })
+    return res.status(404).json({
+      error: 'PENDING_CLIP_NOT_FOUND',
+      message: 'Pending clip not found. It may have been already approved or rejected.',
+      clipId
+    })
   }
 
   // Update status in database
@@ -911,7 +919,11 @@ app.post('/api/queue/reject', authenticate, authFailureLimiter, authenticatedLim
   // Get clip from database
   const clip = getClip(db, clipId)
   if (!clip) {
-    return res.status(404).json({ error: 'Clip not found' })
+    return res.status(404).json({
+      error: 'PENDING_CLIP_NOT_FOUND',
+      message: 'Pending clip not found. It may have been already approved or rejected.',
+      clipId
+    })
   }
 
   // Update status to rejected
@@ -941,7 +953,11 @@ app.post('/api/queue/play', authenticate, authFailureLimiter, authenticatedLimit
 
     if (!clip) {
       release()
-      return res.status(404).json({ error: 'Clip not found' })
+      return res.status(404).json({
+        error: 'CLIP_NOT_IN_QUEUE',
+        message: 'Clip not found in queue. It may have already been played or removed.',
+        clipId
+      })
     }
 
     const state = { current: currentClip, queue, history }
@@ -969,7 +985,10 @@ app.post('/api/queue/play', authenticate, authFailureLimiter, authenticatedLimit
 // Auth API endpoints
 app.get('/api/auth/me', authenticate, authFailureLimiter, authenticatedLimiter, (req: AuthenticatedRequest, res) => {
   if (!req.user) {
-    return res.status(401).json({ error: 'Not authenticated' })
+    return res.status(401).json({
+      error: 'NOT_AUTHENTICATED',
+      message: 'Authentication required. Please log in with Twitch.'
+    })
   }
 
   res.json({
@@ -1048,7 +1067,11 @@ app.put('/api/settings', authenticate, authFailureLimiter, authenticatedLimiter,
     res.json({ success: true, settings })
   } catch (error) {
     console.error('[Settings] Validation failed:', error)
-    res.status(400).json({ error: 'Invalid settings', details: error })
+    res.status(400).json({
+      error: 'INVALID_SETTINGS',
+      message: 'Settings validation failed. Check the details for specific errors.',
+      details: error
+    })
   }
 })
 
@@ -1056,10 +1079,11 @@ app.put('/api/settings', authenticate, authFailureLimiter, authenticatedLimiter,
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('[Express] Unhandled error:', err)
 
-  // Send error response
+  // Send structured error response
   const statusCode = res.statusCode !== 200 ? res.statusCode : 500
   res.status(statusCode).json({
-    error: err.message || 'Internal server error',
+    error: 'INTERNAL_SERVER_ERROR',
+    message: err.message || 'An unexpected error occurred on the server',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   })
 })
