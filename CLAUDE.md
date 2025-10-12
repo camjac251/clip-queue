@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Clip Queue is a self-hosted web application with a Node.js backend that continuously monitors Twitch chat via EventSub, automatically queuing clips submitted by viewers. The Vue.js frontend connects to the backend via WebSocket for real-time synchronization across multiple devices.
+Clip Queue is a self-hosted web application with a Node.js backend that continuously monitors Twitch chat via EventSub, automatically queuing clips submitted by viewers. The Vue.js frontend polls the backend via HTTP for real-time queue synchronization across multiple devices.
 
 ## Development Commands
 
@@ -83,16 +83,15 @@ pnpm --filter @cq/api db:studio    # Open Drizzle Studio GUI
 ┌─────────────────────────────────────────┐
 │  Backend Server (Node.js)               │
 │  - Express REST API                     │
-│  - Socket.io WebSocket server           │
 │  - TwitchEventSubClient (eventsub.ts)   │
 │  - Drizzle ORM + SQLite                 │
 │  - In-memory ClipList (queue)           │
 └─────────────┬───────────────────────────┘
               │
-              ↓ (WebSocket sync)
+              ↓ (HTTP Polling every 2s with ETag)
 ┌─────────────────────────────────────────┐
 │  Frontend(s) (Vue.js SPA)               │
-│  - Socket.io client                     │
+│  - HTTP polling client                  │
 │  - Pinia stores (queue-server.ts)       │
 │  - Real-time UI updates                 │
 └─────────────────────────────────────────┘
@@ -104,12 +103,12 @@ pnpm --filter @cq/api db:studio    # Open Drizzle Studio GUI
 
 ```
 apps/
-  api/           Express + Socket.io + EventSub + SQLite
-  web/           Vue.js frontend (WebSocket client)
+  api/           Express + REST API + EventSub + SQLite
+  web/           Vue.js frontend (HTTP polling client)
 
 packages/
   config/        Shared configurations (TypeScript, ESLint, Vitest)
-  constants/     Shared constants (events, commands, platforms)
+  constants/     Shared constants (commands, platforms)
   player/        Video.js clip player component
   platforms/     Clip fetching (TwitchPlatform, KickPlatform)
   queue-ops/     Queue operations (advance, previous, clear, play)
@@ -139,6 +138,8 @@ packages/
 - Better reliability and structured data
 - Auto-reconnect built into protocol
 - Access to badge info (mod/broadcaster detection)
+
+**Note**: The `ws` package is used **only** for backend-to-Twitch EventSub connection. The frontend does **not** use WebSockets.
 
 #### 2. Database Layer (Drizzle ORM + SQLite)
 
@@ -206,44 +207,51 @@ pnpm api db:generate
 ```
 Chat message → handleClipSubmission()
   ↓
+  ├─ Check if queue is open (settings.queue.isOpen)
   ├─ Fetch clip metadata (TwitchPlatform.getClip())
+  ├─ Check platform enabled (settings.queue.platforms)
+  ├─ Check queue limit (settings.queue.limit)
+  ├─ Check auto-moderation (settings.queue.hasAutoModerationEnabled)
   ├─ upsertClip(db, ...) → SQLite
-  └─ queue.add(clip) → in-memory ClipList
+  └─ queue.add(clip) → in-memory ClipList (if approved)
   ↓
-io.emit('clip:added', clip) → all connected clients
+State updated (clients will fetch on next poll)
 ```
 
-#### 4. Real-Time WebSocket Sync
+#### 4. HTTP Polling Architecture
 
-**Server Events** (`apps/api/src/index.ts`):
+**Server Endpoint** (`apps/api/src/index.ts`):
 
 ```typescript
-io.on("connection", (socket) => {
-  // Initial state sync
-  socket.emit("sync:state", {
+app.get('/api/queue', (req, res) => {
+  // Generate ETag from current state
+  const etag = generateStateHash()
+
+  // Check if client has cached version
+  const clientETag = req.headers['if-none-match']
+  if (clientETag === etag) {
+    return res.status(304).end() // Not Modified
+  }
+
+  // Return full state with ETag
+  res.setHeader('ETag', etag)
+  res.setHeader('Cache-Control', 'no-cache')
+  res.json({
     current: currentClip,
     upcoming: queue.toArray(),
     history: history.toArray(),
     isOpen: isQueueOpen,
-  });
-});
-
-// Broadcast events:
-io.emit("clip:added", { clip });
-io.emit("clip:removed", { clipId });
-io.emit("queue:current", { clip });
-io.emit("queue:cleared", {});
-io.emit("history:cleared", {});
-io.emit("queue:opened", {});
-io.emit("queue:closed", {});
-io.emit("settings:updated", { settings });
+    settings: settings // Include settings for client synchronization
+  })
+})
 ```
 
 **Client Store** (`apps/web/src/stores/queue-server.ts`):
 
-- Connects to `VITE_API_URL` (defaults to `http://localhost:3000`)
-- Listens for server events and updates local Pinia state
-- Sends commands via REST API (not WebSocket):
+- Polls `GET /api/queue` every 2 seconds with ETag header
+- Server returns `304 Not Modified` if state unchanged (efficient)
+- Immediately fetches state after sending commands (no wait for next poll)
+- Sends control commands via REST API:
   - `GET /api/health` → server health check
   - `GET /api/queue` → get current queue state
   - `GET /api/settings` → get app settings
@@ -257,6 +265,53 @@ io.emit("settings:updated", { settings });
   - `DELETE /api/queue` → clear queue
   - `DELETE /api/queue/history` → clear history
   - `PUT /api/settings` → update app settings
+
+**Polling Implementation**:
+
+```typescript
+const POLL_INTERVAL_MS = 2000 // 2 seconds
+
+async function fetchQueueState() {
+  const headers = lastETag ? { 'If-None-Match': lastETag } : {}
+  const response = await fetch(`${API_URL}/api/queue`, { headers })
+
+  if (response.status === 304) {
+    // State unchanged, nothing to update
+    return
+  }
+
+  lastETag = response.headers.get('ETag')
+  const data = await response.json()
+  updateState(data)
+}
+
+function initialize() {
+  fetchQueueState() // Fetch immediately
+  pollInterval = setInterval(fetchQueueState, POLL_INTERVAL_MS)
+}
+```
+
+**Why Polling Over WebSockets**:
+
+- ✅ **Simpler**: ~350 LOC removed, no connection management
+- ✅ **More reliable for OBS**: Browser sources handle HTTP better than persistent WebSocket connections
+- ✅ **Efficient with ETag**: Most polls return `304 Not Modified` (empty response)
+- ✅ **Same UX**: 2-second polling + immediate fetch after commands = imperceptible latency
+- ✅ **Better for burst traffic**: Naturally batched updates during raid events
+
+**Polling Optimizations**:
+
+1. **Enhanced ETag with Submitter Counts**: ETag includes submitter count for each clip to detect priority changes
+2. **Full SHA256 Hash (64 chars)**: Reduces collision probability to effectively zero
+3. **POST Responses Return Full State**: All POST endpoints return `{ success: true, state: getQueueState() }` - clients can update from response instead of waiting for next poll
+4. **Exponential Backoff on Errors**: Poll interval doubles on consecutive errors (2s → 4s → 8s → 16s → 30s max)
+5. **Stale ETag Clearing**: After errors, clear ETag to force full refresh on recovery
+6. **Batch State Updates (O(n log n))**: Replace ClipList contents in bulk instead of incremental add/remove
+7. **Optimistic Updates with Rollback**: UI updates immediately, reverts on error
+8. **Adaptive Polling (500ms/2s/10s)**: 500ms after commands, 2s normal, 10s when idle >30s
+9. **Poll Jitter (±500ms)**: Random offset prevents thundering herd
+10. **Error Recovery**: Stops polling after 5 consecutive errors, clears stale state
+11. **Settings Synchronization**: Settings included in queue state and ETag - all clients stay in sync
 
 #### 5. Platform/Service Separation
 
@@ -291,15 +346,22 @@ if (url.includes('kick.com/') && url.includes('/clips/clip_'))
 - Only mods/broadcasters can execute commands
 - Parsed in `handleChatCommand()`
 
-**Available Commands** (currently implemented):
+**Available Commands**:
 
 - `open/close` → toggle queue submissions
 - `clear` → delete all approved clips
 - `next` → move current to history, shift next from queue
 - `prev/previous` → move current back to queue, pop from history
+- `setlimit <number>` → set queue size limit (e.g., `!cq setlimit 50`)
+- `removelimit` → remove queue size limit
+- `removebysubmitter <username>` → remove all clips by a specific submitter
+- `removebyplatform <twitch|kick>` → remove all clips from a platform
+- `enableplatform <twitch|kick>` → enable clip submissions from a platform
+- `disableplatform <twitch|kick>` → disable clip submissions from a platform
+- `enableautomod` → enable auto-moderation (clips require approval)
+- `disableautomod` → disable auto-moderation (clips auto-approve)
+- `purgecache` → clear authentication caches
 - `purgehistory` → clear history
-
-**Note**: The schema (`apps/api/src/schema.ts`) defines additional commands not yet implemented: `setlimit`, `removelimit`, `removebysubmitter`, `removebyplatform`, `enableplatform`, `disableplatform`, `enableautomod`, `disableautomod`, `purgecache`
 
 #### 7. Authentication & Authorization
 
@@ -336,14 +398,6 @@ if (url.includes('kick.com/') && url.includes('/clips/clip_'))
 - Role-based computed properties: `canControlQueue`, `canManageSettings`
 - UI conditionally shows/hides controls based on permissions
 - `fetchWithAuth()` utility with 30-second timeout, handles 401/403 responses
-- WebSocket auth failure notifications via toast messages
-
-**WebSocket Authentication** (`apps/api/src/index.ts`, `apps/web/src/stores/websocket.ts`):
-
-- Socket.io middleware validates token on connection
-- Unauthenticated connections allowed (read-only)
-- Token passed in handshake: `socket.handshake.auth.token`
-- Auth errors emit user-visible notifications
 
 #### 8. OAuth Router (Authorization Code + PKCE)
 
@@ -465,7 +519,7 @@ DB_PATH=./data/clips.db               # SQLite location
 
 ```env
 VITE_TWITCH_CLIENT_ID=your_client_id  # For OAuth login flow
-VITE_API_URL=http://localhost:3000    # Backend WebSocket URL
+VITE_API_URL=http://localhost:3000    # Backend API URL
 VITE_TWITCH_REDIRECT_URI=http://localhost:5173  # OAuth callback URL
 ```
 
@@ -475,7 +529,7 @@ VITE_TWITCH_REDIRECT_URI=http://localhost:5173  # OAuth callback URL
 
 1. `apps/api/src/server.ts` - Bootstrap entry point (loads .env, validates env vars, imports index.ts)
 2. `apps/api/src/index.ts` - Main server, event handlers, API endpoints
-3. `apps/api/src/eventsub.ts` - Twitch EventSub WebSocket client
+3. `apps/api/src/eventsub.ts` - Twitch EventSub WebSocket client (backend-to-Twitch only)
 4. `apps/api/src/auth.ts` - Authentication middleware, token validation, role checking
 5. `apps/api/src/oauth.ts` - OAuth router (Authorization Code + PKCE flow)
 6. `apps/api/src/db.ts` - Database operations (Drizzle)
@@ -485,12 +539,11 @@ VITE_TWITCH_REDIRECT_URI=http://localhost:5173  # OAuth callback URL
 
 **Frontend**:
 
-1. `apps/web/src/stores/queue-server.ts` - WebSocket sync, queue state
-2. `apps/web/src/stores/websocket.ts` - Socket.io connection manager
-3. `apps/web/src/stores/user.ts` - User authentication, role management, token validation
-4. `apps/web/src/utils/api.ts` - Authenticated fetch wrapper, timeout handling, error responses
-5. `apps/web/src/utils/events.ts` - Auth event system for toast notifications
-6. `apps/web/src/utils/schemas.ts` - Zod schemas for API response validation
+1. `apps/web/src/stores/queue-server.ts` - HTTP polling client, queue state management
+2. `apps/web/src/stores/user.ts` - User authentication, role management, token validation
+3. `apps/web/src/utils/api.ts` - Authenticated fetch wrapper, timeout handling, error responses
+4. `apps/web/src/utils/events.ts` - Auth event system for toast notifications
+5. `apps/web/src/utils/schemas.ts` - Zod schemas for API response validation
 
 **Shared**:
 
@@ -501,7 +554,7 @@ VITE_TWITCH_REDIRECT_URI=http://localhost:5173  # OAuth callback URL
 5. `packages/utils/src/http.ts` - HTTP utilities (fetch wrappers)
 6. `packages/utils/src/cache.ts` - TTL cache implementation
 7. `packages/queue-ops/src/index.ts` - Queue operations (advance, previous, clear)
-8. `packages/constants/src/events.ts` - WebSocket event constants
+8. `packages/constants/src/commands.ts` - Chat command constants
 9. `packages/schemas/src/auth.ts` - Auth-related Zod schemas
 
 ### Common Patterns
@@ -546,26 +599,6 @@ if (url.includes("newplatform.com/clips/")) {
 3. Add SQL comment header to generated migration file
 4. Migration auto-applies on next server start (via `initDatabase()`)
 
-#### Adding a New WebSocket Event
-
-**Server**:
-
-```typescript
-io.emit("my:event", { data: "value" });
-```
-
-**Client** (`queue-server.ts`):
-
-```typescript
-function initialize() {
-  websocket.on("my:event", handleMyEvent as WebSocketEventHandler);
-}
-
-function handleMyEvent(event: { data: string }) {
-  // Update local state
-}
-```
-
 ### Testing
 
 - **Vitest** for unit tests
@@ -586,5 +619,6 @@ function handleMyEvent(event: { data: string }) {
 - **toClipUUID()**: Returns `"platform:id"` (lowercase) for duplicate detection
 - **Auth caching**: Token cache (5min), role cache (2min) - broadcaster can clear via `/api/auth/cache/clear`
 - **Token validation**: Frontend automatically validates token every 5 minutes, auto-logout on expiration
-- **WebSocket auth**: Connections work without auth (read-only), but mods/broadcaster need token for controls
+- **HTTP Polling**: Frontend polls every 2 seconds with ETag optimization (most requests return 304 Not Modified)
 - **Path resolution**: Backend uses `apps/api/src/paths.ts` utilities (`resolveFromRoot`) for workspace-relative paths - avoids `process.cwd()` issues
+- **Backend EventSub WebSocket**: The `ws` package is used for Twitch EventSub connection only (backend-to-Twitch), not for frontend communication

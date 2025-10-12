@@ -148,7 +148,7 @@ router.beforeEach(async (to, from, next) => {
   const queue = useQueue()
   const settings = useSettings()
 
-  // Initialize WebSocket and settings if logged in
+  // Initialize polling and settings if logged in
   if (user.isLoggedIn) {
     queue.initialize()
     settings.initialize()
@@ -169,7 +169,7 @@ router.afterEach(() => {
   const user = useUser()
   const queue = useQueue()
 
-  // Cleanup WebSocket on logout
+  // Cleanup polling on logout
   if (!user.isLoggedIn) {
     queue.cleanup()
   }

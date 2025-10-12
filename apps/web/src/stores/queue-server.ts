@@ -1,69 +1,52 @@
 /**
- * Queue Store (Server-Backed)
+ * Queue Store (Server-Backed with Polling)
  *
- * Extends the existing queue store with Socket.io synchronization.
- * This allows multiple users to view and control the same queue in real-time.
+ * Manages queue state by polling the server every 2 seconds.
+ * Uses ETag for efficient bandwidth usage (304 Not Modified).
  *
  * Architecture:
  * - Server monitors Twitch chat via EventSub
  * - Server manages queue state in SQLite + memory
- * - Frontend connects via Socket.io for real-time updates
- * - Frontend can send control commands (next, previous, clear)
+ * - Frontend polls GET /api/queue every 2s with ETag
+ * - Frontend sends control commands via REST API
  */
 
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import type { Clip } from '@cq/platforms'
-import { WEBSOCKET_EVENTS } from '@cq/constants/events'
-import { BasicClipList, ClipList, toClipUUID } from '@cq/platforms'
+import { BasicClipList, ClipList } from '@cq/platforms'
 
 import { fetchWithAuth } from '@/utils/api'
-import type { WebSocketEventHandler } from './websocket'
 import { useLogger } from './logger'
-import { useWebSocket } from './websocket'
+import { useSettings } from './settings'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
+// Polling configuration
+const BASE_POLL_INTERVAL_MS = 2000 // 2 seconds (normal)
+const IDLE_POLL_INTERVAL_MS = 10000 // 10 seconds (idle)
+const ACTIVE_POLL_INTERVAL_MS = 500 // 500ms (after command)
+const MAX_POLL_INTERVAL_MS = 30000 // 30 seconds (max backoff)
+const POLL_JITTER_MS = 500 // ±500ms random jitter
+const MAX_CONSECUTIVE_ERRORS = 5 // Stop after 5 errors
+
 export const useQueueServer = defineStore('queue-server', () => {
   const logger = useLogger()
-  const websocket = useWebSocket()
 
-  // State (synced from server)
+  // State (synced from server via polling)
   const isOpen = ref<boolean>(true)
   const history = ref<BasicClipList>(new BasicClipList())
   const current = ref<Clip | undefined>(undefined)
   const upcoming = ref<ClipList>(new ClipList())
   const isInitialized = ref<boolean>(false)
 
-  // Idempotency tracking: prevent duplicate event processing
-  const processedEvents = new Map<string, number>() // event signature -> timestamp
-  const EVENT_DEDUP_WINDOW_MS = 1000 // 1 second deduplication window
-
-  /**
-   * Check if event was recently processed (for idempotency)
-   */
-  function isEventDuplicate(signature: string): boolean {
-    const now = Date.now()
-    const lastProcessed = processedEvents.get(signature)
-
-    if (lastProcessed && now - lastProcessed < EVENT_DEDUP_WINDOW_MS) {
-      return true
-    }
-
-    // Clean up old entries (keep map size bounded)
-    if (processedEvents.size > 100) {
-      const cutoff = now - EVENT_DEDUP_WINDOW_MS
-      for (const [sig, timestamp] of processedEvents.entries()) {
-        if (timestamp < cutoff) {
-          processedEvents.delete(sig)
-        }
-      }
-    }
-
-    processedEvents.set(signature, now)
-    return false
-  }
+  // Polling state
+  let pollTimeout: ReturnType<typeof setTimeout> | null = null
+  let lastETag: string | null = null
+  let consecutiveErrors = 0
+  let currentPollInterval = BASE_POLL_INTERVAL_MS
+  let lastActivityTime = Date.now()
 
   // Computed
   const hasClips = computed(() => upcoming.value.size() > 0)
@@ -71,7 +54,158 @@ export const useQueueServer = defineStore('queue-server', () => {
   const size = computed(() => upcoming.value.size())
 
   /**
-   * Initialize WebSocket connection and listeners
+   * Calculate next poll interval with jitter
+   */
+  function getNextPollInterval(): number {
+    // Check if idle (no activity for 30 seconds)
+    const isIdle = Date.now() - lastActivityTime > 30000
+
+    const baseInterval = isIdle ? IDLE_POLL_INTERVAL_MS : currentPollInterval
+
+    // Add random jitter to prevent thundering herd
+    const jitter = (Math.random() * 2 - 1) * POLL_JITTER_MS
+    return Math.floor(baseInterval + jitter)
+  }
+
+  /**
+   * Schedule next poll
+   */
+  function schedulePoll(): void {
+    if (!isInitialized.value) return
+
+    if (pollTimeout) {
+      clearTimeout(pollTimeout)
+    }
+
+    const interval = getNextPollInterval()
+    logger.debug(`[Queue]: Scheduling next poll in ${interval}ms`)
+
+    pollTimeout = setTimeout(() => {
+      fetchQueueState()
+    }, interval)
+  }
+
+  /**
+   * Fetch queue state from server
+   * Uses ETag for efficient caching (304 Not Modified)
+   * Implements exponential backoff on errors
+   */
+  async function fetchQueueState(): Promise<boolean> {
+    try {
+      const headers: HeadersInit = {}
+      if (lastETag) {
+        headers['If-None-Match'] = lastETag
+      }
+
+      const response = await fetch(`${API_URL}/api/queue`, {
+        headers,
+        credentials: 'include'
+      })
+
+      // 304 Not Modified - state hasn't changed
+      if (response.status === 304) {
+        logger.debug('[Queue]: State unchanged (304)')
+        consecutiveErrors = 0
+        currentPollInterval = BASE_POLL_INTERVAL_MS
+        schedulePoll()
+        return true
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      // Update ETag for next request
+      const newETag = response.headers.get('ETag')
+      if (newETag) {
+        lastETag = newETag
+      }
+
+      // Parse and update state
+      const data = await response.json()
+      updateState(data)
+
+      // Reset error tracking on success
+      consecutiveErrors = 0
+      currentPollInterval = BASE_POLL_INTERVAL_MS
+      schedulePoll()
+      return true
+    } catch (error) {
+      logger.error(`[Queue]: Failed to fetch queue state: ${error}`)
+
+      // Clear stale ETag on error
+      lastETag = null
+
+      // Increment error counter
+      consecutiveErrors++
+
+      // Stop polling after too many errors
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        logger.error(`[Queue]: Stopped polling after ${MAX_CONSECUTIVE_ERRORS} consecutive errors`)
+        return false
+      }
+
+      // Exponential backoff: 2s → 4s → 8s → 16s → 30s (max)
+      currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_INTERVAL_MS)
+      logger.warn(
+        `[Queue]: Retrying in ${currentPollInterval}ms (error ${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS})`
+      )
+
+      schedulePoll()
+      return false
+    }
+  }
+
+  /**
+   * Update local state from server response
+   */
+  function updateState(data: {
+    current: Clip | null
+    upcoming: Clip[]
+    history: Clip[]
+    isOpen: boolean
+    settings?: {
+      commands: { prefix: string; allowed: string[] }
+      queue: { hasAutoModerationEnabled: boolean; limit: number | null; platforms: string[] }
+      logger: { level: string; limit: number }
+    }
+  }): void {
+    logger.debug('[Queue]: Updating state from server')
+
+    // Update current clip
+    current.value = data.current || undefined
+
+    // Update upcoming queue (batch add for O(n log n) instead of O(n² log n))
+    upcoming.value = new ClipList(...data.upcoming)
+
+    // Update history (batch add)
+    history.value = new BasicClipList(...data.history)
+
+    // Update queue open/close status
+    isOpen.value = data.isOpen
+
+    // Update settings if provided (for real-time sync across clients)
+    if (data.settings) {
+      const settingsStore = useSettings()
+      // Cast to frontend types (server returns validated zod-inferred types)
+      settingsStore.commands = data.settings.commands as typeof settingsStore.commands
+      settingsStore.queue = data.settings.queue as typeof settingsStore.queue
+      settingsStore.logger = data.settings.logger as typeof settingsStore.logger
+      logger.debug('[Queue]: Settings synchronized from server')
+    }
+  }
+
+  /**
+   * Mark activity for adaptive polling
+   */
+  function markActivity(): void {
+    lastActivityTime = Date.now()
+    // After user action, poll more frequently for immediate feedback
+    currentPollInterval = ACTIVE_POLL_INTERVAL_MS
+  }
+
+  /**
+   * Initialize polling
    */
   function initialize(): void {
     // Prevent multiple initializations
@@ -81,242 +215,261 @@ export const useQueueServer = defineStore('queue-server', () => {
     }
 
     isInitialized.value = true
+    logger.info('[Queue]: Starting adaptive polling (base: 2s, idle: 10s, active: 500ms)')
 
-    // Connect WebSocket (cookies sent automatically)
-    websocket.connect(API_URL)
-
-    // Subscribe to server events (type cast needed due to generic handler)
-    websocket.on(WEBSOCKET_EVENTS.SYNC_STATE, handleSyncState as WebSocketEventHandler)
-    websocket.on(WEBSOCKET_EVENTS.CLIP_ADDED, handleClipAdded as WebSocketEventHandler)
-    websocket.on(WEBSOCKET_EVENTS.CLIP_REMOVED, handleClipRemoved as WebSocketEventHandler)
-    websocket.on(WEBSOCKET_EVENTS.QUEUE_CURRENT, handleQueueCurrent as WebSocketEventHandler)
-    websocket.on(WEBSOCKET_EVENTS.QUEUE_CLEARED, handleQueueCleared as WebSocketEventHandler)
-    websocket.on(WEBSOCKET_EVENTS.QUEUE_OPENED, handleQueueOpened as WebSocketEventHandler)
-    websocket.on(WEBSOCKET_EVENTS.QUEUE_CLOSED, handleQueueClosed as WebSocketEventHandler)
-    websocket.on(WEBSOCKET_EVENTS.HISTORY_CLEARED, handleHistoryCleared as WebSocketEventHandler)
+    // Fetch initial state immediately, then schedule polling
+    fetchQueueState()
   }
 
   /**
-   * Cleanup WebSocket connection
+   * Cleanup polling
    */
   function cleanup(): void {
     if (!isInitialized.value) return
 
-    websocket.off(WEBSOCKET_EVENTS.SYNC_STATE, handleSyncState as WebSocketEventHandler)
-    websocket.off(WEBSOCKET_EVENTS.CLIP_ADDED, handleClipAdded as WebSocketEventHandler)
-    websocket.off(WEBSOCKET_EVENTS.CLIP_REMOVED, handleClipRemoved as WebSocketEventHandler)
-    websocket.off(WEBSOCKET_EVENTS.QUEUE_CURRENT, handleQueueCurrent as WebSocketEventHandler)
-    websocket.off(WEBSOCKET_EVENTS.QUEUE_CLEARED, handleQueueCleared as WebSocketEventHandler)
-    websocket.off(WEBSOCKET_EVENTS.QUEUE_OPENED, handleQueueOpened as WebSocketEventHandler)
-    websocket.off(WEBSOCKET_EVENTS.QUEUE_CLOSED, handleQueueClosed as WebSocketEventHandler)
-    websocket.off(WEBSOCKET_EVENTS.HISTORY_CLEARED, handleHistoryCleared as WebSocketEventHandler)
+    logger.info('[Queue]: Stopping polling')
 
-    websocket.disconnect()
+    if (pollTimeout) {
+      clearTimeout(pollTimeout)
+      pollTimeout = null
+    }
+
     isInitialized.value = false
+    lastETag = null
+    consecutiveErrors = 0
+    currentPollInterval = BASE_POLL_INTERVAL_MS
   }
 
   /**
-   * WebSocket Event Handlers
+   * Queue Control Commands (via REST API)
    */
 
-  function handleSyncState(event: {
-    current: Clip | null
-    upcoming: Clip[]
-    history: Clip[]
-    isOpen: boolean
-  }): void {
-    logger.debug('[Queue]: Syncing state from server')
-    current.value = event.current || undefined
-    upcoming.value.clear()
-    event.upcoming.forEach((clip) => upcoming.value.add(clip))
-    history.value.clear()
-    event.history.forEach((clip) => history.value.add(clip))
-    isOpen.value = event.isOpen
-  }
+  async function advance(): Promise<void> {
+    markActivity()
 
-  function handleClipAdded(event: { clip: Clip }): void {
-    const signature = `clip:added:${toClipUUID(event.clip)}`
-    if (isEventDuplicate(signature)) {
-      logger.debug(`[Queue]: Skipping duplicate clip:added event for ${event.clip.title}`)
-      return
-    }
+    // Optimistic update: predict next state
+    const previousCurrent = current.value
+    const previousUpcoming = upcoming.value.toArray()
+    const previousHistory = history.value.toArray()
 
-    logger.debug(`[Queue]: Clip added: ${event.clip.title}`)
-    upcoming.value.add(event.clip)
-  }
-
-  function handleClipRemoved(event: { clipId: string }): void {
-    const signature = `clip:removed:${event.clipId}`
-    if (isEventDuplicate(signature)) {
-      logger.debug(`[Queue]: Skipping duplicate clip:removed event for ${event.clipId}`)
-      return
-    }
-
-    logger.debug(`[Queue]: Clip removed: ${event.clipId}`)
-    const clips = upcoming.value.toArray()
-    const clip = clips.find((c) => toClipUUID(c) === event.clipId)
-    if (clip) {
-      upcoming.value.remove(clip)
-    }
-  }
-
-  function handleQueueCurrent(event: { clip: Clip | null }): void {
-    const clipId = event.clip ? toClipUUID(event.clip) : 'null'
-    const signature = `queue:current:${clipId}`
-    if (isEventDuplicate(signature)) {
-      logger.debug(`[Queue]: Skipping duplicate queue:current event`)
-      return
-    }
-
-    logger.debug(`[Queue]: Current clip changed`)
-    current.value = event.clip || undefined
-  }
-
-  function handleQueueCleared(): void {
-    const signature = `queue:cleared:${Date.now()}`
-    if (isEventDuplicate(signature)) {
-      logger.debug('[Queue]: Skipping duplicate queue:cleared event')
-      return
-    }
-
-    logger.debug('[Queue]: Queue cleared')
-    upcoming.value.clear()
-  }
-
-  function handleQueueOpened(): void {
-    logger.debug('[Queue]: Queue opened')
-    isOpen.value = true
-  }
-
-  function handleQueueClosed(): void {
-    logger.debug('[Queue]: Queue closed')
-    isOpen.value = false
-  }
-
-  function handleHistoryCleared(): void {
-    logger.debug('[Queue]: History cleared')
-    history.value.clear()
-  }
-
-  /**
-   * API Methods (send commands to server)
-   */
-
-  async function next(): Promise<void> {
     try {
+      // Optimistically update UI
+      if (current.value) {
+        history.value.add(current.value)
+      }
+      current.value = upcoming.value.shift()
+
       const response = await fetchWithAuth(`${API_URL}/api/queue/advance`, {
         method: 'POST'
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to advance queue: ${response.statusText}`)
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      // Use state from response (eliminates race condition)
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
       }
 
       logger.info('[Queue]: Advanced to next clip')
-    } catch (error: unknown) {
+      schedulePoll() // Reschedule with active interval
+    } catch (error) {
       logger.error(`[Queue]: Failed to advance: ${error}`)
+
+      // Revert optimistic update
+      current.value = previousCurrent
+      upcoming.value = new ClipList(...previousUpcoming)
+      history.value = new BasicClipList(...previousHistory)
+
       throw error
     }
   }
 
   async function previous(): Promise<void> {
+    markActivity()
+
+    // Optimistic update
+    const previousCurrent = current.value
+    const previousUpcoming = upcoming.value.toArray()
+    const previousHistory = history.value.toArray()
+
     try {
+      // Optimistically update UI
+      if (current.value) {
+        upcoming.value.add(current.value)
+      }
+      current.value = history.value.pop()
+
       const response = await fetchWithAuth(`${API_URL}/api/queue/previous`, {
         method: 'POST'
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to go to previous: ${response.statusText}`)
+        throw new Error(`HTTP ${response.status}`)
       }
 
-      logger.info('[Queue]: Went to previous clip')
-    } catch (error: unknown) {
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info('[Queue]: Returned to previous clip')
+      schedulePoll()
+    } catch (error) {
       logger.error(`[Queue]: Failed to go to previous: ${error}`)
+
+      // Revert optimistic update
+      current.value = previousCurrent
+      upcoming.value = new ClipList(...previousUpcoming)
+      history.value = new BasicClipList(...previousHistory)
+
       throw error
     }
   }
 
   async function clear(): Promise<void> {
+    markActivity()
+
+    // Optimistic update
+    const previousUpcoming = upcoming.value.toArray()
+
     try {
+      // Optimistically clear queue
+      upcoming.value.clear()
+
       const response = await fetchWithAuth(`${API_URL}/api/queue`, {
         method: 'DELETE'
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to clear queue: ${response.statusText}`)
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
       }
 
       logger.info('[Queue]: Cleared queue')
-    } catch (error: unknown) {
-      logger.error(`[Queue]: Failed to clear queue: ${error}`)
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to clear: ${error}`)
+
+      // Revert optimistic update
+      upcoming.value = new ClipList(...previousUpcoming)
+
       throw error
     }
   }
 
   async function open(): Promise<void> {
+    markActivity()
+
+    const previousIsOpen = isOpen.value
+
     try {
+      // Optimistically open queue
+      isOpen.value = true
+
       const response = await fetchWithAuth(`${API_URL}/api/queue/open`, {
         method: 'POST'
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to open queue: ${response.statusText}`)
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
       }
 
       logger.info('[Queue]: Opened queue')
-    } catch (error: unknown) {
-      logger.error(`[Queue]: Failed to open queue: ${error}`)
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to open: ${error}`)
+
+      // Revert optimistic update
+      isOpen.value = previousIsOpen
+
       throw error
     }
   }
 
   async function close(): Promise<void> {
+    markActivity()
+
+    const previousIsOpen = isOpen.value
+
     try {
+      // Optimistically close queue
+      isOpen.value = false
+
       const response = await fetchWithAuth(`${API_URL}/api/queue/close`, {
         method: 'POST'
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to close queue: ${response.statusText}`)
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
       }
 
       logger.info('[Queue]: Closed queue')
-    } catch (error: unknown) {
-      logger.error(`[Queue]: Failed to close queue: ${error}`)
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to close: ${error}`)
+
+      // Revert optimistic update
+      isOpen.value = previousIsOpen
+
       throw error
     }
   }
 
-  /**
-   * Purge history (backend-synced)
-   */
-  async function purge(): Promise<void> {
+  async function clearHistory(): Promise<void> {
+    markActivity()
+
+    const previousHistory = history.value.toArray()
+
     try {
+      // Optimistically clear history
+      history.value.clear()
+
       const response = await fetchWithAuth(`${API_URL}/api/queue/history`, {
         method: 'DELETE'
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to purge history: ${response.statusText}`)
+        throw new Error(`HTTP ${response.status}`)
       }
 
-      logger.info('[Queue]: Purged history')
-    } catch (error: unknown) {
-      logger.error(`[Queue]: Failed to purge history: ${error}`)
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info('[Queue]: Cleared history')
+      schedulePoll()
+    } catch (error) {
+      logger.error(`[Queue]: Failed to clear history: ${error}`)
+
+      // Revert optimistic update
+      history.value = new BasicClipList(...previousHistory)
+
       throw error
     }
   }
 
-  function removeFromHistory(clip: Clip): void {
-    history.value.remove(clip)
-    logger.info(`[Queue]: Removed from history: ${clip.id}`)
-  }
+  async function submit(url: string, submitter: string): Promise<void> {
+    markActivity()
 
-  /**
-   * Add clip to queue via backend API
-   * Used for manually adding clips (e.g., from history)
-   */
-  async function add(url: string, submitter: string): Promise<void> {
+    // No optimistic update for submit (we don't have clip metadata yet)
     try {
       const response = await fetchWithAuth(`${API_URL}/api/queue/submit`, {
         method: 'POST',
@@ -327,21 +480,35 @@ export const useQueueServer = defineStore('queue-server', () => {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to submit clip: ${response.statusText}`)
+        throw new Error(`HTTP ${response.status}`)
       }
 
-      logger.info(`[Queue]: Submitted clip: ${url}`)
-    } catch (error: unknown) {
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info('[Queue]: Submitted clip')
+      schedulePoll()
+    } catch (error) {
       logger.error(`[Queue]: Failed to submit clip: ${error}`)
       throw error
     }
   }
 
-  /**
-   * Remove clip from queue
-   */
   async function remove(clipId: string): Promise<void> {
+    markActivity()
+
+    // Optimistic update
+    const previousUpcoming = upcoming.value.toArray()
+    const clipToRemove = previousUpcoming.find((c) => c.id === clipId)
+
     try {
+      // Optimistically remove clip
+      if (clipToRemove) {
+        upcoming.value.remove(clipToRemove)
+      }
+
       const response = await fetchWithAuth(`${API_URL}/api/queue/remove`, {
         method: 'POST',
         headers: {
@@ -351,21 +518,45 @@ export const useQueueServer = defineStore('queue-server', () => {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to remove clip: ${response.statusText}`)
+        throw new Error(`HTTP ${response.status}`)
       }
 
-      logger.info(`[Queue]: Removed clip: ${clipId}`)
-    } catch (error: unknown) {
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info('[Queue]: Removed clip')
+      schedulePoll()
+    } catch (error) {
       logger.error(`[Queue]: Failed to remove clip: ${error}`)
+
+      // Revert optimistic update
+      upcoming.value = new ClipList(...previousUpcoming)
+
       throw error
     }
   }
 
-  /**
-   * Play specific clip from queue (skip to it)
-   */
   async function play(clipId: string): Promise<void> {
+    markActivity()
+
+    // Optimistic update
+    const previousCurrent = current.value
+    const previousUpcoming = upcoming.value.toArray()
+    const previousHistory = history.value.toArray()
+    const clipToPlay = previousUpcoming.find((c) => c.id === clipId)
+
     try {
+      // Optimistically play clip
+      if (clipToPlay) {
+        if (current.value) {
+          history.value.add(current.value)
+        }
+        upcoming.value.remove(clipToPlay)
+        current.value = clipToPlay
+      }
+
       const response = await fetchWithAuth(`${API_URL}/api/queue/play`, {
         method: 'POST',
         headers: {
@@ -375,24 +566,34 @@ export const useQueueServer = defineStore('queue-server', () => {
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to play clip: ${response.statusText}`)
+        throw new Error(`HTTP ${response.status}`)
       }
 
-      logger.info(`[Queue]: Playing clip: ${clipId}`)
-    } catch (error: unknown) {
+      const data = await response.json()
+      if (data.state) {
+        updateState(data.state)
+      }
+
+      logger.info('[Queue]: Playing clip')
+      schedulePoll()
+    } catch (error) {
       logger.error(`[Queue]: Failed to play clip: ${error}`)
+
+      // Revert optimistic update
+      current.value = previousCurrent
+      upcoming.value = new ClipList(...previousUpcoming)
+      history.value = new BasicClipList(...previousHistory)
+
       throw error
     }
   }
 
   return {
     // State
-    isOpen,
-    history,
     current,
     upcoming,
-
-    // Computed
+    history,
+    isOpen,
     hasClips,
     isEmpty,
     size,
@@ -401,18 +602,15 @@ export const useQueueServer = defineStore('queue-server', () => {
     initialize,
     cleanup,
 
-    // Server commands
-    next,
+    // Actions
+    advance,
     previous,
     clear,
     open,
     close,
-    add,
+    clearHistory,
+    submit,
     remove,
-    play,
-
-    // Local commands
-    purge,
-    removeFromHistory
+    play
   }
 })

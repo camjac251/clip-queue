@@ -106,7 +106,7 @@ async function purgeHistory() {
     },
     accept: async () => {
       try {
-        await queue.purge()
+        await queue.clearHistory()
         toast.add({
           severity: 'success',
           summary: m.success(),

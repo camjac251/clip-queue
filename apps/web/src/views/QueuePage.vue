@@ -56,7 +56,7 @@ async function handlePrevious() {
 
 async function handleNext() {
   try {
-    await queue.next()
+    await queue.advance()
   } catch (error) {
     logger.error(`[Queue]: Failed to advance to next clip: ${error}`)
   }

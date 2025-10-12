@@ -1,41 +1,5 @@
 <template>
   <div v-if="user.canManageSettings">
-    <Card class="mx-auto mb-2 max-w-xl">
-      <template #content>
-        <div class="m-0 flex flex-col gap-2 p-0 text-left">
-          <label for="username">{{ m.connected_chat_colon() }}</label>
-          <div class="flex w-full items-stretch">
-            <span
-              class="border-surface-300 dark:border-surface-700 bg-surface-0 dark:bg-surface-950 text-surface-400 flex min-w-10 items-center justify-center rounded-s-md border-y border-s"
-            >
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <svg class="h-5 w-5" v-html="sources.logo"></svg>
-            </span>
-            <InputText
-              id="username"
-              v-model="user.username"
-              readonly
-              fluid
-              pt:root="flex-1 rounded-none"
-            />
-            <span
-              class="border-surface-300 dark:border-surface-700 bg-surface-0 dark:bg-surface-950 text-surface-400 flex min-w-10 items-center justify-center gap-2 rounded-none border-y border-e px-2"
-            >
-              <SourceIndicator :status="sources.status" />
-            </span>
-            <span
-              class="border-surface-300 dark:border-surface-700 bg-surface-0 dark:bg-surface-950 text-surface-400 flex min-w-10 items-center justify-center gap-2 rounded-e-md border-y border-e px-2"
-            >
-              <i
-                v-tooltip="m.reconnect()"
-                class="pi pi-refresh hover:cursor-pointer"
-                @click="sources.reconnect()"
-              ></i>
-            </span>
-          </div>
-        </div>
-      </template>
-    </Card>
     <Card class="mx-auto max-w-xl">
       <template #content>
         <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
@@ -111,27 +75,14 @@ import {
   useToast
 } from '@cq/ui'
 
-import SourceIndicator from '@/components/SourceIndicator.vue'
 import * as m from '@/paraglide/messages'
 import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
-import { useWebSocket } from '@/stores/websocket'
 import { Command } from '@/types/commands'
 
 const toast = useToast()
 const user = useUser()
 const settings = useSettings()
-const websocket = useWebSocket()
-
-// Backend connection indicator
-const sources = {
-  logo: '<path fill="currentColor" d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.429h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>',
-  status: websocket.status,
-  reconnect: () => {
-    const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-    websocket.connect(serverUrl)
-  }
-}
 
 // Command help information (note: commands are handled by backend)
 const commandHelp: Record<Command, { description: string; args?: string[] }> = {

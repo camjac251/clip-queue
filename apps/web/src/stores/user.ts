@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import twitch from '@cq/services/twitch'
@@ -8,13 +8,11 @@ import { env } from '@/config'
 import { clearAuthEvents, emitAuthEvent } from '@/utils/events'
 import { UserRoleSchema } from '@/utils/schemas'
 import { useLogger } from './logger'
-import { useWebSocket } from './websocket'
 
 const { API_URL } = env
 
 export const useUser = defineStore('user', () => {
   const logger = useLogger()
-  const websocket = useWebSocket()
   const router = useRouter()
 
   const isLoggedIn = ref<boolean>(false)
@@ -213,14 +211,6 @@ export const useUser = defineStore('user', () => {
     isBroadcaster.value = false
     isModerator.value = false
   }
-
-  // Watch for login status changes and update WebSocket connection
-  watch(isLoggedIn, (newValue) => {
-    if (newValue) {
-      // WebSocket will use cookies automatically, no need to pass token
-      websocket.connect()
-    }
-  })
 
   return {
     isLoggedIn,

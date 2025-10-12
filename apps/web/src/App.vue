@@ -60,7 +60,7 @@ const handleAuthFailed = (event: Event) => {
   })
 }
 
-// Clean up WebSocket connection on browser close/refresh
+// Clean up polling on browser close/refresh
 const handleBeforeUnload = () => {
   queueServer.cleanup()
 }

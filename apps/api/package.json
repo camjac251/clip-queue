@@ -34,7 +34,6 @@
     "find-up-simple": "^1.0.1",
     "helmet": "^8.1.0",
     "pkce-challenge": "^5.0.0",
-    "socket.io": "^4.8.1",
     "ws": "^8.18.0",
     "zod": "^4.1.12"
   },

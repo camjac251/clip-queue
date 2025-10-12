@@ -13,8 +13,6 @@ import { useLogger } from '@/stores/logger'
 import { Command } from '@/types/commands'
 import { fetchWithAuth } from '@/utils/api'
 import { SettingsSchema } from '@/utils/schemas'
-import type { WebSocketEventHandler } from './websocket'
-import { useWebSocket } from './websocket'
 
 /**
  * Settings for commands.
@@ -59,7 +57,6 @@ export const useSettings = defineStore('settings', () => {
   const commands = ref<CommandSettings>({ ...DEFAULT_COMMAND_SETTINGS })
   const queue = ref<QueueSettings>({ ...DEFAULT_QUEUE_SETTINGS })
   const logger = ref<LoggerSettings>({ ...DEFAULT_LOGGER_SETTINGS })
-  const websocket = useWebSocket()
   const log = useLogger()
   const isInitialized = ref<boolean>(false)
 
@@ -155,6 +152,9 @@ export const useSettings = defineStore('settings', () => {
       }
 
       log.info('[Settings] Saved to backend')
+
+      // Reload settings to get server-validated values
+      await loadSettings()
     } catch (error: unknown) {
       log.error(`[Settings] Failed to save to backend: ${error}`)
       throw error
@@ -162,27 +162,7 @@ export const useSettings = defineStore('settings', () => {
   }
 
   /**
-   * WebSocket event handler for settings updates
-   */
-  const handleSettingsUpdated = ((data: unknown) => {
-    log.debug('[Settings] Received update from backend')
-    const parseResult = SettingsSchema.safeParse(data)
-
-    if (!parseResult.success) {
-      log.error(
-        `[Settings] Invalid settings update from WebSocket: ${JSON.stringify(parseResult.error.issues)}`
-      )
-      return
-    }
-
-    const validData = parseResult.data
-    commands.value = validData.commands as CommandSettings
-    queue.value = validData.queue as QueueSettings
-    logger.value = validData.logger as LoggerSettings
-  }) as WebSocketEventHandler
-
-  /**
-   * Initialize settings (load from backend and listen for updates)
+   * Initialize settings (load from backend)
    */
   function initialize(): void {
     // Prevent multiple initializations
@@ -192,18 +172,14 @@ export const useSettings = defineStore('settings', () => {
     }
 
     isInitialized.value = true
-
-    // Listen for settings updates from backend
-    websocket.on('settings:updated', handleSettingsUpdated)
+    log.info('[Settings]: Initialized (will load on demand)')
   }
 
   /**
-   * Cleanup WebSocket listeners
+   * Cleanup
    */
   function cleanup(): void {
     if (!isInitialized.value) return
-
-    websocket.off('settings:updated', handleSettingsUpdated)
     isInitialized.value = false
   }
 

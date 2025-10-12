@@ -1,23 +1,22 @@
 /**
  * Clip Queue Server
  *
- * Express + Socket.io + EventSub backend for multi-user clip queue.
- * Continuously monitors Twitch chat, manages clip queue, and syncs to all connected clients.
+ * Express + polling backend for multi-user clip queue.
+ * Continuously monitors Twitch chat, manages clip queue, and syncs to clients via HTTP polling.
  *
  * NOTE: This file is imported by server.ts, which loads .env and validates env vars first.
  */
 
 import express from 'express'
-import { Server as SocketIOServer } from 'socket.io'
 import { createServer } from 'http'
 import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import cookieParser from 'cookie-parser'
+import { createHash } from 'crypto'
 import { z } from 'zod'
 import { ClipList, toClipUUID } from '@cq/platforms'
 import { advanceQueue, previousClip, clearQueue, playClip } from '@cq/queue-ops'
-import { WEBSOCKET_EVENTS } from '@cq/constants/events'
 
 /**
  * Simple async mutex for preventing race conditions
@@ -166,77 +165,6 @@ const authFailureLimiter = rateLimit({
   message: 'Too many failed authentication attempts. Please try again later.'
 })
 
-// Socket.io with CORS - Use same origin configuration as Express
-const io = new SocketIOServer(server, {
-  cors: {
-    origin: corsOrigin,
-    credentials: true
-  },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  connectTimeout: 45000
-})
-
-// Socket.io authentication middleware
-io.use(async (socket, next) => {
-  // Parse cookies from handshake headers
-  const cookieHeader = socket.handshake.headers.cookie
-  let token: string | undefined
-
-  if (cookieHeader && typeof cookieHeader === 'string') {
-    try {
-      // Parse auth_token from cookie string (simple parser for this one cookie)
-      const cookies = Object.fromEntries(
-        cookieHeader.split('; ').map(cookie => {
-          const [name, ...rest] = cookie.split('=')
-          return [name, rest.join('=')]
-        })
-      )
-      token = cookies.auth_token
-    } catch (error) {
-      console.error('[WebSocket] Cookie parsing error:', error)
-    }
-  }
-
-  // Allow connections without token (unauthenticated viewers)
-  // They can view the queue but cannot perform actions
-  if (!token) {
-    console.log('[WebSocket] Unauthenticated connection allowed (read-only)')
-    return next()
-  }
-
-  try {
-    // Validate token with Twitch API
-    const userData = await validateTwitchToken(token)
-
-    if (!userData) {
-      return next(new Error('Invalid authentication token'))
-    }
-
-    // Check broadcaster/moderator status
-    const roles = await checkChannelRole(
-      process.env.TWITCH_CLIENT_ID!,
-      userData.user_id,
-      process.env.TWITCH_CHANNEL_NAME!,
-      token
-    )
-
-    // Attach full user data including roles
-    socket.data.user = {
-      userId: userData.user_id,
-      username: userData.login,
-      isBroadcaster: roles.isBroadcaster,
-      isModerator: roles.isModerator
-    }
-
-    console.log(`[WebSocket] Authenticated: ${userData.login} (Broadcaster: ${roles.isBroadcaster}, Mod: ${roles.isModerator})`)
-    next()
-  } catch (error) {
-    console.error('[WebSocket] Authentication error:', error)
-    next(new Error('Authentication failed'))
-  }
-})
-
 // Initialize database
 const db = initDatabase(process.env.DB_PATH)
 
@@ -249,6 +177,38 @@ const queue = new ClipList()
 const history = new ClipList()
 let currentClip: Clip | null = null
 let isQueueOpen = true
+
+/**
+ * Generate ETag hash from queue state
+ * Used for efficient HTTP caching (304 Not Modified responses)
+ * Includes clip IDs, submitter counts, queue status, and settings for accurate change detection
+ */
+function generateStateHash(): string {
+  const state = {
+    current: currentClip?.id || null,
+    currentSubmitters: currentClip?.submitters.length || 0,
+    upcoming: queue.toArray().map((c) => ({ id: c.id, submitters: c.submitters.length })),
+    history: history.toArray().map((c) => ({ id: c.id, submitters: c.submitters.length })),
+    isOpen: isQueueOpen,
+    settings: settings // Include settings in hash for change detection
+  }
+  // Use full SHA256 hash (64 hex chars) to minimize collision risk
+  return createHash('sha256').update(JSON.stringify(state)).digest('hex')
+}
+
+/**
+ * Get current queue state
+ * Used for API responses to avoid race conditions
+ */
+function getQueueState() {
+  return {
+    current: currentClip,
+    upcoming: queue.toArray(),
+    history: history.toArray(),
+    isOpen: isQueueOpen,
+    settings: settings // Include settings for client synchronization
+  }
+}
 
 const platform = new TwitchPlatform(() => ({
   id: process.env.TWITCH_CLIENT_ID!,
@@ -384,13 +344,11 @@ async function handleChatCommand(message: { username: string; text: string }): P
   switch (command.toLowerCase()) {
     case 'open':
       isQueueOpen = true
-      io.emit(WEBSOCKET_EVENTS.QUEUE_OPENED, {})
       console.log(`[Command] Queue opened by ${message.username}`)
       break
 
     case 'close':
       isQueueOpen = false
-      io.emit(WEBSOCKET_EVENTS.QUEUE_CLOSED, {})
       console.log(`[Command] Queue closed by ${message.username}`)
       break
 
@@ -403,13 +361,34 @@ async function handleChatCommand(message: { username: string; text: string }): P
             deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
           }
         )
-        io.emit(WEBSOCKET_EVENTS.QUEUE_CLEARED, {})
         console.log(`[Command] Queue cleared by ${message.username}`)
       } catch (error) {
         console.error(`[Command] Failed to clear queue: ${error}`)
       }
       break
     }
+
+    case 'setlimit': {
+      if (!args[0]) {
+        console.log(`[Command] No limit specified`)
+        break
+      }
+      const limit = parseInt(args[0], 10)
+      if (isNaN(limit) || limit < 1) {
+        console.log(`[Command] Invalid limit: ${args[0]}`)
+        break
+      }
+      settings.queue.limit = limit
+      updateSettings(db, settings)
+      console.log(`[Command] Queue limit set to ${limit} by ${message.username}`)
+      break
+    }
+
+    case 'removelimit':
+      settings.queue.limit = null
+      updateSettings(db, settings)
+      console.log(`[Command] Queue limit removed by ${message.username}`)
+      break
 
     case 'next': {
       try {
@@ -425,7 +404,6 @@ async function handleChatCommand(message: { username: string; text: string }): P
         currentClip = state.current
 
         // Broadcast change
-        io.emit(WEBSOCKET_EVENTS.QUEUE_CURRENT, { clip: currentClip })
         console.log(`[Command] Advanced to next clip by ${message.username}`)
       } catch (error) {
         console.error(`[Command] Failed to advance to next clip: ${error}`)
@@ -440,13 +418,109 @@ async function handleChatCommand(message: { username: string; text: string }): P
       currentClip = state.current
 
       // Broadcast change
-      io.emit(WEBSOCKET_EVENTS.QUEUE_CURRENT, { clip: currentClip })
       console.log(`[Command] Went to previous clip by ${message.username}`)
       break
     }
 
+    case 'removebysubmitter': {
+      const submitter = args[0]?.toLowerCase()
+      if (!submitter) {
+        console.log(`[Command] No submitter specified`)
+        break
+      }
+
+      const clips = queue.toArray()
+      let removedCount = 0
+
+      for (const clip of clips) {
+        if (clip.submitters.some(s => s.toLowerCase() === submitter)) {
+          queue.remove(clip)
+          updateClipStatus(db, toClipUUID(clip), 'rejected')
+          removedCount++
+        }
+      }
+
+      console.log(`[Command] Removed ${removedCount} clips by ${submitter} (requested by ${message.username})`)
+      break
+    }
+
+    case 'removebyplatform': {
+      const platformArg = args[0]?.toLowerCase()
+      if (!platformArg || (platformArg !== 'twitch' && platformArg !== 'kick')) {
+        console.log(`[Command] Invalid platform: ${args[0]}`)
+        break
+      }
+
+      const clips = queue.toArray()
+      let removedCount = 0
+
+      for (const clip of clips) {
+        if (clip.platform.toLowerCase() === platformArg) {
+          queue.remove(clip)
+          updateClipStatus(db, toClipUUID(clip), 'rejected')
+          removedCount++
+        }
+      }
+
+      console.log(`[Command] Removed ${removedCount} ${platformArg} clips (requested by ${message.username})`)
+      break
+    }
+
+    case 'enableplatform': {
+      const platformArg = args[0]?.toLowerCase()
+      if (!platformArg || (platformArg !== 'twitch' && platformArg !== 'kick')) {
+        console.log(`[Command] Invalid platform: ${args[0]}`)
+        break
+      }
+
+      if (!settings.queue.platforms.includes(platformArg as 'twitch' | 'kick')) {
+        settings.queue.platforms.push(platformArg as 'twitch' | 'kick')
+        updateSettings(db, settings)
+        console.log(`[Command] Enabled ${platformArg} platform (requested by ${message.username})`)
+      } else {
+        console.log(`[Command] ${platformArg} platform already enabled`)
+      }
+      break
+    }
+
+    case 'disableplatform': {
+      const platformArg = args[0]?.toLowerCase()
+      if (!platformArg || (platformArg !== 'twitch' && platformArg !== 'kick')) {
+        console.log(`[Command] Invalid platform: ${args[0]}`)
+        break
+      }
+
+      const index = settings.queue.platforms.indexOf(platformArg as 'twitch' | 'kick')
+      if (index !== -1) {
+        settings.queue.platforms.splice(index, 1)
+        updateSettings(db, settings)
+        console.log(`[Command] Disabled ${platformArg} platform (requested by ${message.username})`)
+      } else {
+        console.log(`[Command] ${platformArg} platform already disabled`)
+      }
+      break
+    }
+
+    case 'enableautomod':
+      settings.queue.hasAutoModerationEnabled = true
+      updateSettings(db, settings)
+      console.log(`[Command] Auto-moderation enabled by ${message.username}`)
+      break
+
+    case 'disableautomod':
+      settings.queue.hasAutoModerationEnabled = false
+      updateSettings(db, settings)
+      console.log(`[Command] Auto-moderation disabled by ${message.username}`)
+      break
+
+    case 'purgecache':
+      clearAllCaches()
+      console.log(`[Command] Authentication caches purged by ${message.username}`)
+      break
+
     case 'purgehistory':
       history.clear()
+      deleteClipsByStatus(db, 'played')
       console.log(`[Command] History purged by ${message.username}`)
       break
 
@@ -480,6 +554,18 @@ async function handleClipSubmission(
       return
     }
 
+    // Check if platform is enabled in settings
+    if (!settings.queue.platforms.includes(clip.platform)) {
+      console.log(`[Queue] Platform ${clip.platform} is disabled, ignoring clip from ${submitter}`)
+      return
+    }
+
+    // Check queue size limit
+    if (settings.queue.limit !== null && queue.size() >= settings.queue.limit) {
+      console.log(`[Queue] Queue is full (limit: ${settings.queue.limit}), ignoring clip from ${submitter}`)
+      return
+    }
+
     const clipId = toClipUUID(clip)
 
     // Check if clip already exists in queue (now protected by mutex)
@@ -491,23 +577,28 @@ async function handleClipSubmission(
       queue.add(updatedClip)
 
       // Broadcast update
-      io.emit(WEBSOCKET_EVENTS.CLIP_ADDED, { clip: updatedClip })
       console.log(`[Queue] Added submitter to existing clip: ${clip.title} (${submitter})`)
       return
     }
 
+    // Determine approval status based on auto-moderation setting and user role
+    // Auto-approve if:
+    // 1. Auto-moderation is disabled (all clips auto-approve), OR
+    // 2. Submitter is mod/broadcaster (bypass moderation)
+    const shouldAutoApprove = !settings.queue.hasAutoModerationEnabled || autoApprove
+    const status = shouldAutoApprove ? 'approved' : 'pending'
+
     // Add clip to queue with transaction
     const clipWithSubmitter = { ...clip, submitters: [submitter] }
-    const status = autoApprove ? 'approved' : 'pending'
-
     const savedClip = upsertClip(db, clipId, clipWithSubmitter, status)
 
-    // Add to in-memory queue
-    queue.add(savedClip)
-
-    // Broadcast to all clients
-    io.emit(WEBSOCKET_EVENTS.CLIP_ADDED, { clip: savedClip })
-    console.log(`[Queue] Added clip: ${clip.title} (submitted by ${submitter})`)
+    // Add to in-memory queue only if approved
+    if (status === 'approved') {
+      queue.add(savedClip)
+      console.log(`[Queue] Added clip: ${clip.title} (submitted by ${submitter})`)
+    } else {
+      console.log(`[Queue] Clip pending moderation: ${clip.title} (submitted by ${submitter})`)
+    }
   } catch (error) {
     console.error('[Queue] Failed to submit clip:', error)
   } finally {
@@ -517,34 +608,6 @@ async function handleClipSubmission(
 
 // Connect to chat on startup
 connectToChat()
-
-// WebSocket connection handler
-io.on('connection', (socket) => {
-  console.log(`[WebSocket] Client connected: ${socket.id}`)
-
-  // Send initial state (on both connect and reconnect)
-  socket.emit(WEBSOCKET_EVENTS.SYNC_STATE, {
-    current: currentClip,
-    upcoming: queue.toArray(),
-    history: history.toArray(),
-    isOpen: isQueueOpen
-  })
-
-  // Allow client to request state re-sync manually
-  socket.on(WEBSOCKET_EVENTS.SYNC_REQUEST, () => {
-    console.log(`[WebSocket] Client ${socket.id} requested state sync`)
-    socket.emit(WEBSOCKET_EVENTS.SYNC_STATE, {
-      current: currentClip,
-      upcoming: queue.toArray(),
-      history: history.toArray(),
-      isOpen: isQueueOpen
-    })
-  })
-
-  socket.on('disconnect', () => {
-    console.log(`[WebSocket] Client disconnected: ${socket.id}`)
-  })
-})
 
 // OAuth routes (must come before other API routes)
 app.use('/api/oauth', oauthRouter)
@@ -559,12 +622,20 @@ app.get('/api/health', publicReadLimiter, (req, res) => {
 })
 
 app.get('/api/queue', publicReadLimiter, (req, res) => {
-  res.json({
-    current: currentClip,
-    upcoming: queue.toArray(),
-    history: history.toArray(),
-    isOpen: isQueueOpen
-  })
+  // Generate ETag from current state
+  const etag = generateStateHash()
+
+  // Check if client has cached version
+  const clientETag = req.headers['if-none-match']
+  if (clientETag === etag) {
+    // State hasn't changed, return 304 Not Modified
+    return res.status(304).end()
+  }
+
+  // State changed, return full response with ETag
+  res.setHeader('ETag', etag)
+  res.setHeader('Cache-Control', 'no-cache') // Must revalidate with ETag
+  res.json(getQueueState())
 })
 
 // Manual clip submission (moderators only)
@@ -586,7 +657,7 @@ app.post(
 
   const { url, submitter } = parseResult.data
   await handleClipSubmission(url, submitter, false)
-  res.json({ success: true })
+  res.json({ success: true, state: getQueueState() })
 }))
 
 // Queue navigation (moderators only)
@@ -611,10 +682,9 @@ app.post(
     currentClip = state.current
 
     // Broadcast change
-    io.emit(WEBSOCKET_EVENTS.QUEUE_CURRENT, { clip: currentClip })
 
     console.log(`[Queue] Advanced to next clip: ${currentClip?.title || 'none'}`)
-    res.json({ success: true, current: currentClip })
+    res.json({ success: true, state: getQueueState() })
   } finally {
     release()
   }
@@ -628,10 +698,9 @@ app.post('/api/queue/previous', authenticate, authFailureLimiter, authenticatedL
     currentClip = state.current
 
     // Broadcast change
-    io.emit(WEBSOCKET_EVENTS.QUEUE_CURRENT, { clip: currentClip })
 
     console.log(`[Queue] Went to previous clip: ${currentClip?.title || 'none'}`)
-    res.json({ success: true, current: currentClip })
+    res.json({ success: true, state: getQueueState() })
   } finally {
     release()
   }
@@ -647,10 +716,9 @@ app.delete('/api/queue', authenticate, authFailureLimiter, authenticatedLimiter,
         deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
       }
     )
-    io.emit(WEBSOCKET_EVENTS.QUEUE_CLEARED, {})
 
     console.log('[Queue] Cleared queue')
-    res.json({ success: true })
+    res.json({ success: true, state: getQueueState() })
   } catch (error) {
     throw error // Let asyncHandler catch and respond with error
   }
@@ -664,10 +732,9 @@ app.delete('/api/queue/history', authenticate, authFailureLimiter, authenticated
     deleteClipsByStatus(db, 'played')
 
     // Broadcast history cleared event
-    io.emit(WEBSOCKET_EVENTS.HISTORY_CLEARED, {})
 
     console.log('[Queue] Cleared history')
-    res.json({ success: true })
+    res.json({ success: true, state: getQueueState() })
   } catch (error) {
     // Roll back in-memory changes on database failure
     previousHistory.forEach((clip: Clip) => history.add(clip))
@@ -678,16 +745,14 @@ app.delete('/api/queue/history', authenticate, authFailureLimiter, authenticated
 // Queue control (broadcaster only)
 app.post('/api/queue/open', authenticate, authFailureLimiter, authenticatedLimiter, requireBroadcaster, (req, res) => {
   isQueueOpen = true
-  io.emit(WEBSOCKET_EVENTS.QUEUE_OPENED, {})
   console.log('[Queue] Queue opened')
-  res.json({ success: true })
+  res.json({ success: true, state: getQueueState() })
 })
 
 app.post('/api/queue/close', authenticate, authFailureLimiter, authenticatedLimiter, requireBroadcaster, (req, res) => {
   isQueueOpen = false
-  io.emit(WEBSOCKET_EVENTS.QUEUE_CLOSED, {})
   console.log('[Queue] Queue closed')
-  res.json({ success: true })
+  res.json({ success: true, state: getQueueState() })
 })
 
 // Clip management (moderators only)
@@ -713,10 +778,9 @@ app.post('/api/queue/remove', authenticate, authFailureLimiter, authenticatedLim
       updateClipStatus(db, clipId, 'rejected')
 
       // Broadcast removal
-      io.emit(WEBSOCKET_EVENTS.CLIP_REMOVED, { clipId })
 
       console.log(`[Queue] Removed clip: ${clip.title}`)
-      res.json({ success: true })
+      res.json({ success: true, state: getQueueState() })
     } catch (error) {
       // Roll back in-memory changes on database failure
       queue.add(clip)
@@ -763,10 +827,9 @@ app.post('/api/queue/play', authenticate, authFailureLimiter, authenticatedLimit
     currentClip = state.current
 
     // Broadcast change
-    io.emit(WEBSOCKET_EVENTS.QUEUE_CURRENT, { clip: currentClip })
 
     console.log(`[Queue] Playing clip: ${currentClip?.title}`)
-    res.json({ success: true, current: currentClip })
+    res.json({ success: true, state: getQueueState() })
   } finally {
     release()
   }
@@ -848,7 +911,6 @@ app.put('/api/settings', authenticate, authFailureLimiter, authenticatedLimiter,
     settings = newSettings
 
     // Broadcast to all connected clients
-    io.emit(WEBSOCKET_EVENTS.SETTINGS_UPDATED, settings)
 
     console.log('[Settings] Updated:', settings)
     res.json({ success: true, settings })

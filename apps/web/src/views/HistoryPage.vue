@@ -53,7 +53,6 @@
             class="hidden aspect-video w-24 rounded-lg sm:block"
             :src="data.thumbnailUrl"
             :alt="data.title"
-            @error="queue.removeFromHistory(data)"
           />
           <div class="text-left text-sm sm:ml-3">
             <p class="font-normal">
@@ -134,7 +133,7 @@ async function queueClips() {
   logger.debug(`[History]: queuing ${clips.length} clip(s).`)
   for (const clip of clips) {
     try {
-      await queue.add(clip.url, clip.submitters[0] || 'unknown')
+      await queue.submit(clip.url, clip.submitters[0] || 'unknown')
     } catch (error) {
       logger.error(`[History]: Failed to queue clip: ${error}`)
     }
@@ -154,10 +153,9 @@ function deleteClips() {
       label: m.confirm()
     },
     accept: () => {
-      logger.debug(`[History]: deleting ${clips.length} clip(s).`)
-      for (const clip of clips) {
-        queue.removeFromHistory(clip)
-      }
+      logger.warn(`[History]: Individual clip deletion not supported - use Clear History instead`)
+      // Note: Individual history clip deletion not implemented in backend
+      // Users must use Clear History to remove all history
     },
     reject: () => {
       logger.debug(`[History]: deletion of ${clips.length} clip(s) was cancelled.`)
