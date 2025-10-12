@@ -7,8 +7,8 @@
   "about_original_author": "Projet original créé par",
   "allowed_commands": "Commandes autorisées:",
   "allowed_commands_description": "Commandes autorisées à être utilisées dans le chat.",
-  "allowed_platforms": "Fournisseurs autorisés:",
-  "allowed_platforms_description": "Les clips de ces fournisseurs seront autorisés dans la file d'attente.",
+  "allowed_platforms": "Plateformes autorisées:",
+  "allowed_platforms_description": "Les clips de ces plateformes seront autorisés dans la file d'attente.",
   "amber": "Ambre",
   "application_version": "Version de l'application: v{version}",
   "auto_mod": "Modération automatique:",
@@ -25,8 +25,8 @@
       "declarations": ["input length", "local lengthPlural = length: plural"],
       "selectors": ["lengthPlural"],
       "match": {
-        "lengthPlural=one": "Êtes-vous sûr de vouloir effacer le journal {length} ?",
-        "lengthPlural=other": "Êtes-vous sûr de vouloir effacer les journaux {length} ?"
+        "lengthPlural=one": "Êtes-vous sûr de vouloir effacer {length} journal ?",
+        "lengthPlural=other": "Êtes-vous sûr de vouloir effacer {length} journaux ?"
       }
     }
   ],
@@ -37,8 +37,8 @@
       "declarations": ["input length", "local lengthPlural = length: plural"],
       "selectors": ["lengthPlural"],
       "match": {
-        "lengthPlural=one": "{length} agrafe",
-        "lengthPlural=other": "{length} extraits"
+        "lengthPlural=one": "{length} clip",
+        "lengthPlural=other": "{length} clips"
       }
     }
   ],
@@ -46,9 +46,9 @@
   "command_clear": "Supprimer tous les clips de la file d'attente.",
   "command_close": "Fermer la file d'attente.",
   "command_disable_auto_mod": "Désactiver la modération automatique.",
-  "command_disable_platform": "Désactiver le fournisseur spécifié.",
+  "command_disable_platform": "Désactiver la plateforme spécifiée.",
   "command_enable_auto_mod": "Activer la modération automatique.",
-  "command_enable_platform": "Activer le fournisseur spécifié.",
+  "command_enable_platform": "Activer la plateforme spécifiée.",
   "command_next": "Passer au clip suivant.",
   "command_open": "Ouvrir la file d'attente.",
   "command_prefix": "Préfixe de commande:",
@@ -56,7 +56,7 @@
   "command_previous": "Passer au clip précédent.",
   "command_purge_cache": "Vider tous les clips mis en cache.",
   "command_purge_history": "Vider tous les clips vus précédemment.",
-  "command_remove_by_platform": "Supprimer les clips provenant du fournisseur.",
+  "command_remove_by_platform": "Supprimer les clips de la plateforme.",
   "command_remove_by_submitter": "Supprimer les clips envoyés par l'auteur.",
   "command_remove_limit": "Supprimer la limite de taille de la file d'attente.",
   "command_set_limit": "Définir une limite de taille pour la file d'attente.",
@@ -66,15 +66,15 @@
   "creator": "Créateur",
   "creator_name": "Créateur: {name}",
   "cyan": "Cyan",
-  "debug": "Déboguer",
+  "debug": "Débogage",
   "delete_history": "Supprimer l'historique",
   "delete_history_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
       "selectors": ["lengthPlural"],
       "match": {
-        "lengthPlural=one": "Êtes-vous sûr de vouloir supprimer le clip {length} de l'historique ?",
-        "lengthPlural=other": "Êtes-vous sûr de vouloir supprimer {length} clips de l'historique ?"
+        "lengthPlural=one": "Êtes-vous sûr de vouloir supprimer {length} clip de l'historique ?",
+        "lengthPlural=other": "Êtes-vous sûr de vouloir supprimer {length} clips de l'historique ?"
       }
     }
   ],
@@ -115,7 +115,7 @@
   "logs": "Journaux",
   "logs_colon": "Journaux:",
   "message": "Message",
-  "message_no_clip_platforms_enabled": "Aucun fournisseur de clips activé. Veuillez en activer un dans les paramètres.",
+  "message_no_clip_platforms_enabled": "Aucune plateforme de clips activée. Veuillez en activer une dans les paramètres.",
   "neutral": "Neutre",
   "next": "Suivant",
   "no_clip_playing": "Aucun clip en lecture",
@@ -130,9 +130,9 @@
   "open": "Ouvrir",
   "orange": "Orange",
   "pink": "Rose",
-  "platform": "Fournisseur",
-  "platform_colon": "Fournisseur:",
-  "play": "Jouer",
+  "platform": "Plateforme",
+  "platform_colon": "Plateforme:",
+  "play": "Lire",
   "preferences_saved": "Préférences enregistrées.",
   "previous": "Précédent",
   "primary_color": "Couleur principale:",
@@ -155,7 +155,7 @@
   "save": "Enregistrer",
   "search": "Rechercher",
   "settings": "Paramètres",
-  "settings_about": "About",
+  "settings_about": "À propos",
   "settings_chat": "Chat",
   "settings_other": "Autre",
   "settings_preferences": "Préférences",
@@ -177,13 +177,13 @@
   "theme": "Thème",
   "theme_dark": "Sombre",
   "theme_description": "Thème utilisé dans toute l'interface utilisateur.",
-  "theme_light": "Lumière",
+  "theme_light": "Clair",
   "timestamp": "Horodatage",
   "unknown": "Inconnu",
-  "unsupported_clip": "Clip non pris en charge. Vous devez peut-être activer le fournisseur de ce clip.",
+  "unsupported_clip": "Clip non pris en charge. Vous devez peut-être activer la plateforme de ce clip.",
   "upcoming_clips": "Clips à venir",
   "view": "Voir",
-  "violet": "Violette",
+  "violet": "Violet",
   "viva": "Viva",
   "warning": "Avertissement",
   "yellow": "Jaune",
