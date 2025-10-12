@@ -378,7 +378,7 @@ export function updateClipStatus(
   clipId: string,
   status: 'approved' | 'pending' | 'rejected' | 'played'
 ): void {
-  const updates: any = { status }
+  const updates: Partial<typeof clips.$inferInsert> = { status }
 
   if (status === 'played') {
     updates.playedAt = new Date()
