@@ -94,8 +94,6 @@ pnpm web dev
 - 📦 Real-time queue updates across all clients
 - 🎨 PrimeVue UI components
 
-See [ADR 002](docs/adr/002-self-hosted-docker-backend.md) for architecture details.
-
 ## Features
 
 - ✅ **Persistent chat monitoring** via Twitch EventSub (no browser needed!)
@@ -185,7 +183,3 @@ pnpm api add express
 ## Deployment
 
 See `apps/api/README.md` for Docker deployment instructions.
-
-## Contributing
-
-Please refer to the [contributing guide](CONTRIBUTING.md) for development setup and guidelines.

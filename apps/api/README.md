@@ -38,6 +38,30 @@ PORT=3000                           # Server port
 DB_PATH=/app/data/clips.db         # SQLite database path
 ```
 
+### Getting Bot Token
+
+Run the setup script to get your bot token via OAuth:
+
+```bash
+# From project root (recommended)
+pnpm api setup
+# Or: make api-setup
+```
+
+This will:
+
+1. Start a temporary OAuth server on port 3333
+2. Open your browser to Twitch authorization
+3. Print your access token to the terminal
+4. Copy the token to `.env` as `TWITCH_BOT_TOKEN`
+
+**Troubleshooting:**
+
+- **"Missing environment variables"** - Add your client ID and secret to `.env` first
+- **Browser doesn't open** - The URL will be printed to the terminal. Copy and paste it manually
+- **"Authorization failed"** - Make sure port 3333 is not in use; check your client ID and secret are correct
+- **Token expires** - Tokens expire after ~60 days. Just re-run `pnpm api setup` to get a fresh token
+
 ### Running Locally
 
 ```bash

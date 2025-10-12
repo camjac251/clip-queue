@@ -69,14 +69,6 @@ pnpm --filter @cq/api db:migrate   # Apply migrations to database
 pnpm --filter @cq/api db:studio    # Open Drizzle Studio GUI
 ```
 
-### Changesets
-
-After making changes:
-
-```sh
-pnpm changeset
-```
-
 ## Architecture Overview
 
 ### System Architecture
@@ -310,8 +302,6 @@ if (url.includes('kick.com/') && url.includes('/clips/clip_'))
 **Note**: The schema (`apps/api/src/schema.ts`) defines additional commands not yet implemented: `setlimit`, `removelimit`, `removebysubmitter`, `removebyplatform`, `enableplatform`, `disableplatform`, `enableautomod`, `disableautomod`, `purgecache`
 
 #### 7. Authentication & Authorization
-
-**Implementation** (see `docs/adr/003-twitch-oauth-authentication.md` for full details):
 
 **Backend** (`apps/api/src/auth.ts`, `apps/api/src/index.ts`):
 
