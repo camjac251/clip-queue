@@ -65,7 +65,7 @@ export const useUser = defineStore(
           } else {
             failed = true
           }
-        } catch (error) {
+        } catch (error: unknown) {
           logger.error(`[Twitch]: ${error}`)
           failed = true
         }

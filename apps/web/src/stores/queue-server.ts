@@ -157,7 +157,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       }
 
       logger.info('[Queue]: Advanced to next clip')
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Queue]: Failed to advance: ${error}`)
       throw error
     }
@@ -174,7 +174,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       }
 
       logger.info('[Queue]: Went to previous clip')
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Queue]: Failed to go to previous: ${error}`)
       throw error
     }
@@ -191,7 +191,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       }
 
       logger.info('[Queue]: Cleared queue')
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Queue]: Failed to clear queue: ${error}`)
       throw error
     }
@@ -208,7 +208,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       }
 
       logger.info('[Queue]: Opened queue')
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Queue]: Failed to open queue: ${error}`)
       throw error
     }
@@ -225,7 +225,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       }
 
       logger.info('[Queue]: Closed queue')
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Queue]: Failed to close queue: ${error}`)
       throw error
     }
@@ -245,7 +245,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       }
 
       logger.info('[Queue]: Purged history')
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Queue]: Failed to purge history: ${error}`)
       throw error
     }
@@ -275,7 +275,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       }
 
       logger.info(`[Queue]: Submitted clip: ${url}`)
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Queue]: Failed to submit clip: ${error}`)
       throw error
     }
@@ -299,7 +299,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       }
 
       logger.info(`[Queue]: Removed clip: ${clipId}`)
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Queue]: Failed to remove clip: ${error}`)
       throw error
     }
@@ -323,7 +323,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       }
 
       logger.info(`[Queue]: Playing clip: ${clipId}`)
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Queue]: Failed to play clip: ${error}`)
       throw error
     }

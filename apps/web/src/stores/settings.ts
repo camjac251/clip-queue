@@ -168,7 +168,7 @@ export const useSettings = defineStore('settings', () => {
       commands.value = data.commands
       queue.value = data.queue
       logger.value = data.logger
-    } catch (error) {
+    } catch (error: unknown) {
       log.error(`[Settings] Failed to load from backend: ${error}`)
     }
   }
@@ -193,7 +193,7 @@ export const useSettings = defineStore('settings', () => {
       }
 
       log.info('[Settings] Saved to backend')
-    } catch (error) {
+    } catch (error: unknown) {
       log.error(`[Settings] Failed to save to backend: ${error}`)
       throw error
     }

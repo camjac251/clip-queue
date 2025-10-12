@@ -95,7 +95,7 @@ export const useWebSocket = defineStore('websocket', () => {
       for (const handler of handlers) {
         try {
           handler(eventData)
-        } catch (error) {
+        } catch (error: unknown) {
           logger.error(`[WebSocket]: Event handler error for ${eventName}: ${error}`)
         }
       }
