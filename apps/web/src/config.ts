@@ -1,7 +1,6 @@
 export const env = {
-  CLIENT_ID: import.meta.env.VITE_TWITCH_CLIENT_ID as string,
-  REDIRECT_URI: import.meta.env.VITE_TWITCH_REDIRECT_URI as string,
-  SENTRY_DSN: import.meta.env.VITE_SENTRY_DSN as string
+  SENTRY_DSN: import.meta.env.VITE_SENTRY_DSN as string,
+  API_URL: (import.meta.env.VITE_API_URL as string) || 'http://localhost:3000'
 }
 
 export const config = {

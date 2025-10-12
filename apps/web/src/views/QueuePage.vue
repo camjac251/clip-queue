@@ -4,6 +4,7 @@
     :key="toClipUUID(queue.current)"
     :clip="queue.current"
     :previous-disabled="queue.history.size() === 0"
+    :can-control="user.canControlQueue"
     @previous="handlePrevious()"
     @next="handleNext()"
   />
@@ -17,6 +18,8 @@
     :title="m.upcoming_clips()"
     :clips="queue.upcoming.toArray()"
     :is-open="queue.isOpen"
+    :can-control="user.canControlQueue"
+    :can-manage="user.isBroadcaster"
     @open="queue.open()"
     @close="queue.close()"
     @remove="handleRemove"
@@ -36,10 +39,12 @@ import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
 import { useQueueServer as useQueue } from '@/stores/queue-server'
 import { useSettings } from '@/stores/settings'
+import { useUser } from '@/stores/user'
 
 const queue = useQueue()
 const settings = useSettings()
 const logger = useLogger()
+const user = useUser()
 
 async function handlePrevious() {
   try {

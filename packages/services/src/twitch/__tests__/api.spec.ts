@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createAuthHeaders } from '@cq/utils'
+
 import type { TwitchUserCtx } from '..'
 import { mockTwitchClip, mockTwitchGame, mockTwitchUser } from '../../__tests__/mocks'
-import TwitchAPI, { toCommonHeaders } from '../api'
+import TwitchAPI from '../api'
 
 describe('twitch-api.ts', () => {
   beforeEach(() => {
@@ -26,7 +28,10 @@ describe('twitch-api.ts', () => {
   })
 
   it('gets a twitch clips from twitch api', async () => {
-    const clips = await TwitchAPI.getClips({ id: '', token: '', username: '' }, ['testclip'])
+    const clips = await TwitchAPI.getClips(
+      { id: 'test', token: 'testToken', username: 'testuser' },
+      ['testclip']
+    )
     const clipInfo = clips[0]
     expect(clipInfo).toBeDefined()
     expect(clipInfo?.id).toEqual('testclip')
@@ -36,11 +41,16 @@ describe('twitch-api.ts', () => {
   })
 
   it('throws if no clip IDs are passed', async () => {
-    await expect(TwitchAPI.getClips({ id: '', token: '', username: '' }, [])).rejects.toThrowError()
+    await expect(
+      TwitchAPI.getClips({ id: 'test', token: 'testToken', username: 'testuser' }, [])
+    ).rejects.toThrowError()
   })
 
   it('gets a twitch games from twitch api', async () => {
-    const games = await TwitchAPI.getGames({ id: '', token: '', username: '' }, ['testgame'])
+    const games = await TwitchAPI.getGames(
+      { id: 'test', token: 'testToken', username: 'testuser' },
+      ['testgame']
+    )
     const gameInfo = games[0]
     expect(gameInfo).toBeDefined()
     expect(gameInfo?.id).toEqual('testgame')
@@ -49,11 +59,16 @@ describe('twitch-api.ts', () => {
   })
 
   it('throws if no game IDs are passed', async () => {
-    await expect(TwitchAPI.getGames({ id: '', token: '', username: '' }, [])).rejects.toThrowError()
+    await expect(
+      TwitchAPI.getGames({ id: 'test', token: 'testToken', username: 'testuser' }, [])
+    ).rejects.toThrowError()
   })
 
   it('gets a twitch user from twitch api', async () => {
-    const users = await TwitchAPI.getUsers({ id: '', token: '', username: '' }, ['testuser'])
+    const users = await TwitchAPI.getUsers(
+      { id: 'test', token: 'testToken', username: 'testuser' },
+      ['testuser']
+    )
     const userInfo = users[0]
     expect(userInfo).toBeDefined()
     expect(userInfo?.id).toEqual('testuser')
@@ -64,8 +79,8 @@ describe('twitch-api.ts', () => {
 
   it('gets authorization headers based on a twitch users context', () => {
     const ctx: TwitchUserCtx = { id: 'test', token: 'testToken' }
-    expect(toCommonHeaders(ctx)).toEqual({
-      'Client-ID': 'test',
+    expect(createAuthHeaders(ctx.token ?? '', ctx.id)).toEqual({
+      'Client-Id': 'test',
       Authorization: `Bearer testToken`
     })
   })

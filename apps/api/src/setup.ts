@@ -6,13 +6,13 @@
  */
 
 import { config } from 'dotenv'
-import { resolve } from 'path'
 import express from 'express'
 import { createServer } from 'http'
 import open from 'open'
+import { resolveFromRoot } from './paths.js'
 
 // Load .env from project root
-config({ path: resolve(process.cwd(), '../../.env') })
+config({ path: resolveFromRoot('.env') })
 
 const SETUP_PORT = 3333
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID

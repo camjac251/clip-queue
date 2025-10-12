@@ -28,7 +28,7 @@
         </div>
       </div>
     </template>
-    <template #footer>
+    <template v-if="canControl" #footer>
       <div class="flex justify-between gap-2">
         <SecondaryButton
           class="grow"
@@ -62,10 +62,13 @@ import * as m from '@/paraglide/messages'
 
 export interface Props {
   clip: Clip
+  canControl?: boolean
 }
 
-const props = defineProps<Props>()
-const { clip } = toRefs(props)
+const props = withDefaults(defineProps<Props>(), {
+  canControl: false
+})
+const { clip, canControl } = toRefs(props)
 
 const subtitle = computed(() => {
   if (clip.value.category) {

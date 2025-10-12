@@ -6,7 +6,6 @@ import { Platform, platforms as ps } from '@cq/platforms'
 
 import { useLogger } from '@/stores/logger'
 import { useSettings } from '@/stores/settings'
-import { useUser } from '@/stores/user'
 
 /**
  * Platforms Store
@@ -18,14 +17,9 @@ export const usePlatforms = defineStore('platforms', () => {
   const settings = useSettings()
   const logger = useLogger()
 
-  const platforms = ref(
-    ps.all({
-      [Platform.TWITCH]: () => {
-        const user = useUser()
-        return user.ctx
-      }
-    })
-  )
+  // Note: Clip fetching is handled by backend, so no user context needed
+  // Platform instances only used for display metadata (SVG, player config)
+  const platforms = ref(ps.all({}))
 
   const svg = computed(() => {
     return (platform: Platform) => {

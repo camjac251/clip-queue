@@ -17,15 +17,25 @@
           </RouterLink>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-3">
         <ThemeToggle :is-dark-mode="preferences.isDark" @toggle="preferences.toggleTheme()" />
+        <div v-if="user.isLoggedIn" class="flex items-center gap-2">
+          <span class="text-surface-700 dark:text-surface-100 text-sm">{{ user.username }}</span>
+          <Button
+            v-tooltip.bottom="m.logout()"
+            icon="pi pi-sign-out"
+            size="small"
+            text
+            @click="handleLogout"
+          />
+        </div>
         <Button
+          v-else
           icon="pi pi-twitch"
-          :label="user.isLoggedIn ? m.logout() : m.login()"
+          :label="m.login()"
           size="small"
-          @click="() => handleAuthButtonClick()"
-        >
-        </Button>
+          @click="() => user.redirect()"
+        />
       </div>
     </div>
   </div>
@@ -45,12 +55,8 @@ const preferences = usePreferences()
 const user = useUser()
 const router = useRouter()
 
-async function handleAuthButtonClick() {
-  if (user.isLoggedIn) {
-    await user.logout()
-    await router.push({ name: RouteNameConstants.HOME })
-  } else {
-    user.redirect()
-  }
+async function handleLogout() {
+  await user.logout()
+  await router.push({ name: RouteNameConstants.HOME })
 }
 </script>

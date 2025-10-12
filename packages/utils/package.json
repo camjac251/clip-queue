@@ -1,0 +1,20 @@
+{
+  "name": "@cq/utils",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./http": "./src/http.ts",
+    "./cache": "./src/cache.ts",
+    "./url": "./src/url.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cq/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

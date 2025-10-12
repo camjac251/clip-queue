@@ -1,0 +1,20 @@
+{
+  "name": "@cq/constants",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./events": "./src/events.ts",
+    "./commands": "./src/commands.ts",
+    "./platforms": "./src/platforms.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cq/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

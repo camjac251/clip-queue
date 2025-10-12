@@ -1,7 +1,7 @@
 <template>
   <div class="mx-0 mt-4">
     <div class="border-surface-300 dark:border-surface-700 mt-1 mb-2 w-full border-t"></div>
-    <div class="float-right">
+    <div v-if="canManage" class="float-right">
       <SecondaryButton
         :label="m.clear()"
         size="small"
@@ -32,6 +32,7 @@
         v-for="clip in clips"
         :key="toClipUUID(clip)"
         :clip
+        :can-control="canControl"
         @play="emit('play', clip)"
         @remove="emit('remove', clip)"
       />
@@ -53,13 +54,17 @@ export interface Props {
   title?: string
   clips: Clip[]
   isOpen?: boolean
+  canControl?: boolean
+  canManage?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: 'Queue',
-  isOpen: false
+  isOpen: false,
+  canControl: false,
+  canManage: false
 })
-const { title, isOpen } = toRefs(props)
+const { title, isOpen, canControl, canManage } = toRefs(props)
 
 const emit = defineEmits<{
   (e: 'play', value: Clip): void

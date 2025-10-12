@@ -9,6 +9,9 @@ import { defineStore } from 'pinia'
 import { io, Socket } from 'socket.io-client'
 import { ref } from 'vue'
 
+import { WEBSOCKET_EVENTS } from '@cq/constants/events'
+
+import { emitAuthEvent } from '@/utils/events'
 import { useLogger } from './logger'
 
 /**
@@ -46,10 +49,14 @@ export const useWebSocket = defineStore('websocket', () => {
   let onConnectErrorHandler: ((error: Error) => void) | null = null
   let onAnyHandler: ((eventName: string, ...args: unknown[]) => void) | null = null
 
+  // Track if we've had a previous connection (for re-sync on reconnect)
+  let hadPreviousConnection = false
+
   /**
    * Connect to backend server
+   * Authentication handled automatically via httpOnly cookies
    */
-  function connect(serverUrl: string): void {
+  function connect(serverUrl?: string): void {
     if (socket && socket.connected) {
       logger.debug('[WebSocket]: Already connected.')
       return
@@ -64,26 +71,48 @@ export const useWebSocket = defineStore('websocket', () => {
       transports: ['websocket', 'polling'],
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity
+      reconnectionAttempts: Infinity,
+      withCredentials: true // Send cookies with connection request
     })
 
     onConnectHandler = () => {
       status.value = WebSocketStatus.CONNECTED
       logger.info('[WebSocket]: Connected')
+
+      // Request state re-sync on reconnection
+      if (hadPreviousConnection && socket) {
+        logger.info('[WebSocket]: Requesting state re-sync after reconnection')
+        socket.emit(WEBSOCKET_EVENTS.SYNC_REQUEST)
+      }
+      hadPreviousConnection = true
     }
-    socket.on('connect', onConnectHandler)
+    socket.on(WEBSOCKET_EVENTS.CONNECT, onConnectHandler)
 
     onDisconnectHandler = (reason: string) => {
       status.value = WebSocketStatus.DISCONNECTED
       logger.warn(`[WebSocket]: Disconnected - ${reason}`)
     }
-    socket.on('disconnect', onDisconnectHandler)
+    socket.on(WEBSOCKET_EVENTS.DISCONNECT, onDisconnectHandler)
 
     onConnectErrorHandler = (error: Error) => {
       status.value = WebSocketStatus.ERROR
       logger.error(`[WebSocket]: Connection error: ${error.message}`)
+
+      // If auth-related error, emit auth event for user notification
+      const errorMessage = error.message.toLowerCase()
+      if (
+        errorMessage.includes('authentication') ||
+        errorMessage.includes('invalid') ||
+        errorMessage.includes('token') ||
+        errorMessage.includes('unauthorized')
+      ) {
+        emitAuthEvent({
+          type: 'unauthorized',
+          message: 'WebSocket authentication failed. Please log in again.'
+        })
+      }
     }
-    socket.on('connect_error', onConnectErrorHandler)
+    socket.on(WEBSOCKET_EVENTS.CONNECT_ERROR, onConnectErrorHandler)
 
     // Listen for all server events and dispatch to handlers
     onAnyHandler = (eventName: string, ...args: unknown[]) => {
@@ -110,15 +139,15 @@ export const useWebSocket = defineStore('websocket', () => {
     if (socket) {
       // Remove all event listeners before disconnecting
       if (onConnectHandler) {
-        socket.off('connect', onConnectHandler)
+        socket.off(WEBSOCKET_EVENTS.CONNECT, onConnectHandler)
         onConnectHandler = null
       }
       if (onDisconnectHandler) {
-        socket.off('disconnect', onDisconnectHandler)
+        socket.off(WEBSOCKET_EVENTS.DISCONNECT, onDisconnectHandler)
         onDisconnectHandler = null
       }
       if (onConnectErrorHandler) {
-        socket.off('connect_error', onConnectErrorHandler)
+        socket.off(WEBSOCKET_EVENTS.CONNECT_ERROR, onConnectErrorHandler)
         onConnectErrorHandler = null
       }
       if (onAnyHandler) {
@@ -130,6 +159,7 @@ export const useWebSocket = defineStore('websocket', () => {
       socket = null
     }
 
+    hadPreviousConnection = false
     status.value = WebSocketStatus.DISCONNECTED
     logger.info('[WebSocket]: Disconnected')
   }

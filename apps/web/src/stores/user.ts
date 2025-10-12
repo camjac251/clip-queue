@@ -1,115 +1,238 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
-import type { TwitchUserCtx } from '@cq/services/twitch'
 import twitch from '@cq/services/twitch'
 
 import { env } from '@/config'
+import { clearAuthEvents, emitAuthEvent } from '@/utils/events'
+import { UserRoleSchema } from '@/utils/schemas'
 import { useLogger } from './logger'
+import { useWebSocket } from './websocket'
 
-const { CLIENT_ID, REDIRECT_URI } = env
+const { API_URL } = env
 
-export const useUser = defineStore(
-  'user',
-  () => {
-    const logger = useLogger()
+export const useUser = defineStore('user', () => {
+  const logger = useLogger()
+  const websocket = useWebSocket()
+  const router = useRouter()
 
-    const hasValidatedToken = ref<boolean>(false)
-    const isLoggedIn = ref<boolean>(false)
-    const ctx = ref<TwitchUserCtx>({
-      id: CLIENT_ID,
-      token: undefined,
-      username: undefined
-    })
+  const isLoggedIn = ref<boolean>(false)
+  const username = ref<string | undefined>(undefined)
 
-    function redirect(): void {
-      twitch.redirect(ctx.value, REDIRECT_URI, ['openid', 'user:read:chat'])
-    }
+  // Role information from backend
+  const isBroadcaster = ref<boolean>(false)
+  const isModerator = ref<boolean>(false)
 
-    async function autoLoginIfPossible(): Promise<void> {
-      if (hasValidatedToken.value) {
+  // Computed permissions
+  const canControlQueue = computed(() => isModerator.value || isBroadcaster.value)
+  const canManageSettings = computed(() => isBroadcaster.value)
+
+  // Token validation interval (every 5 minutes to detect expired tokens)
+  let validationInterval: ReturnType<typeof setInterval> | null = null
+
+  /**
+   * Redirect to backend OAuth login
+   */
+  function redirect(): void {
+    twitch.redirect(API_URL)
+  }
+
+  /**
+   * Fetch user role information from backend
+   * (broadcaster/moderator status for the configured channel)
+   * Backend reads token from httpOnly cookie automatically
+   */
+  async function fetchUserRole(): Promise<void> {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        credentials: 'include' // Send cookies
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logger.error('[User]: Token validation failed - invalid or expired')
+          emitAuthEvent({
+            type: 'unauthorized',
+            message: 'Authentication failed. Please log in again.'
+          })
+          await logout()
+        } else {
+          logger.error(`[User]: Failed to fetch role: ${response.status}`)
+        }
         return
       }
-      if (ctx.value.token && (await twitch.isLoginValid(ctx.value))) {
-        isLoggedIn.value = true
-      } else {
-        await logout()
-      }
-      hasValidatedToken.value = true
-    }
 
-    async function login(hash: string): Promise<void> {
-      const authInfo = twitch.login(hash)
-      if (authInfo === null) {
+      const rawData = await response.json()
+      const parseResult = UserRoleSchema.safeParse(rawData)
+
+      if (!parseResult.success) {
+        logger.error(
+          `[User]: Invalid role data from server: ${JSON.stringify(parseResult.error.issues)}`
+        )
         return
       }
-      const { access_token, decodedIdToken } = authInfo
-      const currentCtx = ctx.value
-      if (
-        currentCtx.token !== access_token ||
-        currentCtx.username !== decodedIdToken.preferred_username
-      ) {
-        ctx.value = {
-          ...currentCtx,
-          token: access_token,
-          username: decodedIdToken.preferred_username
-        }
-        // Attempt to get the username from Twitch API as the preferred username may not be set
-        // or the user may have a preferred username that is different from their Twitch username.
-        // For example, if the user has simplified chinese characters in their preferred username.
-        let failed = false
-        try {
-          const users = await twitch.getUsers(ctx.value, [])
-          if (users.length > 0) {
-            ctx.value.username = users[0]?.login
-          } else {
-            failed = true
-          }
-        } catch (error: unknown) {
-          logger.error(`[Twitch]: ${error}`)
-          failed = true
-        }
-        if (failed) {
-          logger.warn(
-            `[Twitch]: Failed to get user from Twitch API. Using preferred username: ${decodedIdToken.preferred_username}.`
-          )
-          ctx.value.username = decodedIdToken.preferred_username
-        }
-        isLoggedIn.value = true
-      }
-    }
 
-    async function logout(): Promise<void> {
-      const originalCtx = ctx.value
-      ctx.value = {
-        ...originalCtx,
-        token: undefined,
-        username: undefined
-      }
-      isLoggedIn.value = false
-      if (originalCtx.id && originalCtx.token) {
-        try {
-          await twitch.logout(originalCtx)
-        } catch (e) {
-          logger.error(`[Twitch]: Failed to logout: ${e}.`)
-        }
-      }
-    }
+      const data = parseResult.data
+      username.value = data.username
+      isBroadcaster.value = data.isBroadcaster
+      isModerator.value = data.isModerator
+      isLoggedIn.value = true
 
-    return {
-      hasValidatedToken,
-      isLoggedIn,
-      ctx,
-      autoLoginIfPossible,
-      redirect,
-      login,
-      logout
-    }
-  },
-  {
-    persist: {
-      key: 'cq-user',
-      pick: ['ctx.token', 'ctx.username']
+      logger.info(
+        `[User]: Role fetched - User: ${data.username}, Broadcaster: ${data.isBroadcaster}, Moderator: ${data.isModerator}`
+      )
+    } catch (error: unknown) {
+      logger.error(`[User]: Failed to fetch role: ${error}`)
     }
   }
-)
+
+  /**
+   * Check if user is logged in and fetch role
+   * Call this on app initialization and after OAuth callback
+   */
+  async function checkLoginStatus(): Promise<void> {
+    try {
+      const isValid = await twitch.isLoginValid(API_URL)
+      if (isValid) {
+        await fetchUserRole()
+        startProactiveValidation()
+      } else {
+        isLoggedIn.value = false
+        username.value = undefined
+        isBroadcaster.value = false
+        isModerator.value = false
+      }
+    } catch (error: unknown) {
+      logger.error(`[User]: Failed to check login status: ${error}`)
+      isLoggedIn.value = false
+    }
+  }
+
+  /**
+   * Handle OAuth callback
+   * Parse URL parameters and check login status
+   */
+  async function handleOAuthCallback(): Promise<void> {
+    const params = new URLSearchParams(window.location.search)
+    const loginStatus = params.get('login')
+
+    if (loginStatus === 'success') {
+      logger.info('[User]: OAuth login successful')
+      await checkLoginStatus()
+
+      // Clean URL
+      router.replace({ query: {} })
+    } else if (loginStatus === 'error') {
+      const reason = params.get('reason') || 'unknown'
+      logger.error(`[User]: OAuth login failed: ${reason}`)
+
+      emitAuthEvent({
+        type: 'unauthorized',
+        message: `Login failed: ${reason}. Please try again.`
+      })
+
+      // Clean URL
+      router.replace({ query: {} })
+    }
+  }
+
+  /**
+   * Start proactive token validation
+   * Validates token every 5 minutes to detect expiration early
+   */
+  function startProactiveValidation(): void {
+    stopProactiveValidation()
+
+    validationInterval = setInterval(
+      async () => {
+        if (isLoggedIn.value) {
+          try {
+            const isValid = await twitch.isLoginValid(API_URL)
+            if (!isValid) {
+              logger.warn('[User]: Token validation failed, logging out')
+              emitAuthEvent({
+                type: 'expired',
+                message: 'Your session has expired. Please log in again.'
+              })
+              await logout()
+            } else {
+              logger.debug('[User]: Token validated successfully')
+            }
+          } catch (error: unknown) {
+            logger.error(`[User]: Token validation error: ${error}`)
+          }
+        }
+      },
+      5 * 60 * 1000
+    ) // 5 minutes
+
+    logger.debug('[User]: Started proactive token validation (every 5 minutes)')
+  }
+
+  /**
+   * Stop proactive token validation
+   */
+  function stopProactiveValidation(): void {
+    if (validationInterval) {
+      clearInterval(validationInterval)
+      validationInterval = null
+      logger.debug('[User]: Stopped proactive token validation')
+    }
+  }
+
+  /**
+   * Cleanup on store disposal
+   */
+  onBeforeUnmount(() => {
+    stopProactiveValidation()
+    logger.debug('[User]: Cleaned up validation interval on unmount')
+  })
+
+  /**
+   * Logout user
+   */
+  async function logout(): Promise<void> {
+    // Stop proactive validation
+    stopProactiveValidation()
+
+    // Clear any pending auth events
+    clearAuthEvents()
+
+    // Call backend OAuth logout endpoint
+    try {
+      await twitch.logout(API_URL)
+      logger.info('[User]: Logged out successfully')
+    } catch (error: unknown) {
+      logger.error(`[User]: Logout failed: ${error}`)
+    }
+
+    // Clear local state
+    isLoggedIn.value = false
+    username.value = undefined
+    isBroadcaster.value = false
+    isModerator.value = false
+  }
+
+  // Watch for login status changes and update WebSocket connection
+  watch(isLoggedIn, (newValue) => {
+    if (newValue) {
+      // WebSocket will use cookies automatically, no need to pass token
+      websocket.connect()
+    }
+  })
+
+  return {
+    isLoggedIn,
+    username,
+    isBroadcaster,
+    isModerator,
+    canControlQueue,
+    canManageSettings,
+    redirect,
+    checkLoginStatus,
+    handleOAuthCallback,
+    logout,
+    fetchUserRole
+  }
+})

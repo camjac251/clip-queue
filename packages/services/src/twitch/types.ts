@@ -81,6 +81,10 @@ export interface AuthInfo {
    */
   scope: string
   /**
+   * The state parameter (for CSRF protection).
+   */
+  state?: string
+  /**
    * The decoded ID token.
    */
   decodedIdToken: IDToken

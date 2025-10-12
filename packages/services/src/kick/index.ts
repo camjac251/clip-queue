@@ -1,3 +1,5 @@
+import { extractIdFromPath } from '@cq/utils'
+
 import type { KickClip } from './types'
 
 export * from './types'
@@ -53,8 +55,7 @@ export function getClipIdFromUrl(url: string): string | undefined {
         return id
       }
       if (uri.pathname.includes('/clips/')) {
-        const idStart = uri.pathname.lastIndexOf('/')
-        return uri.pathname.slice(idStart).split('?')[0]?.slice(1)
+        return extractIdFromPath(uri.pathname)
       }
     }
     return

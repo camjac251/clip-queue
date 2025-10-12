@@ -8,8 +8,30 @@ import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqli
 import { sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { Platform } from '@cq/platforms'
+import {
+  CommandSettingsSchema,
+  QueueSettingsSchema,
+  LoggerSettingsSchema,
+  AppSettingsSchema,
+  type CommandSettings,
+  type QueueSettings,
+  type LoggerSettings,
+  type AppSettings
+} from '@cq/schemas/settings'
 
 export type { Clip } from '@cq/platforms'
+export type {
+  CommandSettings,
+  QueueSettings,
+  LoggerSettings,
+  AppSettings
+} from '@cq/schemas/settings'
+export {
+  CommandSettingsSchema,
+  QueueSettingsSchema,
+  LoggerSettingsSchema,
+  AppSettingsSchema
+}
 
 /**
  * Clips Table
@@ -106,58 +128,6 @@ export const ClipSchema = z.object({
   category: z.string().optional(),
   createdAt: z.string().optional() // ISO date string
 })
-
-// Command settings validation
-export const CommandSettingsSchema = z.object({
-  prefix: z.string().min(1),
-  allowed: z.array(
-    z.enum([
-      'open',
-      'close',
-      'clear',
-      'setlimit',
-      'removelimit',
-      'prev',
-      'next',
-      'removebysubmitter',
-      'removebyplatform',
-      'enableplatform',
-      'disableplatform',
-      'enableautomod',
-      'disableautomod',
-      'purgecache',
-      'purgehistory'
-    ])
-  )
-})
-
-export type CommandSettings = z.infer<typeof CommandSettingsSchema>
-
-// Queue settings validation
-export const QueueSettingsSchema = z.object({
-  hasAutoModerationEnabled: z.boolean(),
-  limit: z.number().int().positive().nullable(),
-  platforms: z.array(z.enum(['twitch', 'kick']))
-})
-
-export type QueueSettings = z.infer<typeof QueueSettingsSchema>
-
-// Logger settings validation
-export const LoggerSettingsSchema = z.object({
-  level: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']),
-  limit: z.number().int().positive()
-})
-
-export type LoggerSettings = z.infer<typeof LoggerSettingsSchema>
-
-// App settings validation (composite)
-export const AppSettingsSchema = z.object({
-  commands: CommandSettingsSchema,
-  queue: QueueSettingsSchema,
-  logger: LoggerSettingsSchema
-})
-
-export type AppSettings = z.infer<typeof AppSettingsSchema>
 
 /**
  * Default Settings (validated)

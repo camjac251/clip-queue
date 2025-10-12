@@ -1,0 +1,23 @@
+{
+  "name": "@cq/schemas",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./settings": "./src/settings.ts",
+    "./auth": "./src/auth.ts",
+    "./twitch": "./src/twitch.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cq/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

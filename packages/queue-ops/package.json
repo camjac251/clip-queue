@@ -1,0 +1,21 @@
+{
+  "name": "@cq/queue-ops",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cq/platforms": "workspace:*"
+  },
+  "devDependencies": {
+    "@cq/config": "workspace:*",
+    "@cq/constants": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

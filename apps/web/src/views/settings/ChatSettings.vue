@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-if="user.canManageSettings">
     <Card class="mx-auto mb-2 max-w-xl">
       <template #content>
         <div class="m-0 flex flex-col gap-2 p-0 text-left">
@@ -13,7 +13,7 @@
             </span>
             <InputText
               id="username"
-              v-model="user.ctx.username"
+              v-model="user.username"
               readonly
               fluid
               pt:root="flex-1 rounded-none"
@@ -91,6 +91,11 @@
       </template>
     </Card>
   </div>
+  <div v-else>
+    <Message severity="warn">
+      <p>Only broadcasters can access settings.</p>
+    </Message>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -108,9 +113,10 @@ import {
 
 import SourceIndicator from '@/components/SourceIndicator.vue'
 import * as m from '@/paraglide/messages'
-import { Command, useSettings } from '@/stores/settings'
+import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
 import { useWebSocket } from '@/stores/websocket'
+import { Command } from '@/types/commands'
 
 const toast = useToast()
 const user = useUser()
@@ -138,6 +144,7 @@ const commandHelp: Record<Command, { description: string; args?: string[] }> = {
   },
   [Command.REMOVE_LIMIT]: { description: m.command_remove_limit() },
   [Command.PREV]: { description: m.command_previous() },
+  [Command.PREVIOUS]: { description: m.command_previous() },
   [Command.NEXT]: { description: m.command_next() },
   [Command.REMOVE_BY_SUBMITTER]: {
     args: [m.submitter().toLocaleLowerCase()],
@@ -155,8 +162,8 @@ const commandHelp: Record<Command, { description: string; args?: string[] }> = {
     args: [m.platform().toLocaleLowerCase()],
     description: m.command_disable_platform()
   },
-  [Command.ENABLE_AUTO_MODERATION]: { description: m.command_enable_auto_mod() },
-  [Command.DISABLE_AUTO_MODERATION]: { description: m.command_disable_auto_mod() },
+  [Command.ENABLE_AUTOMOD]: { description: m.command_enable_auto_mod() },
+  [Command.DISABLE_AUTOMOD]: { description: m.command_disable_auto_mod() },
   [Command.PURGE_CACHE]: { description: m.command_purge_cache() },
   [Command.PURGE_HISTORY]: { description: m.command_purge_history() }
 }

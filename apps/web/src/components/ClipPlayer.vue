@@ -22,7 +22,7 @@
             <i class="pi pi-external-link"></i>
           </a>
         </div>
-        <div class="flex gap-2">
+        <div v-if="canControl" class="flex gap-2">
           <SecondaryButton
             icon="pi pi-backward"
             :label="m.previous()"
@@ -72,16 +72,21 @@ import { usePlatforms } from '@/stores/platforms'
 export interface Props {
   clip: Clip
   previousDisabled?: boolean
+  canControl?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  previousDisabled: false
+  previousDisabled: false,
+  canControl: false
 })
-const { clip, previousDisabled } = toRefs(props)
+const { clip, previousDisabled, canControl } = toRefs(props)
 
 const logger = useLogger()
 
 useKeydown((event) => {
+  // Check permissions before handling keyboard shortcuts
+  if (!canControl.value) return
+
   if (event.key === 'ArrowLeft') {
     logger.debug('[Player]: left arrow pressed.')
     emit('previous')

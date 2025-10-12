@@ -1,5 +1,5 @@
 <template>
-  <Card class="mx-auto mb-2 max-w-xl text-left">
+  <Card v-if="user.canManageSettings" class="mx-auto mb-2 max-w-xl text-left">
     <template #content>
       <DangerButton
         :label="m.reset_settings()"
@@ -14,7 +14,7 @@
       }}</Message>
     </template>
   </Card>
-  <Card class="mx-auto mb-2 max-w-xl text-left">
+  <Card v-if="user.isBroadcaster" class="mx-auto mb-2 max-w-xl text-left">
     <template #content>
       <DangerButton
         :label="m.purge_history()"
@@ -45,6 +45,7 @@ import * as m from '@/paraglide/messages'
 import { usePreferences } from '@/stores/preferences'
 import { useQueueServer as useQueue } from '@/stores/queue-server'
 import { useSettings } from '@/stores/settings'
+import { useUser } from '@/stores/user'
 
 const version = __APP_VERSION__
 
@@ -53,6 +54,7 @@ const confirm = useConfirm()
 const preferences = usePreferences()
 const queue = useQueue()
 const settings = useSettings()
+const user = useUser()
 
 async function resetSettingsToDefault() {
   confirm.require({

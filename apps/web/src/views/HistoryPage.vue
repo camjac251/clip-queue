@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-row-reverse gap-2">
+  <div v-if="user.canControlQueue" class="flex flex-row-reverse gap-2">
     <DangerButton
       icon="pi pi-trash"
       :label="m.delete_label()"
@@ -111,6 +111,7 @@ import PlatformName from '@/components/PlatformName.vue'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
 import { useQueueServer as useQueue } from '@/stores/queue-server'
+import { useUser } from '@/stores/user'
 
 const filters = ref({
   global: { value: null, matchMode: 'contains' }
@@ -119,6 +120,7 @@ const filters = ref({
 const confirm = useConfirm()
 const queue = useQueue()
 const logger = useLogger()
+const user = useUser()
 
 const selection = ref<Clip[]>([])
 

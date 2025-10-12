@@ -20,6 +20,7 @@ import {
   AppSettingsSchema,
   DEFAULT_SETTINGS
 } from './schema.js'
+import { resolveFromRoot } from './paths.js'
 
 export type DbClient = BetterSQLite3Database<{
   clips: typeof clips
@@ -35,7 +36,7 @@ let dbInstance: DbClient | null = null
 export function initDatabase(dbPath?: string): DbClient {
   if (dbInstance) return dbInstance
 
-  const path = dbPath || join(process.cwd(), 'data', 'clips.db')
+  const path = dbPath || resolveFromRoot('apps', 'api', 'data', 'clips.db')
 
   // Ensure directory exists
   const dir = dirname(path)
@@ -56,7 +57,7 @@ export function initDatabase(dbPath?: string): DbClient {
 
   // Run migrations
   try {
-    migrate(dbInstance, { migrationsFolder: join(process.cwd(), 'drizzle') })
+    migrate(dbInstance, { migrationsFolder: resolveFromRoot('apps', 'api', 'drizzle') })
     console.log('[Database] Migrations applied successfully')
   } catch (error) {
     console.error('[Database] Migration failed:', error)
@@ -82,12 +83,17 @@ export function getDb(): DbClient {
  */
 export function closeDatabase(): void {
   if (dbInstance) {
-    // Get underlying SQLite instance and close it
-    // @ts-expect-error - accessing internal property
-    const sqlite = dbInstance._.session.db as Database.Database
-    sqlite.close()
-    dbInstance = null
-    console.log('[Database] Connection closed')
+    try {
+      // Get underlying SQLite instance and close it
+      // @ts-expect-error - accessing internal property
+      const sqlite = dbInstance._.session.db as Database.Database
+      sqlite.close()
+      console.log('[Database] Connection closed')
+    } catch (error) {
+      console.error('[Database] Error closing connection:', error)
+    } finally {
+      dbInstance = null
+    }
   }
 }
 

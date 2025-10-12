@@ -1,5 +1,7 @@
 import type { ChatUserstate } from 'tmi.js'
 
+import { extractIdFromPath } from '@cq/utils'
+
 const CLIP_HOSTNAMES = ['clips.twitch.tv']
 const TWITCH_HOSTNAME = 'twitch.tv'
 const CLIP_SUFFIX = '/clip/'
@@ -48,8 +50,7 @@ export function getClipIdFromUrl(url: string): string | undefined {
   }
   try {
     const uri = new URL(url)
-    const idStart = uri.pathname.lastIndexOf('/')
-    return uri.pathname.slice(idStart).split('?')[0]?.slice(1)
+    return extractIdFromPath(uri.pathname)
   } catch {
     return
   }

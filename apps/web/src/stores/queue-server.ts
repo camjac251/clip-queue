@@ -15,8 +15,10 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import type { Clip } from '@cq/platforms'
+import { WEBSOCKET_EVENTS } from '@cq/constants/events'
 import { BasicClipList, ClipList, toClipUUID } from '@cq/platforms'
 
+import { fetchWithAuth } from '@/utils/api'
 import type { WebSocketEventHandler } from './websocket'
 import { useLogger } from './logger'
 import { useWebSocket } from './websocket'
@@ -33,6 +35,35 @@ export const useQueueServer = defineStore('queue-server', () => {
   const current = ref<Clip | undefined>(undefined)
   const upcoming = ref<ClipList>(new ClipList())
   const isInitialized = ref<boolean>(false)
+
+  // Idempotency tracking: prevent duplicate event processing
+  const processedEvents = new Map<string, number>() // event signature -> timestamp
+  const EVENT_DEDUP_WINDOW_MS = 1000 // 1 second deduplication window
+
+  /**
+   * Check if event was recently processed (for idempotency)
+   */
+  function isEventDuplicate(signature: string): boolean {
+    const now = Date.now()
+    const lastProcessed = processedEvents.get(signature)
+
+    if (lastProcessed && now - lastProcessed < EVENT_DEDUP_WINDOW_MS) {
+      return true
+    }
+
+    // Clean up old entries (keep map size bounded)
+    if (processedEvents.size > 100) {
+      const cutoff = now - EVENT_DEDUP_WINDOW_MS
+      for (const [sig, timestamp] of processedEvents.entries()) {
+        if (timestamp < cutoff) {
+          processedEvents.delete(sig)
+        }
+      }
+    }
+
+    processedEvents.set(signature, now)
+    return false
+  }
 
   // Computed
   const hasClips = computed(() => upcoming.value.size() > 0)
@@ -51,18 +82,18 @@ export const useQueueServer = defineStore('queue-server', () => {
 
     isInitialized.value = true
 
-    // Connect WebSocket
+    // Connect WebSocket (cookies sent automatically)
     websocket.connect(API_URL)
 
     // Subscribe to server events (type cast needed due to generic handler)
-    websocket.on('sync:state', handleSyncState as WebSocketEventHandler)
-    websocket.on('clip:added', handleClipAdded as WebSocketEventHandler)
-    websocket.on('clip:removed', handleClipRemoved as WebSocketEventHandler)
-    websocket.on('queue:current', handleQueueCurrent as WebSocketEventHandler)
-    websocket.on('queue:cleared', handleQueueCleared as WebSocketEventHandler)
-    websocket.on('queue:opened', handleQueueOpened as WebSocketEventHandler)
-    websocket.on('queue:closed', handleQueueClosed as WebSocketEventHandler)
-    websocket.on('history:cleared', handleHistoryCleared as WebSocketEventHandler)
+    websocket.on(WEBSOCKET_EVENTS.SYNC_STATE, handleSyncState as WebSocketEventHandler)
+    websocket.on(WEBSOCKET_EVENTS.CLIP_ADDED, handleClipAdded as WebSocketEventHandler)
+    websocket.on(WEBSOCKET_EVENTS.CLIP_REMOVED, handleClipRemoved as WebSocketEventHandler)
+    websocket.on(WEBSOCKET_EVENTS.QUEUE_CURRENT, handleQueueCurrent as WebSocketEventHandler)
+    websocket.on(WEBSOCKET_EVENTS.QUEUE_CLEARED, handleQueueCleared as WebSocketEventHandler)
+    websocket.on(WEBSOCKET_EVENTS.QUEUE_OPENED, handleQueueOpened as WebSocketEventHandler)
+    websocket.on(WEBSOCKET_EVENTS.QUEUE_CLOSED, handleQueueClosed as WebSocketEventHandler)
+    websocket.on(WEBSOCKET_EVENTS.HISTORY_CLEARED, handleHistoryCleared as WebSocketEventHandler)
   }
 
   /**
@@ -71,14 +102,14 @@ export const useQueueServer = defineStore('queue-server', () => {
   function cleanup(): void {
     if (!isInitialized.value) return
 
-    websocket.off('sync:state', handleSyncState as WebSocketEventHandler)
-    websocket.off('clip:added', handleClipAdded as WebSocketEventHandler)
-    websocket.off('clip:removed', handleClipRemoved as WebSocketEventHandler)
-    websocket.off('queue:current', handleQueueCurrent as WebSocketEventHandler)
-    websocket.off('queue:cleared', handleQueueCleared as WebSocketEventHandler)
-    websocket.off('queue:opened', handleQueueOpened as WebSocketEventHandler)
-    websocket.off('queue:closed', handleQueueClosed as WebSocketEventHandler)
-    websocket.off('history:cleared', handleHistoryCleared as WebSocketEventHandler)
+    websocket.off(WEBSOCKET_EVENTS.SYNC_STATE, handleSyncState as WebSocketEventHandler)
+    websocket.off(WEBSOCKET_EVENTS.CLIP_ADDED, handleClipAdded as WebSocketEventHandler)
+    websocket.off(WEBSOCKET_EVENTS.CLIP_REMOVED, handleClipRemoved as WebSocketEventHandler)
+    websocket.off(WEBSOCKET_EVENTS.QUEUE_CURRENT, handleQueueCurrent as WebSocketEventHandler)
+    websocket.off(WEBSOCKET_EVENTS.QUEUE_CLEARED, handleQueueCleared as WebSocketEventHandler)
+    websocket.off(WEBSOCKET_EVENTS.QUEUE_OPENED, handleQueueOpened as WebSocketEventHandler)
+    websocket.off(WEBSOCKET_EVENTS.QUEUE_CLOSED, handleQueueClosed as WebSocketEventHandler)
+    websocket.off(WEBSOCKET_EVENTS.HISTORY_CLEARED, handleHistoryCleared as WebSocketEventHandler)
 
     websocket.disconnect()
     isInitialized.value = false
@@ -104,11 +135,23 @@ export const useQueueServer = defineStore('queue-server', () => {
   }
 
   function handleClipAdded(event: { clip: Clip }): void {
+    const signature = `clip:added:${toClipUUID(event.clip)}`
+    if (isEventDuplicate(signature)) {
+      logger.debug(`[Queue]: Skipping duplicate clip:added event for ${event.clip.title}`)
+      return
+    }
+
     logger.debug(`[Queue]: Clip added: ${event.clip.title}`)
     upcoming.value.add(event.clip)
   }
 
   function handleClipRemoved(event: { clipId: string }): void {
+    const signature = `clip:removed:${event.clipId}`
+    if (isEventDuplicate(signature)) {
+      logger.debug(`[Queue]: Skipping duplicate clip:removed event for ${event.clipId}`)
+      return
+    }
+
     logger.debug(`[Queue]: Clip removed: ${event.clipId}`)
     const clips = upcoming.value.toArray()
     const clip = clips.find((c) => toClipUUID(c) === event.clipId)
@@ -118,11 +161,24 @@ export const useQueueServer = defineStore('queue-server', () => {
   }
 
   function handleQueueCurrent(event: { clip: Clip | null }): void {
+    const clipId = event.clip ? toClipUUID(event.clip) : 'null'
+    const signature = `queue:current:${clipId}`
+    if (isEventDuplicate(signature)) {
+      logger.debug(`[Queue]: Skipping duplicate queue:current event`)
+      return
+    }
+
     logger.debug(`[Queue]: Current clip changed`)
     current.value = event.clip || undefined
   }
 
   function handleQueueCleared(): void {
+    const signature = `queue:cleared:${Date.now()}`
+    if (isEventDuplicate(signature)) {
+      logger.debug('[Queue]: Skipping duplicate queue:cleared event')
+      return
+    }
+
     logger.debug('[Queue]: Queue cleared')
     upcoming.value.clear()
   }
@@ -148,7 +204,7 @@ export const useQueueServer = defineStore('queue-server', () => {
 
   async function next(): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/queue/advance`, {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/advance`, {
         method: 'POST'
       })
 
@@ -165,7 +221,7 @@ export const useQueueServer = defineStore('queue-server', () => {
 
   async function previous(): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/queue/previous`, {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/previous`, {
         method: 'POST'
       })
 
@@ -182,7 +238,7 @@ export const useQueueServer = defineStore('queue-server', () => {
 
   async function clear(): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/queue`, {
+      const response = await fetchWithAuth(`${API_URL}/api/queue`, {
         method: 'DELETE'
       })
 
@@ -199,7 +255,7 @@ export const useQueueServer = defineStore('queue-server', () => {
 
   async function open(): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/queue/open`, {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/open`, {
         method: 'POST'
       })
 
@@ -216,7 +272,7 @@ export const useQueueServer = defineStore('queue-server', () => {
 
   async function close(): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/queue/close`, {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/close`, {
         method: 'POST'
       })
 
@@ -236,7 +292,7 @@ export const useQueueServer = defineStore('queue-server', () => {
    */
   async function purge(): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/queue/history`, {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/history`, {
         method: 'DELETE'
       })
 
@@ -262,7 +318,7 @@ export const useQueueServer = defineStore('queue-server', () => {
    */
   async function add(url: string, submitter: string): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/queue/submit`, {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -286,7 +342,7 @@ export const useQueueServer = defineStore('queue-server', () => {
    */
   async function remove(clipId: string): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/queue/remove`, {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/remove`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -310,7 +366,7 @@ export const useQueueServer = defineStore('queue-server', () => {
    */
   async function play(clipId: string): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/queue/play`, {
+      const response = await fetchWithAuth(`${API_URL}/api/queue/play`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

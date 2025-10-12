@@ -1,88 +1,40 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
+import type {
+  CommandSettings as SharedCommandSettings,
+  LoggerSettings as SharedLoggerSettings,
+  QueueSettings as SharedQueueSettings
+} from '@cq/schemas/settings'
 import { Platform } from '@cq/platforms'
 
 import type { LogLevel } from '@/stores/logger'
 import { useLogger } from '@/stores/logger'
+import { Command } from '@/types/commands'
+import { fetchWithAuth } from '@/utils/api'
+import { SettingsSchema } from '@/utils/schemas'
 import type { WebSocketEventHandler } from './websocket'
 import { useWebSocket } from './websocket'
 
 /**
- * Enumeration of available chat commands.
- *
- * Commands are executed by the backend server. This enum is used in the frontend
- * settings UI to allow users to configure which commands are enabled.
- */
-export enum Command {
-  OPEN = 'open',
-  CLOSE = 'close',
-  CLEAR = 'clear',
-  SET_LIMIT = 'setlimit',
-  REMOVE_LIMIT = 'removelimit',
-  PREV = 'prev',
-  NEXT = 'next',
-  REMOVE_BY_SUBMITTER = 'removebysubmitter',
-  REMOVE_BY_PLATFORM = 'removebyplatform',
-  ENABLE_PLATFORM = 'enableplatform',
-  DISABLE_PLATFORM = 'disableplatform',
-  ENABLE_AUTO_MODERATION = 'enableautomod',
-  DISABLE_AUTO_MODERATION = 'disableautomod',
-  PURGE_CACHE = 'purgecache',
-  PURGE_HISTORY = 'purgehistory'
-}
-
-/**
  * Settings for commands.
  */
-export interface CommandSettings {
-  /**
-   * The prefix for commands.
-   *
-   * @example !cq
-   */
-  prefix: string
-  /**
-   * The commands allowed to be used.
-   */
+export interface CommandSettings extends Omit<SharedCommandSettings, 'allowed'> {
   allowed: Command[]
 }
 
 /**
  * Settings for the queue.
  */
-export interface QueueSettings {
-  /**
-   * Whether auto moderation is enabled.
-   *
-   * @note This will remove clips when the submitter has their message deleted, or is timed out / banned.
-   */
-  hasAutoModerationEnabled: boolean
-  /**
-   * The limit of clips in the queue.
-   *
-   * @example 10
-   * @note null means no limit.
-   */
-  limit: number | null
-  /**
-   * The platforms allowed to be used for clips.
-   */
+export interface QueueSettings extends Omit<SharedQueueSettings, 'platforms'> {
   platforms: Platform[]
 }
 
 /**
  * Settings for the logger.
  */
-export interface LoggerSettings {
-  /**
-   * The log level of the application.
-   */
+export interface LoggerSettings extends Omit<SharedLoggerSettings, 'level'> {
   level: LogLevel
-  /**
-   * The maximum number of logs to keep.
-   */
-  limit: number
 }
 
 export const DEFAULT_COMMAND_SETTINGS: CommandSettings = {
@@ -156,6 +108,7 @@ export const useSettings = defineStore('settings', () => {
 
   /**
    * Load settings from backend
+   * Note: This is a public endpoint, no authentication required
    */
   async function loadSettings(): Promise<void> {
     try {
@@ -163,11 +116,20 @@ export const useSettings = defineStore('settings', () => {
       if (!response.ok) {
         throw new Error(`Failed to load settings: ${response.statusText}`)
       }
-      const data = await response.json()
+      const rawData = await response.json()
+      const parseResult = SettingsSchema.safeParse(rawData)
 
-      commands.value = data.commands
-      queue.value = data.queue
-      logger.value = data.logger
+      if (!parseResult.success) {
+        log.error(
+          `[Settings] Invalid settings data from server: ${JSON.stringify(parseResult.error.issues)}`
+        )
+        return
+      }
+
+      const data = parseResult.data
+      commands.value = data.commands as CommandSettings
+      queue.value = data.queue as QueueSettings
+      logger.value = data.logger as LoggerSettings
     } catch (error: unknown) {
       log.error(`[Settings] Failed to load from backend: ${error}`)
     }
@@ -178,7 +140,7 @@ export const useSettings = defineStore('settings', () => {
    */
   async function saveSettings(): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/settings`, {
+      const response = await fetchWithAuth(`${API_URL}/api/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -202,15 +164,21 @@ export const useSettings = defineStore('settings', () => {
   /**
    * WebSocket event handler for settings updates
    */
-  const handleSettingsUpdated = ((data: {
-    commands: CommandSettings
-    queue: QueueSettings
-    logger: LoggerSettings
-  }) => {
+  const handleSettingsUpdated = ((data: unknown) => {
     log.debug('[Settings] Received update from backend')
-    commands.value = data.commands
-    queue.value = data.queue
-    logger.value = data.logger
+    const parseResult = SettingsSchema.safeParse(data)
+
+    if (!parseResult.success) {
+      log.error(
+        `[Settings] Invalid settings update from WebSocket: ${JSON.stringify(parseResult.error.issues)}`
+      )
+      return
+    }
+
+    const validData = parseResult.data
+    commands.value = validData.commands as CommandSettings
+    queue.value = validData.queue as QueueSettings
+    logger.value = validData.logger as LoggerSettings
   }) as WebSocketEventHandler
 
   /**

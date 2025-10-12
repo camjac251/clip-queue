@@ -16,6 +16,7 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@cq/utils": "workspace:*",
     "tmi.js": "npm:@coldino/tmi.js-clientonly-fork@1.8.5-clientonly"
   },
   "devDependencies": {
