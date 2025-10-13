@@ -51,7 +51,7 @@ export const clips = sqliteTable(
     clipId: text('clip_id').notNull(), // The actual clip ID from platform
     url: text('url').notNull(),
     embedUrl: text('embed_url').notNull(),
-    videoUrl: text('video_url'), // Direct video URL for Video.js playback
+    videoUrl: text('video_url'), // Direct video URL (Kick only - Twitch fetches client-side)
     thumbnailUrl: text('thumbnail_url').notNull(),
     title: text('title').notNull(),
     channel: text('channel').notNull(),
@@ -126,7 +126,7 @@ export const ClipSchema = z.object({
   id: z.string(),
   url: z.string().url(),
   embedUrl: z.string().url(),
-  videoUrl: z.string().url().optional(), // Direct video URL for Video.js playback
+  videoUrl: z.string().url().optional(), // Direct video URL (Kick only - Twitch fetches client-side)
   thumbnailUrl: z.string().url(),
   title: z.string(),
   channel: z.string(),

@@ -395,22 +395,6 @@ export function updateClipStatus(
 }
 
 /**
- * Update clip video URL (for refreshing expired Twitch signed URLs)
- */
-export function updateClipVideoUrl(
-  db: DbClient,
-  clipId: string,
-  videoUrl: string
-): void {
-  try {
-    db.update(clips).set({ videoUrl }).where(eq(clips.id, clipId)).run()
-  } catch (error) {
-    console.error(`[DB] Failed to update clip video URL: ${error}`)
-    throw error
-  }
-}
-
-/**
  * Delete clips by status
  */
 export function deleteClipsByStatus(

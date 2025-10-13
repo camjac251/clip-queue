@@ -39,7 +39,9 @@ export interface Clip {
    */
   embedUrl: string
   /**
-   * The direct video URL of the clip (for Video.js playback).
+   * The direct video URL (optional).
+   * - Twitch: undefined (fetched client-side on-demand)
+   * - Kick: populated from API (URLs don't expire)
    */
   videoUrl?: string
   /**

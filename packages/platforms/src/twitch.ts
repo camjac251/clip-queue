@@ -36,7 +36,6 @@ export class TwitchPlatform extends BasePlatform {
         throw new Error(`[${this.name}]: Clip not found for ID ${id}.`)
       }
       const games = await twitch.getGames(ctx, [clip.game_id])
-      const videoUrl = await twitch.getDirectUrl(id, ctx.id)
       const response: Clip = {
         id: clip.id,
         title: clip.title,
@@ -46,7 +45,7 @@ export class TwitchPlatform extends BasePlatform {
         createdAt: clip.created_at,
         url,
         embedUrl: clip.embed_url,
-        videoUrl,
+        videoUrl: undefined, // Fetched client-side to avoid backend URL expiration handling
         thumbnailUrl: clip.thumbnail_url,
         platform: this.name,
         submitters: []

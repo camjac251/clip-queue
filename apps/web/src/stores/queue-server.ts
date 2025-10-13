@@ -17,11 +17,12 @@ import { computed, ref } from 'vue'
 import type { Clip } from '@cq/platforms'
 import { BasicClipList, ClipList } from '@cq/platforms'
 
+import { env } from '@/config'
 import { fetchWithAuth } from '@/utils/api'
 import { useLogger } from './logger'
 import { useSettings } from './settings'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const { API_URL } = env
 
 // Polling configuration
 const BASE_POLL_INTERVAL_MS = 2000 // 2 seconds (normal)

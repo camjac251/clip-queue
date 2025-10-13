@@ -4,7 +4,9 @@
 
 <script setup lang="ts">
 import videojs from 'video.js'
-import { onBeforeUnmount, onMounted, ref, toRefs, useTemplateRef } from 'vue'
+import { onBeforeUnmount, onMounted, ref, toRefs, useTemplateRef, watch } from 'vue'
+
+import { getDirectVideoUrl } from '@cq/services/twitch'
 
 import 'video.js/dist/video-js.css'
 
@@ -36,135 +38,179 @@ const videoElement = useTemplateRef('videoElement')
 // ref: https://github.com/videojs/video.js/issues/8242
 let player: ReturnType<typeof videojs> | undefined = undefined
 const hasRefreshed = ref(false)
+const fetchedVideoUrl = ref<string | undefined>(undefined)
 
-async function refreshVideoUrl(): Promise<string | null> {
-  if (!clipId?.value || !clipPlatform?.value) {
-    console.warn('[VideoJS] Cannot refresh URL: clipId or clipPlatform not provided')
-    return null
+/**
+ * Fetches direct video URL for Twitch clips client-side
+ * Uses Twitch GraphQL API with public Client-ID
+ */
+async function fetchTwitchVideoUrl(): Promise<string | undefined> {
+  if (!clipId?.value || clipPlatform?.value !== 'twitch') {
+    return undefined
   }
 
-  // Only Twitch URLs expire
-  if (clipPlatform.value !== 'twitch') {
-    return null
+  try {
+    console.log(`[VideoJS] Fetching direct video URL for Twitch clip: ${clipId.value}`)
+    const url = await getDirectVideoUrl(clipId.value)
+
+    if (!url) {
+      console.error('[VideoJS] Failed to fetch Twitch video URL')
+      return undefined
+    }
+
+    console.log('[VideoJS] Successfully fetched Twitch video URL')
+    return url
+  } catch (error) {
+    console.error('[VideoJS] Error fetching Twitch video URL:', error)
+    return undefined
+  }
+}
+
+/**
+ * Refreshes expired Twitch video URL
+ */
+async function refreshVideoUrl(): Promise<string | undefined> {
+  if (clipPlatform?.value !== 'twitch') {
+    return undefined
   }
 
   // Prevent infinite retry loop
   if (hasRefreshed.value) {
     console.warn('[VideoJS] Already attempted refresh, not retrying')
-    return null
+    return undefined
   }
 
-  try {
-    // Use relative URL (works in production and development)
-    // The backend must be accessible at the same origin or CORS-enabled
-    const API_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
-    const clipUUID = `${clipPlatform.value.toLowerCase()}:${clipId.value.toLowerCase()}`
+  console.log('[VideoJS] Refreshing expired video URL')
+  hasRefreshed.value = true
 
-    console.log(`[VideoJS] Refreshing expired video URL for clip: ${clipUUID}`)
-
-    const response = await fetch(`${API_URL}/api/queue/refresh-video-url`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ clipId: clipUUID })
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-
-    if (data.success && data.videoUrl) {
-      hasRefreshed.value = true
-      console.log('[VideoJS] Successfully refreshed video URL')
-      return data.videoUrl
-    }
-
-    return null
-  } catch (error) {
-    console.error('[VideoJS] Failed to refresh video URL:', error)
-    emit('error', `Failed to refresh video URL: ${error}`)
-    return null
-  }
+  return await fetchTwitchVideoUrl()
 }
 
-onMounted(() => {
-  if (videoElement.value) {
-    player = videojs(
-      videoElement.value,
-      // https://videojs.com/guides/options/
-      {
-        autoplay: autoplay.value,
-        title: title.value,
-        controls: true,
-        fluid: true,
-        poster: poster.value,
-        sources: source.value
-          ? [
-              {
-                src: source.value,
-                type: source.value.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
-              }
-            ]
-          : []
-      },
-      () => {}
-    )
+/**
+ * Initializes or updates the video.js player with a source URL
+ */
+function initializePlayer(videoUrl: string | undefined) {
+  if (!videoElement.value || !videoUrl) return
 
-    // Listen for the ended event
-    player.on('ended', () => {
-      emit('ended')
+  if (player) {
+    // Update existing player source
+    player.src({
+      src: videoUrl,
+      type: videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
     })
+    player.load()
+    return
+  }
 
-    // Handle video errors (expired URLs, network failures, etc.)
-    player.on('error', async () => {
-      const error = player?.error()
-      if (!error) return
+  // Create new player
+  player = videojs(
+    videoElement.value,
+    {
+      autoplay: autoplay.value,
+      title: title.value,
+      controls: true,
+      fluid: true,
+      poster: poster.value,
+      sources: [
+        {
+          src: videoUrl,
+          type: videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+        }
+      ]
+    },
+    () => {}
+  )
 
-      console.warn(`[VideoJS] Player error: ${error.code} - ${error.message}`)
+  // Listen for the ended event
+  player.on('ended', () => {
+    emit('ended')
+  })
 
-      // Error codes: https://html.spec.whatwg.org/multipage/media.html#error-codes
-      // 1 = MEDIA_ERR_ABORTED
-      // 2 = MEDIA_ERR_NETWORK
-      // 3 = MEDIA_ERR_DECODE
-      // 4 = MEDIA_ERR_SRC_NOT_SUPPORTED
+  // Handle video errors (expired URLs, network failures, etc.)
+  player.on('error', async () => {
+    const error = player?.error()
+    if (!error) return
 
-      // Try to refresh URL for network/source errors (likely expired token)
-      if (error.code === 2 || error.code === 4) {
-        const newUrl = await refreshVideoUrl()
+    console.warn(`[VideoJS] Player error: ${error.code} - ${error.message}`)
 
-        if (newUrl && player) {
-          console.log('[VideoJS] Retrying playback with refreshed URL')
+    // Error codes: https://html.spec.whatwg.org/multipage/media.html#error-codes
+    // 1 = MEDIA_ERR_ABORTED
+    // 2 = MEDIA_ERR_NETWORK
+    // 3 = MEDIA_ERR_DECODE
+    // 4 = MEDIA_ERR_SRC_NOT_SUPPORTED
 
-          // Update source and retry
-          player.src({
-            src: newUrl,
-            type: newUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
-          })
+    // Try to refresh URL for network/source errors (likely expired token)
+    if (error.code === 2 || error.code === 4) {
+      const newUrl = await refreshVideoUrl()
 
-          // Reset error state and try to play
-          // @ts-expect-error - video.js types are incorrect, error(null) is valid
-          player.error(null)
-          player.load()
+      if (newUrl && player) {
+        console.log('[VideoJS] Retrying playback with refreshed URL')
 
-          if (autoplay.value) {
-            const playPromise = player.play()
-            if (playPromise) {
-              playPromise.catch((playError) => {
-                console.error('[VideoJS] Failed to resume playback:', playError)
-                emit('error', 'Failed to resume playback after URL refresh')
-              })
-            }
+        // Update source and retry
+        player.src({
+          src: newUrl,
+          type: newUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'
+        })
+
+        // Reset error state and try to play
+        // @ts-expect-error - video.js types are incorrect, error(null) is valid
+        player.error(null)
+        player.load()
+
+        if (autoplay.value) {
+          const playPromise = player.play()
+          if (playPromise) {
+            playPromise.catch((playError) => {
+              console.error('[VideoJS] Failed to resume playback:', playError)
+              emit('error', 'Failed to resume playback after URL refresh')
+            })
           }
-        } else {
-          emit('error', 'Video URL expired and refresh failed')
         }
       } else {
-        emit('error', `Video playback error: ${error.message}`)
+        emit('error', 'Video URL expired and refresh failed')
       }
-    })
+    } else {
+      emit('error', `Video playback error: ${error.message}`)
+    }
+  })
+}
+
+// Watch for source or clipId changes
+watch(
+  [source, clipId, clipPlatform],
+  async ([newSource, newClipId, newPlatform]) => {
+    // Reset refresh flag when clip changes
+    hasRefreshed.value = false
+
+    let videoUrl: string | undefined = newSource
+
+    // If no source provided but we have a Twitch clip ID, fetch it
+    if (!videoUrl && newClipId && newPlatform === 'twitch') {
+      videoUrl = await fetchTwitchVideoUrl()
+    }
+
+    if (videoUrl) {
+      fetchedVideoUrl.value = videoUrl
+      initializePlayer(videoUrl)
+    }
+  },
+  { immediate: false }
+)
+
+onMounted(async () => {
+  // Reset refresh flag
+  hasRefreshed.value = false
+
+  let videoUrl: string | undefined = source.value
+
+  // If no source provided but we have a Twitch clip ID, fetch it
+  if (!videoUrl && clipId?.value && clipPlatform?.value === 'twitch') {
+    videoUrl = await fetchTwitchVideoUrl()
+  }
+
+  if (videoUrl) {
+    fetchedVideoUrl.value = videoUrl
+    initializePlayer(videoUrl)
   }
 })
 

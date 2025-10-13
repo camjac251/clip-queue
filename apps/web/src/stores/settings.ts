@@ -9,6 +9,7 @@ import type {
 import { Platform } from '@cq/platforms'
 
 import type { LogLevel } from '@/stores/logger'
+import { env } from '@/config'
 import { useLogger } from '@/stores/logger'
 import { Command } from '@/types/commands'
 import { fetchWithAuth } from '@/utils/api'
@@ -51,7 +52,7 @@ export const DEFAULT_LOGGER_SETTINGS: LoggerSettings = {
   limit: 100
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const { API_URL } = env
 
 export const useSettings = defineStore('settings', () => {
   const commands = ref<CommandSettings>({ ...DEFAULT_COMMAND_SETTINGS })

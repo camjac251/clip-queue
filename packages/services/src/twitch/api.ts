@@ -80,56 +80,83 @@ export async function getUsers(ctx: TwitchUserCtx, ids: string[]): Promise<Twitc
 }
 
 /**
- * Get direct video URL for a Twitch clip using GraphQL API.
- * @param id - The clip ID.
+ * Get direct video URL for a Twitch clip using Helix API.
+ * Note: Helix API returns thumbnail_url which can be converted to video URL.
+ * Format: https://clips-media-assets2.twitch.tv/{hash}/{clipId}-offset-{offset}.mp4
+ *
+ * @param id - The clip ID (slug).
  * @param clientId - The Twitch client ID.
+ * @param accessToken - Optional OAuth access token for authenticated requests.
  * @returns The direct video URL.
  * @throws Will throw an error if the fetch fails or clip not found.
  */
-export async function getDirectUrl(id: string, clientId: string): Promise<string> {
+export async function getDirectUrl(
+  id: string,
+  clientId: string,
+  accessToken?: string
+): Promise<string> {
   if (!clientId) {
     throw new Error('Client ID is required.')
   }
 
-  const data = [
-    {
-      operationName: 'ClipsDownloadButton',
-      variables: {
-        slug: id
-      },
-      extensions: {
-        persistedQuery: {
-          version: 1,
-          sha256Hash: '6e465bb8446e2391644cf079851c0cb1b96928435a240f07ed4b240f0acc6f1b'
-        }
-      }
-    }
-  ]
-
-  const response = await fetch('https://gql.twitch.tv/gql', {
-    method: 'POST',
-    headers: {
-      'Client-Id': clientId,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch direct URL for clip ${id}: ${response.statusText}`)
+  // Validate and trim client ID
+  const trimmedClientId = clientId.trim()
+  if (!trimmedClientId || trimmedClientId.length !== 30) {
+    throw new Error(
+      `Invalid Client-ID format. Expected 30 characters, got ${trimmedClientId.length}. Value: "${trimmedClientId}"`
+    )
   }
 
-  const responseData = await response.json()
-  const [respData] = responseData
-  const playbackAccessToken = respData.data.clip.playbackAccessToken
-  const url =
-    respData.data.clip.videoQualities[0].sourceURL +
-    '?sig=' +
-    playbackAccessToken.signature +
-    '&token=' +
-    encodeURIComponent(playbackAccessToken.value)
+  console.log(`[Twitch API] Fetching clip data for: ${id}`)
+  console.log(
+    `[Twitch API] Client-ID: ${trimmedClientId.substring(0, 10)}... (${trimmedClientId.length} chars)`
+  )
 
-  return url
+  // Use Helix API to get clip metadata
+  const url = `https://api.twitch.tv/helix/clips?id=${id}`
+  const headers: Record<string, string> = {
+    'Client-Id': trimmedClientId
+  }
+
+  // Add Authorization header if access token provided (improves rate limits)
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`
+  }
+
+  const response = await fetch(url, { headers })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'No error details')
+    throw new Error(
+      `Failed to fetch clip ${id}: ${response.status} ${response.statusText} - ${errorText}`
+    )
+  }
+
+  const data = await response.json()
+
+  if (!data.data || data.data.length === 0) {
+    throw new Error(`Clip ${id} not found or has been deleted.`)
+  }
+
+  const clip = data.data[0]
+
+  // Extract video URL from thumbnail URL
+  // Thumbnail format: https://clips-media-assets2.twitch.tv/{hash}/{clipId}-preview-{resolution}.jpg
+  // Video format: https://clips-media-assets2.twitch.tv/{hash}/{clipId}.mp4
+  const thumbnailUrl = clip.thumbnail_url
+
+  if (!thumbnailUrl) {
+    throw new Error(`Clip ${id} has no thumbnail URL. It may not be available.`)
+  }
+
+  // Convert thumbnail URL to video URL by removing "-preview-480x272.jpg" and adding ".mp4"
+  const videoUrl = thumbnailUrl.replace(/-preview-\d+x\d+\.jpg$/, '.mp4')
+
+  console.log(`[Twitch API] Converted thumbnail to video URL`)
+  console.log(`[Twitch API] Thumbnail: ${thumbnailUrl}`)
+  console.log(`[Twitch API] Video: ${videoUrl}`)
+
+  return videoUrl
 }
 
 export default {

@@ -1,8 +1,10 @@
 import api from './api'
 import auth from './auth'
+import * as gql from './gql'
 import utils from './utils'
 
 export * from './types'
+export * from './gql'
 
 /**
  * Twitch logo SVG as a string.
@@ -31,5 +33,6 @@ export default {
   logo,
   ...api,
   ...auth,
-  ...utils
+  ...utils,
+  gql
 }
