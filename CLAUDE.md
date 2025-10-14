@@ -83,8 +83,7 @@ pnpm --filter @cq/api db:studio    # Open Drizzle Studio GUI
 
 # i18n (13 locales: ar, de, en, es, fr, hi, it, ja, ko, pt, ru, tr, zh)
 pnpm web i18n:check       # Validate translation completeness
-pnpm web i18n:sync        # Sync missing keys from en.json
-pnpm web i18n:translate   # Machine translate all keys
+pnpm web i18n:sync        # Sync missing keys from en.json (formats & sorts alphabetically)
 
 # Per-package commands (work from root)
 pnpm api <script>         # Backend script (e.g., pnpm api dev, pnpm api db:generate)
@@ -782,12 +781,12 @@ SKIP_HOOKS=1 git commit # Skip pre-commit checks
 **Workflow:**
 
 1. Add keys to `apps/web/messages/en.json` (base locale)
-2. `pnpm web i18n:sync` - Sync to other locales (adds English placeholders)
-3. `pnpm web i18n:translate` - Machine translate via [@inlang/cli](https://inlang.com/m/2qj2w8pu/app-inlang-cli)
+2. `pnpm web i18n:sync` - Sync to other locales (adds English placeholders, formats and sorts alphabetically)
+3. Use `@agent-i18n-translation-expert` to manually translate new keys across all 12 non-English locales
 4. `pnpm web i18n:check` - Validate completeness (TypeScript script)
 
 **Scripts**: `apps/web/scripts/check-i18n.ts`, `sync-i18n.ts`
-**Quality**: Machine translations generally good for UI; technical terms may remain in English
+**Translation**: Manual translations via i18n-translation-expert agent
 
 ### Testing
 

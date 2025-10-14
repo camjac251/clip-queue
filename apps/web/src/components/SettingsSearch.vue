@@ -1,46 +1,36 @@
 <template>
-  <CommandDialog v-model:open="isOpen">
-    <Command>
+  <CommandDialog v-model:open="isOpen" @update:search-query="handleSearchQuery">
+    <Command :filter-function="() => 1">
       <CommandInput :placeholder="m.search_settings_placeholder()" />
       <CommandList>
         <CommandEmpty>{{ m.no_results_found() }}</CommandEmpty>
 
-        <!-- General Settings -->
-        <CommandGroup :heading="m.general()">
+        <!-- Dynamic grouped results -->
+        <CommandGroup
+          v-for="(items, category) in groupedResults"
+          :key="category"
+          :heading="category"
+        >
           <CommandItem
-            v-for="route in generalRoutes"
-            :key="route.name"
-            :value="String(route.name ?? '')"
-            @select="navigateToSetting(route.name)"
+            v-for="result in items"
+            :key="result.id"
+            :value="result.id"
+            @select="navigateToResult(result)"
           >
-            <component :is="getRouteIcon(route.meta?.icon)" class="mr-2" :size="16" />
-            <span>{{ routeTranslations[route.name as RouteNameConstants]() }}</span>
-          </CommandItem>
-        </CommandGroup>
-
-        <!-- System Settings -->
-        <CommandGroup :heading="m.system()">
-          <CommandItem
-            v-for="route in systemRoutes"
-            :key="route.name"
-            :value="String(route.name ?? '')"
-            @select="navigateToSetting(route.name)"
-          >
-            <component :is="getRouteIcon(route.meta?.icon)" class="mr-2" :size="16" />
-            <span>{{ routeTranslations[route.name as RouteNameConstants]() }}</span>
-          </CommandItem>
-        </CommandGroup>
-
-        <!-- Information -->
-        <CommandGroup :heading="m.information()">
-          <CommandItem
-            v-for="route in infoRoutes"
-            :key="route.name"
-            :value="String(route.name ?? '')"
-            @select="navigateToSetting(route.name)"
-          >
-            <component :is="getRouteIcon(route.meta?.icon)" class="mr-2" :size="16" />
-            <span>{{ routeTranslations[route.name as RouteNameConstants]() }}</span>
+            <component
+              :is="getResultIcon(result)"
+              class="text-muted-foreground mr-2 shrink-0"
+              :size="16"
+            />
+            <div class="flex flex-1 flex-col gap-0.5 overflow-hidden">
+              <div class="flex items-center gap-2">
+                <span class="truncate text-sm font-medium">{{ result.title }}</span>
+                <ResultValueBadge v-if="result.type === 'setting'" :result="result" />
+              </div>
+              <span v-if="result.description" class="text-muted-foreground truncate text-xs">
+                {{ result.description }}
+              </span>
+            </div>
           </CommandItem>
         </CommandGroup>
       </CommandList>
@@ -49,10 +39,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, h, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
+  Badge,
   Command,
   CommandDialog,
   CommandEmpty,
@@ -62,9 +53,10 @@ import {
   CommandList
 } from '@cq/ui'
 
-import { routeIcons } from '@/composables/icons'
+import type { SearchResult } from '@/composables/settings-search'
+import { routeIcons, StatusCheck, UiChevronDown, UiCircle } from '@/composables/icons'
+import { useSettingsSearchIndex } from '@/composables/settings-search'
 import * as m from '@/paraglide/messages'
-import { allowedRoutes, RouteNameConstants, routeTranslations } from '@/router'
 
 interface Props {
   open: boolean
@@ -78,48 +70,81 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const router = useRouter()
 
+const searchQuery = ref('')
+const { filterResults, groupResults } = useSettingsSearchIndex()
+
 const isOpen = computed({
   get: () => props.open,
   set: (value) => emit('update:open', value)
 })
 
-const settingsRoutes = computed(
-  () => allowedRoutes.value.find((r) => r.name === RouteNameConstants.SETTINGS)?.children ?? []
-)
+const filteredResults = computed(() => {
+  return filterResults(searchQuery.value)
+})
 
-const generalRoutes = computed(() =>
-  settingsRoutes.value.filter((r) =>
-    [
-      RouteNameConstants.SETTINGS_PREFERENCES,
-      RouteNameConstants.SETTINGS_QUEUE,
-      RouteNameConstants.SETTINGS_CHAT
-    ].includes(r.name as RouteNameConstants)
-  )
-)
+const groupedResults = computed(() => {
+  return groupResults(filteredResults.value)
+})
 
-const systemRoutes = computed(() =>
-  settingsRoutes.value.filter((r) =>
-    [RouteNameConstants.SETTINGS_LOGS, RouteNameConstants.SETTINGS_OTHER].includes(
-      r.name as RouteNameConstants
-    )
-  )
-)
-
-const infoRoutes = computed(() =>
-  settingsRoutes.value.filter((r) =>
-    [RouteNameConstants.SETTINGS_ABOUT].includes(r.name as RouteNameConstants)
-  )
-)
-
-function getRouteIcon(iconKey?: string) {
-  if (!iconKey) return null
-  return routeIcons[iconKey as keyof typeof routeIcons]
+function handleSearchQuery(query: string) {
+  searchQuery.value = query
 }
 
-function navigateToSetting(name: string | symbol | undefined) {
-  if (name) {
-    router.push({ name })
-    isOpen.value = false
+function getResultIcon(result: SearchResult) {
+  // Page results use route icons
+  if (result.type === 'page' && result.icon) {
+    return routeIcons[result.icon as keyof typeof routeIcons] || UiCircle
   }
+
+  // Setting results use type-specific icons
+  switch (result.settingType) {
+    case 'toggle':
+      return StatusCheck
+    case 'text':
+    case 'number':
+      return UiCircle
+    case 'select':
+    case 'multiselect':
+      return UiChevronDown
+    case 'checkboxlist':
+      return StatusCheck
+    default:
+      return UiCircle
+  }
+}
+
+const ResultValueBadge = (props: { result: SearchResult }) => {
+  const { result } = props
+  const valueStr = formatValue(result.value)
+
+  if (!valueStr) return null
+
+  return h(
+    Badge,
+    {
+      variant: 'secondary',
+      class: 'shrink-0 text-xs font-mono'
+    },
+    () => valueStr
+  )
+}
+
+function formatValue(value: SearchResult['value']): string {
+  if (value === undefined || value === null) return ''
+
+  if (typeof value === 'boolean') {
+    return value ? m.enabled() : m.disabled()
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join(', ') : m.none()
+  }
+
+  return String(value)
+}
+
+function navigateToResult(result: SearchResult) {
+  router.push({ name: result.route })
+  isOpen.value = false
 }
 </script>

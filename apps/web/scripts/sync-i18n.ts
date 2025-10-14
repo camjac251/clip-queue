@@ -95,8 +95,8 @@ async function syncTranslations(): Promise<void> {
   console.log()
   console.log('✅ Done! All language files now have the same keys.')
   console.log('   Keys are automatically sorted alphabetically.')
-  console.log('   New keys use English text as placeholders - translate them with:')
-  console.log('   pnpm i18n:translate')
+  console.log('   New keys use English text as placeholders.')
+  console.log('   Use the i18n-translation-expert agent to translate new keys.')
   console.log()
 }
 
