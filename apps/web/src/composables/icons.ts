@@ -49,6 +49,7 @@ import IconTrash from '~icons/lucide/trash-2'
 import IconVolume from '~icons/lucide/volume-2'
 import IconVolumeMute from '~icons/lucide/volume-x'
 import IconX from '~icons/lucide/x'
+import IconKeyboardCommand from '~icons/mdi/apple-keyboard-command'
 import IconKick from '~icons/simple-icons/kick'
 import IconTwitch from '~icons/simple-icons/twitch'
 
@@ -110,7 +111,8 @@ export const icons = {
     x: IconX,
     search: IconSearch,
     circle: IconCircle,
-    menu: IconMenu
+    menu: IconMenu,
+    keyboardCommand: IconKeyboardCommand
   },
 
   // Theme
@@ -162,7 +164,8 @@ export const {
     x: UiX,
     search: UiSearch,
     circle: UiCircle,
-    menu: UiMenu
+    menu: UiMenu,
+    keyboardCommand: UiKeyboardCommand
   },
   theme: { sun: ThemeSun, moon: ThemeMoon }
 } = icons

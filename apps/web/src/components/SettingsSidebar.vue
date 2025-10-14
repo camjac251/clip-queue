@@ -15,11 +15,7 @@
       >
         <UiSearch :size="16" />
         <span class="flex-1 text-left">{{ m.search_settings() }}</span>
-        <kbd
-          class="border-border bg-muted pointer-events-none hidden h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none sm:flex"
-        >
-          <span class="text-xs">⌘</span>K
-        </kbd>
+        <KeyboardShortcut :keys="['K']" class="hidden sm:flex" />
       </Button>
     </div>
 
@@ -117,6 +113,7 @@ import { RouterLink } from 'vue-router'
 
 import { Button, ScrollArea } from '@cq/ui'
 
+import KeyboardShortcut from '@/components/KeyboardShortcut.vue'
 import { routeIcons, UiSearch } from '@/composables/icons'
 import * as m from '@/paraglide/messages'
 import { allowedRoutes, RouteNameConstants, routeTranslations } from '@/router'
