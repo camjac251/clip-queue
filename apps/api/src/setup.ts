@@ -18,9 +18,9 @@ import { resolveFromRoot } from './paths.js'
 config({ path: resolveFromRoot('.env') })
 
 /**
- * Updates the TWITCH_BOT_TOKEN in .env file
+ * Updates the TWITCH_BOT_TOKEN and TWITCH_BOT_REFRESH_TOKEN in .env file
  */
-function updateEnvFile(token: string): void {
+function updateEnvFile(accessToken: string, refreshToken: string): void {
   const envPath = resolveFromRoot('.env')
   const envExamplePath = resolveFromRoot('.env.example')
 
@@ -52,7 +52,7 @@ function updateEnvFile(token: string): void {
     }
   }
 
-  const newTokenLine = `TWITCH_BOT_TOKEN=${token}`
+  const newTokenLine = `TWITCH_BOT_TOKEN=${accessToken}`
 
   if (tokenLineIndex !== -1) {
     // Replace existing line
@@ -82,10 +82,34 @@ function updateEnvFile(token: string): void {
     }
   }
 
+  // Update or add TWITCH_BOT_REFRESH_TOKEN (right after TWITCH_BOT_TOKEN)
+  let refreshLineIndex = -1
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]?.trim() ?? ''
+    if (
+      line.startsWith('TWITCH_BOT_REFRESH_TOKEN=') ||
+      line.startsWith('#TWITCH_BOT_REFRESH_TOKEN=')
+    ) {
+      refreshLineIndex = i
+      break
+    }
+  }
+
+  const newRefreshLine = `TWITCH_BOT_REFRESH_TOKEN=${refreshToken}`
+
+  if (refreshLineIndex !== -1) {
+    // Replace existing line
+    lines[refreshLineIndex] = newRefreshLine
+  } else {
+    // Add right after TWITCH_BOT_TOKEN
+    const insertIndex = tokenLineIndex !== -1 ? tokenLineIndex + 1 : lines.length
+    lines.splice(insertIndex, 0, newRefreshLine)
+  }
+
   // Write updated content back
   try {
     writeFileSync(envPath, lines.join('\n'), 'utf-8')
-    console.log('✅ Updated .env file with TWITCH_BOT_TOKEN')
+    console.log('✅ Updated .env file with TWITCH_BOT_TOKEN and TWITCH_BOT_REFRESH_TOKEN')
   } catch (error) {
     console.error('❌ Could not write to .env file:', error)
   }
@@ -210,7 +234,7 @@ app.get('/auth/callback', async (req, res) => {
 
     // Update .env file
     console.log()
-    updateEnvFile(tokenData.access_token)
+    updateEnvFile(tokenData.access_token, tokenData.refresh_token)
 
     // Display success
     console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')

@@ -49,6 +49,7 @@ import {
 } from './db.js'
 import { TwitchEventSubClient } from './eventsub.js'
 import oauthRouter from './oauth.js'
+import { BotTokenManager } from './token-manager.js'
 
 /**
  * Simple async mutex for preventing race conditions
@@ -295,6 +296,25 @@ restoreQueueFromDatabase()
 // Initialize Twitch EventSub chat monitoring
 let eventSubClient: TwitchEventSubClient | null = null
 
+// Initialize bot token manager
+const clientId = process.env.TWITCH_CLIENT_ID!
+const clientSecret = process.env.TWITCH_CLIENT_SECRET!
+const botToken = process.env.TWITCH_BOT_TOKEN!
+const botRefreshToken = process.env.TWITCH_BOT_REFRESH_TOKEN
+
+const botTokenManager = new BotTokenManager(clientId, clientSecret, botToken, botRefreshToken)
+
+// Register callback for when token is refreshed
+botTokenManager.onRefresh((newToken) => {
+  console.log('[TokenManager] Token refreshed, updating EventSub client')
+  if (eventSubClient) {
+    eventSubClient.updateAccessToken(newToken)
+  }
+})
+
+// Start monitoring token expiration
+botTokenManager.startMonitoring()
+
 let reconnectAttempts = 0
 const MAX_BACKOFF_MS = 5 * 60 * 1000
 const BASE_BACKOFF_MS = 1000
@@ -308,13 +328,24 @@ function calculateBackoff(attempts: number, isRateLimit = false): number {
 
 async function connectToChat() {
   const channelName = process.env.TWITCH_CHANNEL_NAME!
-  const clientId = process.env.TWITCH_CLIENT_ID!
-  const botToken = process.env.TWITCH_BOT_TOKEN!
 
   try {
     console.log(`[Chat] Connecting to EventSub for channel: ${channelName}`)
 
-    eventSubClient = new TwitchEventSubClient(clientId, botToken)
+    // Get current token from token manager
+    const currentToken = botTokenManager.getAccessToken()
+    eventSubClient = new TwitchEventSubClient(clientId, currentToken)
+
+    // Handle token expiration (401 errors)
+    eventSubClient.onTokenExpired(async () => {
+      console.log('[Chat] Token expired, refreshing...')
+      const result = await botTokenManager.refreshToken()
+      if (result.success && result.newAccessToken) {
+        return result.newAccessToken
+      }
+      console.error('[Chat] Token refresh failed, EventSub will retry')
+      return null
+    })
 
     // Handle disconnection (unexpected only - Twitch reconnects handled in EventSub)
     eventSubClient.onDisconnect(() => {
@@ -1615,6 +1646,7 @@ process.on('SIGTERM', () => {
     eventSubClient.disconnect()
   }
 
+  botTokenManager.stopMonitoring()
   closeDatabase()
 
   server.close(() => {
@@ -1630,6 +1662,7 @@ process.on('SIGINT', () => {
     eventSubClient.disconnect()
   }
 
+  botTokenManager.stopMonitoring()
   closeDatabase()
 
   server.close(() => {

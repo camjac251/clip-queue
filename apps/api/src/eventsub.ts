@@ -18,6 +18,7 @@ export interface EventSubMessage {
 
 export type EventSubMessageHandler = (message: EventSubMessage) => void | Promise<void>
 export type EventSubDisconnectHandler = () => void
+export type EventSubTokenExpiredHandler = () => Promise<string | null>
 
 /**
  * Zod Schema for EventSub WebSocket Messages
@@ -194,6 +195,7 @@ export class TwitchEventSubClient {
   private clientId: string
   private messageHandlers: Set<EventSubMessageHandler> = new Set()
   private disconnectHandlers: Set<EventSubDisconnectHandler> = new Set()
+  private tokenExpiredHandler: EventSubTokenExpiredHandler | null = null
   private keepaliveTimer: NodeJS.Timeout | null = null
   private keepaliveTimeoutMs: number = 10000
   private reconnectUrl: string | null = null
@@ -203,6 +205,47 @@ export class TwitchEventSubClient {
   constructor(clientId: string, accessToken: string) {
     this.clientId = clientId
     this.accessToken = accessToken
+  }
+
+  /**
+   * Update the access token (called after token refresh)
+   */
+  updateAccessToken(newToken: string): void {
+    this.accessToken = newToken
+    console.log('[EventSub] Access token updated')
+  }
+
+  /**
+   * Fetch wrapper with automatic token refresh on 401
+   */
+  private async fetchWithTokenRefresh(url: string, options: RequestInit): Promise<Response | null> {
+    let response = await fetch(url, options)
+
+    // If 401 and we have a token refresh handler, try to refresh and retry once
+    if (response.status === 401 && this.tokenExpiredHandler) {
+      console.warn('[EventSub] Token expired (401), attempting refresh...')
+
+      const newToken = await this.tokenExpiredHandler()
+      if (newToken) {
+        this.accessToken = newToken
+
+        // Update Authorization header and retry
+        const updatedOptions = {
+          ...options,
+          headers: {
+            ...options.headers,
+            Authorization: `Bearer ${this.accessToken}`
+          }
+        }
+
+        response = await fetch(url, updatedOptions)
+        console.log(`[EventSub] Retry after token refresh: ${response.status}`)
+      } else {
+        console.error('[EventSub] Token refresh failed, cannot retry')
+      }
+    }
+
+    return response
   }
 
   /**
@@ -270,14 +313,17 @@ export class TwitchEventSubClient {
 
   private async cleanupOldSubscriptions(): Promise<void> {
     try {
-      const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
-        headers: {
-          'Client-ID': this.clientId,
-          Authorization: `Bearer ${this.accessToken}`
+      const response = await this.fetchWithTokenRefresh(
+        'https://api.twitch.tv/helix/eventsub/subscriptions',
+        {
+          headers: {
+            'Client-ID': this.clientId,
+            Authorization: `Bearer ${this.accessToken}`
+          }
         }
-      })
+      )
 
-      if (!response.ok) return
+      if (!response || !response.ok) return
 
       const data = (await response.json()) as {
         data: Array<{ id: string; status: string; type: string }>
@@ -302,7 +348,7 @@ export class TwitchEventSubClient {
   }
 
   private async deleteSubscription(subscriptionId: string): Promise<void> {
-    const response = await fetch(
+    const response = await this.fetchWithTokenRefresh(
       `https://api.twitch.tv/helix/eventsub/subscriptions?id=${subscriptionId}`,
       {
         method: 'DELETE',
@@ -313,8 +359,10 @@ export class TwitchEventSubClient {
       }
     )
 
-    if (!response.ok) {
-      console.warn(`[EventSub] Failed to delete subscription ${subscriptionId}: ${response.status}`)
+    if (!response || !response.ok) {
+      console.warn(
+        `[EventSub] Failed to delete subscription ${subscriptionId}: ${response?.status || 'no response'}`
+      )
     }
   }
 
@@ -326,6 +374,11 @@ export class TwitchEventSubClient {
   /** Register handler for disconnect events */
   onDisconnect(handler: EventSubDisconnectHandler): void {
     this.disconnectHandlers.add(handler)
+  }
+
+  /** Register handler for token expiration (401 errors) */
+  onTokenExpired(handler: EventSubTokenExpiredHandler): void {
+    this.tokenExpiredHandler = handler
   }
 
   /** Disconnect from EventSub and cleanup resources */
@@ -459,27 +512,30 @@ export class TwitchEventSubClient {
   }
 
   private async createSubscription(type: string, condition: Record<string, string>): Promise<void> {
-    const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
-      method: 'POST',
-      headers: {
-        'Client-ID': this.clientId,
-        Authorization: `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        type,
-        version: '1',
-        condition,
-        transport: {
-          method: 'websocket',
-          session_id: this.sessionId
-        }
-      })
-    })
+    const response = await this.fetchWithTokenRefresh(
+      'https://api.twitch.tv/helix/eventsub/subscriptions',
+      {
+        method: 'POST',
+        headers: {
+          'Client-ID': this.clientId,
+          Authorization: `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type,
+          version: '1',
+          condition,
+          transport: {
+            method: 'websocket',
+            session_id: this.sessionId
+          }
+        })
+      }
+    )
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Failed to create subscription: ${response.status} ${error}`)
+    if (!response || !response.ok) {
+      const error = response ? await response.text() : 'no response'
+      throw new Error(`Failed to create subscription: ${response?.status || 'unknown'} ${error}`)
     }
 
     const data = await response.json()
@@ -487,17 +543,20 @@ export class TwitchEventSubClient {
   }
 
   private async getTwitchUser(login: string): Promise<{ id: string; login: string } | null> {
-    const response = await fetch(`https://api.twitch.tv/helix/users?login=${login}`, {
-      headers: {
-        'Client-ID': this.clientId,
-        Authorization: `Bearer ${this.accessToken}`
+    const response = await this.fetchWithTokenRefresh(
+      `https://api.twitch.tv/helix/users?login=${login}`,
+      {
+        headers: {
+          'Client-ID': this.clientId,
+          Authorization: `Bearer ${this.accessToken}`
+        }
       }
-    })
+    )
 
-    if (!response.ok) {
-      const errorText = await response.text()
+    if (!response || !response.ok) {
+      const errorText = response ? await response.text() : 'no response'
       console.error(
-        `[EventSub] Failed to get user ${login}: ${response.status} ${response.statusText}`
+        `[EventSub] Failed to get user ${login}: ${response?.status || 'unknown'} ${response?.statusText || ''}`
       )
       console.error(`[EventSub] Response: ${errorText}`)
       return null
