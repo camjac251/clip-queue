@@ -524,7 +524,6 @@ import('./index.js') // Import LAST
 | POST | `/api/queue/batch/remove` | Mod | Remove multiple (max 100) |
 | POST | `/api/queue/batch/approve` | Mod | Approve multiple (max 100) |
 | POST | `/api/queue/batch/reject` | Mod | Reject multiple (max 100) |
-| POST | `/api/queue/refresh-video-url` | Public | Refresh expired Twitch URL |
 | POST | `/api/queue/open` | Broadcaster | Open queue |
 | POST | `/api/queue/close` | Broadcaster | Close queue |
 | DELETE | `/api/queue` | Broadcaster | Clear queue |
