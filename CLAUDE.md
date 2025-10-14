@@ -336,7 +336,7 @@ settings:                              // Single-row config
 
 ```vue
 <script setup>
-import { Button, Card, CardHeader, CardTitle, CardContent } from "@cq/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@cq/ui'
 </script>
 
 <template>
@@ -392,7 +392,7 @@ Icons are organized into centralized registries with semantic naming:
 
 ```vue
 <script setup>
-import { ActionPlay, BrandTwitch, NavHistory } from "@/composables/icons";
+import { ActionPlay, BrandTwitch, NavHistory } from '@/composables/icons'
 </script>
 
 <template>
@@ -407,7 +407,7 @@ Import from `@cq/ui` for reusable component icons:
 
 ```vue
 <script setup>
-import { IconCheck, IconChevronDown, IconX } from "@cq/ui";
+import { IconCheck, IconChevronDown, IconX } from '@cq/ui'
 </script>
 ```
 
@@ -427,18 +427,21 @@ import { IconCheck, IconChevronDown, IconX } from "@cq/ui";
 Route meta icons use typed keys from the centralized registry:
 
 ```typescript
+import type { RouteIconKey } from '@/composables/icons'
+import { routeIcons } from '@/composables/icons'
+
 // apps/web/src/composables/icons.ts
 export const routeIcons = {
   list: NavList,
   history: NavHistory,
-  settings: NavSettings,
+  settings: NavSettings
   // ... etc.
-} as const;
+} as const
 
-export type RouteIconKey = keyof typeof routeIcons;
+export type RouteIconKey = keyof typeof routeIcons
 
 // apps/web/src/router/index.ts
-import { routeIcons, type RouteIconKey } from "@/composables/icons";
+
 // Routes use typed keys: meta: { icon: 'list' as RouteIconKey }
 // Components map keys to components: routeIcons[iconKey]
 ```
@@ -484,10 +487,11 @@ import { routeIcons, type RouteIconKey } from "@/composables/icons";
 **Solution**: Entry point `apps/api/src/server.ts`:
 
 ```typescript
-import { config } from "dotenv";
-config({ path: resolveFromRoot(".env") }); // Load FIRST
-validateEnvironment(); // Validate SECOND
-import("./index.js"); // Import LAST
+import { config } from 'dotenv'
+
+config({ path: resolveFromRoot('.env') }) // Load FIRST
+validateEnvironment() // Validate SECOND
+import('./index.js') // Import LAST
 ```
 
 **package.json**:
@@ -605,8 +609,8 @@ export class NewPlatform extends PlatformBase {
 // Twitch: url.includes('twitch.tv') && (url.includes('clip') || url.includes('/clips/'))
 // Kick: url.includes('kick.com/') && url.includes('/clips/clip_')
 
-if (url.includes("newplatform.com/clips/")) {
-  await handleClipSubmission(url, message.username, canAutoApprove);
+if (url.includes('newplatform.com/clips/')) {
+  await handleClipSubmission(url, message.username, canAutoApprove)
 }
 ```
 
@@ -745,6 +749,31 @@ rm -rf .turbo                        # Clear cache
 - Subsequent with no changes: ~0.5s (cache hit)
 - Partial changes: ~5-10s (affected packages only)
 
+### Code Quality & Formatting
+
+**Architecture**: Centralized configs in `@cq/config` package. All 11 packages import shared ESLint/Prettier configs.
+
+**Two config types**:
+
+- **TypeScript** (`@cq/config/eslint/typescript`, `prettier/base`) - 8 packages: api, constants, queue-ops, schemas, utils, services, platforms, config
+- **Vue** (`@cq/config/eslint/vue`, `prettier/vue`) - 3 packages: web, player, ui (adds Tailwind class sorting)
+
+**Pre-commit hooks** (Husky):
+
+1. `lint-staged` - Prettier auto-formats all staged files
+2. `turbo typecheck lint test --filter='...[HEAD]'` - Runs on changed packages only (cached)
+
+**Common commands**:
+
+```sh
+pnpm lint              # Check all packages
+pnpm lint:fix          # Auto-fix all packages
+pnpm format            # Format all packages
+SKIP_HOOKS=1 git commit # Skip pre-commit checks
+```
+
+**Adding new packages**: Must include `eslint.config.js`, `prettier.config.js`, and lint scripts (`lint`, `lint:fix`, `format`) in `package.json`. Import configs from `@cq/config` to match existing packages.
+
 ### i18n (Internationalization)
 
 **Framework**: [@inlang/paraglide-js](https://inlang.com/m/gerre34r/library-inlang-paraglideJs)
@@ -797,3 +826,5 @@ rm -rf .turbo                        # Clear cache
 - **env.d.ts files**: Provide TypeScript declarations for Vite features and unplugin-icons imports (do not modify)
 - **Autoplay preference**: Thread through component chain (QueuePage → ClipPlayer → CqPlayer → VidStackPlayer); when disabled, shows clickable play button overlay that auto-hides after playback starts
 - **Player autoplay prop**: Always pass `preferences.preferences.autoplay` to `ClipPlayer` to prevent hot reload bugs where video autoplays despite preference being off
+- **New packages need configs**: Every package MUST have `eslint.config.js`, `prettier.config.js`, and lint scripts in `package.json` to be included in pre-commit checks (see "Code Quality & Formatting Architecture" section)
+- **All 11 packages are linted**: Pre-commit hooks now run lint/typecheck on all packages (no silent skips); breaking this will cause commits to fail

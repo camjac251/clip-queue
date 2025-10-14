@@ -1,13 +1,25 @@
 {
   "recommendations": [
-    "ms-vscode-remote.remote-containers",
-    "ms-azuretools.vscode-docker",
-    "EditorConfig.EditorConfig",
-    "vue.volar",
-    "dbaeumer.vscode-eslint",
+    // Essential
     "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "editorconfig.editorconfig",
+
+    // TypeScript & Vue
+    "vue.volar",
+    "vue.vscode-typescript-vue-plugin",
+
+    // Tailwind CSS
     "bradlc.vscode-tailwindcss",
-    "inlang.vs-code-extension",
+
+    // Git
+    "eamodio.gitlens",
+
+    // Utilities
+    "antfu.iconify",
+    "usernamehw.errorlens",
+    "gruntfuggly.todo-tree",
     "vitest.explorer"
-  ]
+  ],
+  "unwantedRecommendations": ["octref.vetur", "hookyqr.beautify"]
 }

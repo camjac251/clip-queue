@@ -1,0 +1,25 @@
+# Build outputs
+dist
+coverage
+.turbo
+.next
+.vite
+
+# Dependencies
+node_modules
+pnpm-lock.yaml
+
+# Generated files
+*.log
+.DS_Store
+
+# Auto-generated code
+apps/web/src/paraglide
+
+# Database
+*.db
+*.db-journal
+data/
+
+# Drizzle migrations (checked by SQL linter instead)
+drizzle/

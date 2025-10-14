@@ -12,7 +12,10 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "lint": "prettier --check . && eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "zod": "catalog:"

@@ -1,0 +1,26 @@
+# Build outputs
+dist
+coverage
+.turbo
+.next
+
+# Dependencies
+node_modules
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Generated files
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Auto-generated i18n
+apps/web/src/paraglide
+
+# Database
+*.db
+*.db-journal
+data/
