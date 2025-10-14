@@ -3,10 +3,31 @@ import { readonly, ref, watchEffect } from 'vue'
 
 import type ClipPlayer from '@/components/ClipPlayer.vue'
 
+const VOLUME_STORAGE_KEY = 'cq-player-volume'
+const DEFAULT_VOLUME = 1.0
+
+/**
+ * Load saved volume from localStorage
+ */
+function loadSavedVolume(): number {
+  try {
+    const saved = localStorage.getItem(VOLUME_STORAGE_KEY)
+    if (saved !== null) {
+      const volume = parseFloat(saved)
+      if (!isNaN(volume) && volume >= 0 && volume <= 1) {
+        return Math.round(volume * 100)
+      }
+    }
+  } catch (error) {
+    console.warn('[PlayerState] Failed to load saved volume:', error)
+  }
+  return Math.round(DEFAULT_VOLUME * 100)
+}
+
 export function usePlayerState(playerRef: Ref<InstanceType<typeof ClipPlayer> | null>) {
   const currentTime = ref(0)
   const duration = ref(0)
-  const volume = ref(100)
+  const volume = ref(loadSavedVolume())
   const isPlaying = ref(false)
   const isMuted = ref(false)
 
