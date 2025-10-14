@@ -1,39 +1,69 @@
 <template>
-  <Card v-if="user.canManageSettings" class="mx-auto mb-2 max-w-xl text-left">
-    <template #content>
-      <DangerButton
-        :label="m.reset_settings()"
-        class="mb-2"
-        fluid
-        size="small"
-        :disabled="!(settings.isModified || preferences.isModified)"
-        @click="resetSettingsToDefault()"
-      ></DangerButton>
-      <Message size="small" severity="secondary" variant="simple">{{
-        m.reset_settings_description()
-      }}</Message>
-    </template>
-  </Card>
-  <Card v-if="user.isBroadcaster" class="mx-auto max-w-xl text-left">
-    <template #content>
-      <DangerButton
-        :label="m.purge_history()"
-        class="mb-2"
-        fluid
-        size="small"
-        :disabled="queue.history.size() === 0"
-        @click="purgeHistory()"
-      ></DangerButton>
-      <Message size="small" severity="secondary" variant="simple">{{
-        m.purge_history_description()
-      }}</Message>
-    </template>
-  </Card>
+  <div class="space-y-4">
+    <Card v-if="user.canManageSettings" class="mx-auto max-w-3xl">
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <ActionRotateCcw :size="20" class="text-violet-600 dark:text-violet-500" />
+          Reset Settings
+        </CardTitle>
+        <CardDescription> Restore all settings to their default values </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          variant="destructive"
+          class="w-full"
+          size="sm"
+          :disabled="!(settings.isModified || preferences.isModified)"
+          @click="resetSettingsToDefault()"
+        >
+          {{ m.reset_settings() }}
+        </Button>
+        <Message class="mt-3" size="sm" severity="secondary" variant="simple">{{
+          m.reset_settings_description()
+        }}</Message>
+      </CardContent>
+    </Card>
+
+    <Card v-if="user.isBroadcaster" class="mx-auto max-w-3xl">
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <ActionTrash :size="20" class="text-violet-600 dark:text-violet-500" />
+          Purge History
+        </CardTitle>
+        <CardDescription> Permanently delete all history records </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          variant="destructive"
+          class="w-full"
+          size="sm"
+          :disabled="queue.history.size() === 0"
+          @click="purgeHistory()"
+        >
+          {{ m.purge_history() }}
+        </Button>
+        <Message class="mt-3" size="sm" severity="secondary" variant="simple">{{
+          m.purge_history_description()
+        }}</Message>
+      </CardContent>
+    </Card>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { Card, DangerButton, Message, useConfirm, useToast } from '@cq/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Message,
+  useConfirm,
+  useToast
+} from '@cq/ui'
 
+import { ActionRotateCcw, ActionTrash } from '@/composables/icons'
 import * as m from '@/paraglide/messages'
 import { usePreferences } from '@/stores/preferences'
 import { useQueueServer as useQueue } from '@/stores/queue-server'

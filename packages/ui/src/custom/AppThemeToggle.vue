@@ -1,18 +1,16 @@
 <template>
-  <Button
-    :icon="isDarkMode ? 'pi pi-sun' : 'pi pi-moon'"
-    size="small"
-    text
-    rounded
-    aria-label="Theme"
-    @click="() => emit('toggle')"
-  ></Button>
+  <Button variant="ghost" size="sm" class="gap-2" aria-label="Theme" @click="() => emit('toggle')">
+    <IconSun v-if="isDarkMode" :size="18" />
+    <IconMoon v-else :size="18" />
+  </Button>
 </template>
 
 <script setup lang="ts">
 import { toRefs } from 'vue'
 
-import Button from '../volt/Button.vue'
+import { IconMoon, IconSun } from '@cq/ui'
+
+import { Button } from '../components/ui/button'
 
 export interface Props {
   isDarkMode?: boolean

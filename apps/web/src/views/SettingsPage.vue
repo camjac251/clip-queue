@@ -1,58 +1,104 @@
 <template>
-  <div class="mx-auto mb-3 max-w-3xl">
-    <Tabs :value="active">
-      <TabList class="mx-auto">
-        <Tab
-          v-for="setting in settingsRoutes"
-          :key="setting.name"
-          :value="setting?.name?.toString() ?? ''"
-          :as="'router-link'"
-          :to="{ name: setting.name }"
-        >
-          <div class="flex items-center gap-2 text-inherit">
-            <i :class="setting.meta?.icon"></i>
-            <span>{{ routeTranslations[setting.name as RouteNameConstants]() }}</span>
-          </div>
-        </Tab>
-      </TabList>
-    </Tabs>
+  <div class="bg-background flex min-h-screen flex-col">
+    <!-- Header Bar -->
+    <div
+      class="border-border bg-card/95 supports-[backdrop-filter]:bg-card/60 sticky top-0 z-10 border-b backdrop-blur"
+    >
+      <div class="flex h-14 items-center px-4 lg:px-6">
+        <!-- Mobile Menu Toggle -->
+        <Button variant="ghost" size="icon" class="mr-2 lg:hidden" @click="toggleSidebar">
+          <UiMenu :size="20" />
+        </Button>
+
+        <!-- Title -->
+        <div class="flex-1">
+          <h1
+            class="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-lg font-bold text-transparent sm:text-xl dark:from-violet-400 dark:to-purple-400"
+          >
+            {{ m.settings() }}
+          </h1>
+        </div>
+
+        <!-- Search Button (Mobile) -->
+        <Button variant="ghost" size="icon" class="lg:hidden" @click="openSearch">
+          <UiSearch :size="20" />
+        </Button>
+      </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Sidebar -->
+      <SettingsSidebar :is-open="isSidebarOpen" @open-search="openSearch" />
+
+      <!-- Content Area -->
+      <main class="flex-1 overflow-y-auto">
+        <div class="mx-auto max-w-4xl p-4 lg:p-6">
+          <RouterView />
+        </div>
+      </main>
+    </div>
+
+    <!-- Search Dialog -->
+    <SettingsSearch v-model:open="isSearchOpen" />
+
+    <!-- Mobile Sidebar Overlay -->
+    <Transition
+      enter-active-class="transition-opacity duration-300"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-opacity duration-300"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="isSidebarOpen"
+        class="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        @click="closeSidebar"
+      />
+    </Transition>
   </div>
-  <RouterView />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onMounted, onUnmounted, ref } from 'vue'
 
-import { Tab, TabList, Tabs } from '@cq/ui'
+import { Button } from '@cq/ui'
 
-import { useKeydown } from '@/composables/keydown'
-import { allowedRoutes, RouteNameConstants, routeTranslations } from '@/router'
+import SettingsSearch from '@/components/SettingsSearch.vue'
+import SettingsSidebar from '@/components/SettingsSidebar.vue'
+import { UiMenu, UiSearch } from '@/composables/icons'
+import * as m from '@/paraglide/messages'
 
-const router = useRouter()
-const route = useRoute()
+const isSidebarOpen = ref(false)
+const isSearchOpen = ref(false)
 
-const settingsRoutes =
-  allowedRoutes.value.find((r) => r.name === RouteNameConstants.SETTINGS)?.children ?? []
+function toggleSidebar() {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
 
-const active = computed(() => route?.name?.toString() ?? '')
-const current = computed(() => settingsRoutes.findIndex((r) => r.name === route.name))
+function closeSidebar() {
+  isSidebarOpen.value = false
+}
 
-useKeydown((event) => {
-  if (event.key === 'ArrowLeft') {
-    if (current.value > 0) {
-      const previous = settingsRoutes[current.value - 1]
-      if (previous) {
-        router.push({ name: previous.name })
-      }
-    }
-  } else if (event.key === 'ArrowRight') {
-    if (current.value < settingsRoutes.length - 1) {
-      const next = settingsRoutes[current.value + 1]
-      if (next) {
-        router.push({ name: next.name })
-      }
-    }
+function openSearch() {
+  isSearchOpen.value = true
+}
+
+// Keyboard shortcuts
+function handleKeydown(event: KeyboardEvent) {
+  // Cmd/Ctrl + K for search
+  if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+    event.preventDefault()
+    openSearch()
   }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>

@@ -15,19 +15,7 @@ export type LogLevel = 'OFF' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR'
 export const availableLogLevels: LogLevel[] = ['OFF', 'ERROR', 'WARN', 'INFO', 'DEBUG'] as const
 
 /**
- * Log level mappings to PrimeVue icons.
- * @see https://primefaces.org/primeicons/
- */
-export const logLevelIcons: Record<LogLevel, string> = {
-  OFF: '',
-  DEBUG: 'pi pi-code',
-  INFO: 'pi pi-info-circle',
-  WARN: 'pi pi-exclamation-triangle',
-  ERROR: 'pi pi-times-circle'
-}
-
-/**
- * Log level mappings to PrimeVue severities.
+ * Log level mappings to severities.
  */
 export const logLevelSeverities: Record<LogLevel, string> = {
   OFF: 'secondary',

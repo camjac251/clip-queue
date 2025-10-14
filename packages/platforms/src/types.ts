@@ -62,9 +62,9 @@ export abstract class BasePlatform {
   /**
    * Get the player source.
    * @param clip - The clip.
-   * @returns The player source.
+   * @returns The player source (or undefined if it should be fetched client-side).
    */
-  public abstract getPlayerSource(clip: Clip): string
+  public abstract getPlayerSource(clip: Clip): string | undefined
 }
 
 /**

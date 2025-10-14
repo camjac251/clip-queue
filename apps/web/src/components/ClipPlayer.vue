@@ -1,6 +1,7 @@
 <template>
   <div class="player-container">
     <Player
+      ref="playerRef"
       :title="clip.title"
       :format="playerFormat"
       :source="playerSource"
@@ -16,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, toRefs } from 'vue'
+import { computed, ref, toRefs } from 'vue'
 
 import type { Clip, PlayerFormat } from '@cq/platforms'
 import { Player } from '@cq/player'
@@ -39,6 +40,48 @@ const preferences = usePreferences()
 const emit = defineEmits<{
   (e: 'ended'): void
 }>()
+
+const playerRef = ref<InstanceType<typeof Player> | null>(null)
+
+// Expose player API for external controls
+defineExpose({
+  get player() {
+    return playerRef.value?.player
+  },
+  get paused() {
+    return playerRef.value?.paused ?? true
+  },
+  get currentTime() {
+    return playerRef.value?.currentTime ?? 0
+  },
+  get duration() {
+    return playerRef.value?.duration ?? 0
+  },
+  get volume() {
+    return playerRef.value?.volume ?? 1
+  },
+  get muted() {
+    return playerRef.value?.muted ?? false
+  },
+  async play() {
+    await playerRef.value?.play()
+  },
+  pause() {
+    playerRef.value?.pause()
+  },
+  togglePlay() {
+    playerRef.value?.togglePlay()
+  },
+  seek(time: number) {
+    playerRef.value?.seek(time)
+  },
+  setVolume(volume: number) {
+    playerRef.value?.setVolume(volume)
+  },
+  toggleMute() {
+    playerRef.value?.toggleMute()
+  }
+})
 
 function handleVideoEnded() {
   logger.debug('[Player]: Video ended')

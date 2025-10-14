@@ -2,14 +2,12 @@ import type { RouteRecordRaw } from 'vue-router'
 import { computed } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 
+import type { RouteIconKey } from '@/composables/icons'
 import { config } from '@/config'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
-import { useQueueServer as useQueue } from '@/stores/queue-server'
-import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
 import HistoryPage from '@/views/HistoryPage.vue'
-import LogsPage from '@/views/LogsPage.vue'
 import QueuePage from '@/views/QueuePage.vue'
 import AboutSettings from '@/views/settings/AboutSettings.vue'
 import ChatSettings from '@/views/settings/ChatSettings.vue'
@@ -20,7 +18,7 @@ import QueueSettings from '@/views/settings/QueueSettings.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
-    icon: string
+    icon: RouteIconKey
     requiresAuth: boolean
   }
 }
@@ -28,7 +26,6 @@ declare module 'vue-router' {
 export enum RouteNameConstants {
   QUEUE = 'queue',
   HISTORY = 'history',
-  LOGS = 'logs',
   SETTINGS = 'settings',
   SETTINGS_CHAT = 'settings_chat',
   SETTINGS_QUEUE = 'settings_queue',
@@ -44,7 +41,7 @@ export const routes: RouteRecordRaw[] = [
     name: RouteNameConstants.QUEUE,
     component: QueuePage,
     meta: {
-      icon: 'pi pi-list',
+      icon: 'list',
       requiresAuth: false
     }
   },
@@ -53,7 +50,7 @@ export const routes: RouteRecordRaw[] = [
     name: RouteNameConstants.HISTORY,
     component: HistoryPage,
     meta: {
-      icon: 'pi pi-history',
+      icon: 'history',
       requiresAuth: true
     }
   },
@@ -63,7 +60,7 @@ export const routes: RouteRecordRaw[] = [
     redirect: { name: RouteNameConstants.SETTINGS_CHAT },
     component: () => import('@/views/SettingsPage.vue'),
     meta: {
-      icon: 'pi pi-cog',
+      icon: 'settings',
       requiresAuth: true
     },
     children: [
@@ -72,7 +69,7 @@ export const routes: RouteRecordRaw[] = [
         name: RouteNameConstants.SETTINGS_CHAT,
         component: ChatSettings,
         meta: {
-          icon: 'pi pi-comments',
+          icon: 'message-square',
           requiresAuth: true
         }
       },
@@ -81,7 +78,7 @@ export const routes: RouteRecordRaw[] = [
         name: RouteNameConstants.SETTINGS_QUEUE,
         component: QueueSettings,
         meta: {
-          icon: 'pi pi-list',
+          icon: 'inbox',
           requiresAuth: true
         }
       },
@@ -90,7 +87,7 @@ export const routes: RouteRecordRaw[] = [
         name: RouteNameConstants.SETTINGS_PREFERENCES,
         component: PreferenceSettings,
         meta: {
-          icon: 'pi pi-palette',
+          icon: 'palette',
           requiresAuth: true
         }
       },
@@ -99,7 +96,7 @@ export const routes: RouteRecordRaw[] = [
         name: RouteNameConstants.SETTINGS_LOGS,
         component: LoggerSettings,
         meta: {
-          icon: 'pi pi-book',
+          icon: 'book-open',
           requiresAuth: true
         }
       },
@@ -108,7 +105,7 @@ export const routes: RouteRecordRaw[] = [
         name: RouteNameConstants.SETTINGS_OTHER,
         component: OtherSettings,
         meta: {
-          icon: 'pi pi-cog',
+          icon: 'settings',
           requiresAuth: true
         }
       },
@@ -117,7 +114,7 @@ export const routes: RouteRecordRaw[] = [
         name: RouteNameConstants.SETTINGS_ABOUT,
         component: AboutSettings,
         meta: {
-          icon: 'pi pi-info-circle',
+          icon: 'info',
           requiresAuth: true
         }
       }
@@ -130,15 +127,6 @@ const router = createRouter({
   routes: [
     ...routes,
     {
-      path: '/logs',
-      name: RouteNameConstants.LOGS,
-      component: LogsPage,
-      meta: {
-        icon: 'pi pi-book',
-        requiresAuth: true
-      }
-    },
-    {
       path: '/:pathMatch(.*)*',
       redirect: { name: RouteNameConstants.QUEUE }
     }
@@ -149,17 +137,6 @@ router.beforeEach(async (to, from, next) => {
   document.title = config.title
   const logger = useLogger()
   const user = useUser()
-  const queue = useQueue()
-  const settings = useSettings()
-
-  // Initialize queue polling for all users (read-only for unauthenticated)
-  queue.initialize()
-
-  // Initialize settings only for logged in users
-  if (user.isLoggedIn) {
-    settings.initialize()
-    await settings.loadSettings()
-  }
 
   // Redirect to queue if trying to access protected route while not logged in
   if (!user.isLoggedIn && to.meta.requiresAuth) {
@@ -172,13 +149,7 @@ router.beforeEach(async (to, from, next) => {
 })
 
 router.afterEach(() => {
-  const user = useUser()
-  const queue = useQueue()
-
-  // Cleanup polling on logout
-  if (!user.isLoggedIn) {
-    queue.cleanup()
-  }
+  // Reserved for future use
 })
 
 export default router
@@ -187,7 +158,6 @@ export default router
 export const routeTranslations = {
   [RouteNameConstants.QUEUE]: m.queue,
   [RouteNameConstants.HISTORY]: m.history,
-  [RouteNameConstants.LOGS]: m.logs,
   [RouteNameConstants.SETTINGS]: m.settings,
   [RouteNameConstants.SETTINGS_CHAT]: m.settings_chat,
   [RouteNameConstants.SETTINGS_QUEUE]: m.settings_queue,

@@ -2,8 +2,6 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "about_credits": "क्रेडिट और लाइसेंस",
   "about_description": "Clip Queue आपकी चैट में एकीकृत होता है और दर्शकों द्वारा सबमिट किए गए क्लिप को कतारबद्ध करता है। क्लिप को वेब इंटरफेस के माध्यम से कई प्लेटफार्मों के समर्थन और रीयल-टाइम सिंक्रोनाइज़ेशन के साथ आसानी से देखा जा सकता है।",
-  "about_fork_notice": "यह मूल Clip Queue परियोजना का एक फोर्क है जिसमें अतिरिक्त सुविधाएं और सुधार हैं।",
-  "about_license": "MIT लाइसेंस के तहत जारी किया गया। मुक्त और ओपन सोर्स सॉफ्टवेयर।",
   "about_feature_commands_description": "चैनल के मॉडरेटर कतार के साथ सीधे इंटरैक्ट करने के लिए चैट आदेशों का उपयोग कर सकते हैं।",
   "about_feature_commands_title": "चैट आदेश",
   "about_feature_connect_description": "स्वचालित रूप से अपने Twitch चैट से कनेक्ट करने के लिए लॉगिन करें। चैट में उपयोगकर्ताओं द्वारा सबमिट किए गए क्लिप्स को कतार में जोड़ा जाएगा।",
@@ -16,6 +14,9 @@
   "about_feature_popularity_title": "लोकप्रिय क्लिप्स ऊपर उठें",
   "about_feature_settings_description": "विभिन्न अनुकूलन योग्य सेटिंग्स के माध्यम से अपने अनुभव को व्यक्तिगत बनाएं।",
   "about_feature_settings_title": "सेटिंग्स अनुकूलन",
+  "about_features": "विशेषताएं",
+  "about_fork_notice": "यह मूल Clip Queue परियोजना का एक फोर्क है जिसमें अतिरिक्त सुविधाएं और सुधार हैं।",
+  "about_license": "MIT लाइसेंस के तहत जारी किया गया। मुक्त और ओपन सोर्स सॉफ्टवेयर।",
   "about_original_author": "मूल परियोजना द्वारा बनाई गई",
   "allowed_commands": "अनुमत आदेश:",
   "allowed_commands_description": "चैट में उपयोग के लिए अनुमति प्राप्त आदेश।",
@@ -35,11 +36,11 @@
   "clear_logs_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "क्या आप वाकई {length} लॉग साफ़ करना चाहते हैं?",
         "lengthPlural=other": "क्या आप वाकई {length} लॉग साफ़ करना चाहते हैं?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "clip_cache_purged": "क्लिप कैश साफ़ कर दिया गया।",
@@ -47,14 +48,15 @@
   "clips": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} क्लिप",
         "lengthPlural=other": "{length} क्लिप्स"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "close": "बंद करें",
+  "closed": "बंद",
   "command_clear": "कतार में सभी क्लिप्स को हटाएं।",
   "command_close": "कतार बंद करें।",
   "command_disable_auto_mod": "स्वचालित मॉडरेशन अक्षम करें।",
@@ -83,11 +85,11 @@
   "delete_history_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "क्या आप वाकई इतिहास से {length} क्लिप हटाना चाहते हैं?",
         "lengthPlural=other": "क्या आप वाकई इतिहास से {length} क्लिप हटाना चाहते हैं?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "delete_label": "हटाएं",
@@ -97,11 +99,13 @@
   "error": "त्रुटि",
   "experimental": "प्रयोगात्मक",
   "fuchsia": "फुक्सिया",
+  "general": "सामान्य",
   "gray": "ग्रे",
   "green": "हरा",
   "history": "इतिहास",
   "indigo": "नील",
   "info": "जानकारी",
+  "information": "जानकारी",
   "language": "भाषा:",
   "language_description": "यूआई में उपयोग की जाने वाली भाषा।",
   "level": "स्तर",
@@ -121,6 +125,7 @@
   "no_clip_playing": "कोई क्लिप नहीं चल रहा है",
   "no_clips_previously_watched": "पहले देखे गए कोई क्लिप नहीं।",
   "no_logs_captured": "कोई लॉग कैप्चर नहीं किया गया।",
+  "no_results_found": "कोई परिणाम नहीं मिला।",
   "no_upcoming_clips": "कतार खाली है",
   "none": "कोई नहीं",
   "now_playing": "अब चल रहा है",
@@ -154,6 +159,8 @@
   "rose": "गुलाब",
   "save": "सहेजें",
   "search": "खोजें",
+  "search_settings": "सेटिंग्स खोजें",
+  "search_settings_placeholder": "एक सेटिंग खोजें...",
   "settings": "सेटिंग्स",
   "settings_about": "बारे में",
   "settings_chat": "चैट",
@@ -172,6 +179,7 @@
   "success": "सफलता",
   "surface_color": "सतह का रंग:",
   "surface_color_description": "यूआई में उपयोग किया जाने वाला सतह का रंग।",
+  "system": "सिस्टम",
   "teal": "हरा-नीला",
   "theme": "थीम",
   "theme_dark": "डार्क",
@@ -186,6 +194,5 @@
   "viva": "विवा",
   "warning": "चेतावनी",
   "yellow": "पीला",
-  "zinc": "जिंक",
-  "about_features": "विशेषताएं"
+  "zinc": "जिंक"
 }

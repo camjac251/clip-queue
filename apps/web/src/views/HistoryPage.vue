@@ -1,149 +1,193 @@
 <template>
-  <div v-if="user.canControlQueue" class="flex flex-row-reverse gap-2">
-    <DangerButton
-      icon="pi pi-trash"
-      :label="m.delete_label()"
-      :disabled="!selection.length"
-      severity="danger"
-      size="small"
-      @click="deleteClips()"
-    ></DangerButton>
-    <SecondaryButton
-      icon="pi pi-history"
-      :label="m.play()"
-      :disabled="!selection.length"
-      severity="secondary"
-      size="small"
-      @click="replayClips()"
-    ></SecondaryButton>
-    <SecondaryButton
-      icon="pi pi-plus"
-      :label="m.queue()"
-      :disabled="isQueueClipsDisabled"
-      severity="info"
-      size="small"
-      @click="queueClips()"
-    ></SecondaryButton>
-  </div>
-  <DataTable
-    v-model:selection="selection"
-    v-model:filters="filters"
-    :global-filter-fields="['category', 'channel', 'platform', 'submitters', 'title']"
-    :value="queue.history.toArray()"
-    size="small"
-    paginator
-    removable-sort
-    :rows="10"
-    :rows-per-page-options="[10, 20, 50]"
-    class="my-2"
-  >
-    <template #empty>
-      <div class="text-surface-500 p-4">
-        {{ m.no_clips_previously_watched() }}
+  <div class="space-y-4">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1
+          class="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl dark:from-violet-400 dark:to-purple-400"
+        >
+          {{ m.history() }}
+        </h1>
+        <p class="text-muted-foreground mt-1 text-sm">View and manage previously watched clips</p>
       </div>
-    </template>
-    <template #header>
-      <div class="mb-2 flex items-center justify-between">
-        <span class="text-xl">{{ m.history() }}</span>
-        <div class="relative">
-          <i
-            class="pi pi-search text-surface-400 absolute start-3 top-1/2 z-1 -mt-2 leading-none"
-          />
-          <InputText v-model="filters['global'].value" :placeholder="m.search()" pt:root="ps-10" />
-        </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div
+      v-if="user.canControlQueue"
+      class="border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 shadow-sm"
+    >
+      <div class="relative min-w-[200px] flex-1">
+        <UiSearch
+          :size="16"
+          class="text-muted-foreground absolute start-3 top-1/2 z-1 -mt-2 leading-none"
+        />
+        <Input v-model="searchQuery" :placeholder="m.search()" class="pl-10" />
       </div>
-    </template>
-    <Column selection-mode="multiple" header-style="width: 3rem"></Column>
-    <Column field="title" :header="m.info()" sortable :sort-field="(data: Clip) => data.title">
-      <template #body="{ data }: { data: Clip }">
-        <div class="flex items-center">
-          <img
-            class="hidden aspect-video w-24 rounded-lg sm:block"
-            :src="data.thumbnailUrl"
-            :alt="data.title"
-          />
-          <div class="text-left text-sm sm:ml-3">
-            <p class="font-normal">
-              {{ data.title }}
-              <span v-if="data.url">
-                <a
-                  :href="data.url"
-                  target="_blank"
-                  rel="noreferrer"
-                  class="text-surface-400 hover:text-surface-600 dark:text-surface-600 dark:hover:text-surface-200 no-underline"
-                >
-                  <i class="pi pi-external-link"></i>
-                </a>
-              </span>
-            </p>
-            <div class="text-surface-400 text-xs">
-              <p v-if="data.category">{{ data.channel }} - {{ data.category }}</p>
-              <p v-else>
-                {{ data.channel }}
-              </p>
-            </div>
+      <div class="flex gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          :disabled="isQueueClipsDisabled"
+          @click="queueClips()"
+        >
+          {{ m.queue() }}
+        </Button>
+        <Button variant="secondary" size="sm" :disabled="!selection.length" @click="replayClips()">
+          {{ m.play() }}
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          :disabled="!selection.length"
+          @click="deleteClips()"
+        >
+          {{ m.delete_label() }}
+        </Button>
+      </div>
+    </div>
+
+    <!-- Search for non-mod users -->
+    <div v-else class="relative">
+      <UiSearch
+        :size="16"
+        class="text-muted-foreground absolute start-3 top-1/2 z-1 -mt-2 leading-none"
+      />
+      <Input v-model="searchQuery" :placeholder="m.search()" class="pl-10" />
+    </div>
+
+    <!-- Data Table Card -->
+    <Card class="overflow-hidden">
+      <DataTable
+        :data="filteredClips"
+        :columns="columns"
+        paginator
+        :rows="10"
+        :rows-per-page-options="[10, 20, 50]"
+      >
+        <template #empty>
+          <div class="text-muted-foreground flex flex-col items-center justify-center py-12">
+            <NavHistory :size="48" class="mb-4 opacity-50" />
+            <p class="text-lg font-medium">{{ m.no_clips_previously_watched() }}</p>
+            <p class="text-sm">Clips you've watched will appear here</p>
           </div>
-        </div>
-      </template>
-    </Column>
-    <Column field="platform" sortable :header="m.platform()">
-      <template #body="{ data }: { data: Clip }">
-        <PlatformName :platform="data.platform" />
-      </template>
-    </Column>
-    <Column
-      :field="(data: Clip) => data.creator ?? m.unknown()"
-      sortable
-      :sort-field="(data: Clip) => data.creator"
-      :header="m.creator()"
-    >
-    </Column>
-    <Column
-      :field="(data: Clip) => data.submitters[0] ?? ''"
-      sortable
-      :sort-field="(data: Clip) => data.submitters[0] ?? ''"
-      :header="m.submitter()"
-    >
-    </Column>
-  </DataTable>
+        </template>
+      </DataTable>
+    </Card>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import type { ColumnDef } from '@tanstack/vue-table'
+import { computed, h, ref } from 'vue'
 
 import type { Clip } from '@cq/platforms'
 import { toClipUUID } from '@cq/platforms'
-import {
-  Column,
-  DangerButton,
-  DataTable,
-  InputText,
-  SecondaryButton,
-  useConfirm,
-  useToast
-} from '@cq/ui'
+import { Button, Card, Checkbox, DataTable, Input, useConfirm } from '@cq/ui'
 
 import PlatformName from '@/components/PlatformName.vue'
+import { ActionExternalLink, NavHistory, UiSearch } from '@/composables/icons'
+import { useToastNotifications } from '@/composables/toast'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
 import { useQueueServer as useQueue } from '@/stores/queue-server'
 import { useUser } from '@/stores/user'
 
-const filters = ref({
-  global: { value: null, matchMode: 'contains' }
-})
-
 const confirm = useConfirm()
-const toast = useToast()
+const { batchResult } = useToastNotifications()
 const queue = useQueue()
 const logger = useLogger()
 const user = useUser()
 
+const searchQuery = ref('')
 const selection = ref<Clip[]>([])
+
+const filteredClips = computed(() => {
+  const clips = queue.history.toArray()
+  if (!searchQuery.value) return clips
+
+  const query = searchQuery.value.toLowerCase()
+  return clips.filter(
+    (clip) =>
+      clip.title.toLowerCase().includes(query) ||
+      clip.channel.toLowerCase().includes(query) ||
+      clip.creator?.toLowerCase().includes(query) ||
+      clip.category?.toLowerCase().includes(query) ||
+      clip.platform.toLowerCase().includes(query) ||
+      clip.submitters.some((s) => s.toLowerCase().includes(query))
+  )
+})
 
 const isQueueClipsDisabled = computed(() => {
   return selection.value.length === 0 || selection.value.every((c) => queue.upcoming.includes(c))
 })
+
+const columns = computed<ColumnDef<Clip>[]>(() => [
+  {
+    id: 'select',
+    header: ({ table }) =>
+      h(Checkbox, {
+        checked: table.getIsAllPageRowsSelected(),
+        'onUpdate:checked': (value: boolean) => table.toggleAllPageRowsSelected(!!value)
+      }),
+    cell: ({ row }) =>
+      h(Checkbox, {
+        checked: row.getIsSelected(),
+        'onUpdate:checked': (value: boolean) => row.toggleSelected(!!value)
+      }),
+    enableSorting: false
+  },
+  {
+    accessorKey: 'title',
+    header: m.info(),
+    cell: ({ row }) => {
+      const clip = row.original
+      return h('div', { class: 'flex items-center' }, [
+        h('img', {
+          class: 'hidden aspect-video w-24 rounded-lg sm:block',
+          src: clip.thumbnailUrl,
+          alt: clip.title
+        }),
+        h('div', { class: 'text-left text-sm sm:ml-3' }, [
+          h('p', { class: 'font-normal' }, [
+            clip.title,
+            clip.url &&
+              h('span', [
+                h(
+                  'a',
+                  {
+                    href: clip.url,
+                    target: '_blank',
+                    rel: 'noreferrer',
+                    class: 'text-muted-foreground hover:text-foreground no-underline ml-2'
+                  },
+                  [h(ActionExternalLink, { size: 16 })]
+                )
+              ])
+          ]),
+          h('div', { class: 'text-muted-foreground text-xs' }, [
+            clip.category ? h('p', `${clip.channel} - ${clip.category}`) : h('p', clip.channel)
+          ])
+        ])
+      ])
+    }
+  },
+  {
+    accessorKey: 'platform',
+    header: m.platform(),
+    cell: ({ row }) => h(PlatformName, { platform: row.original.platform })
+  },
+  {
+    accessorKey: 'creator',
+    header: m.creator(),
+    cell: ({ row }) => row.original.creator ?? m.unknown()
+  },
+  {
+    accessorKey: 'submitters',
+    header: m.submitter(),
+    cell: ({ row }) => row.original.submitters[0] ?? ''
+  }
+])
 
 async function queueClips() {
   const clips = selection.value
@@ -175,34 +219,11 @@ async function replayClips() {
     }
   }
 
-  // Clear selection on success
   if (results.succeeded > 0) {
     selection.value = []
   }
 
-  // Show appropriate toast based on results
-  if (results.failed === 0) {
-    toast.add({
-      severity: 'success',
-      summary: m.success(),
-      detail: `Replayed ${results.succeeded} clip${results.succeeded === 1 ? '' : 's'} from history`,
-      life: 3000
-    })
-  } else if (results.succeeded === 0) {
-    toast.add({
-      severity: 'error',
-      summary: m.error(),
-      detail: `Failed to replay ${results.failed} clip${results.failed === 1 ? '' : 's'}`,
-      life: 3000
-    })
-  } else {
-    toast.add({
-      severity: 'warning',
-      summary: m.warning(),
-      detail: `Replayed ${results.succeeded} clip${results.succeeded === 1 ? '' : 's'}, ${results.failed} failed`,
-      life: 3000
-    })
-  }
+  batchResult(results.succeeded, results.failed, 'Replayed from history')
 }
 
 function deleteClips() {
@@ -231,34 +252,11 @@ function deleteClips() {
         }
       }
 
-      // Clear selection on success
       if (results.succeeded > 0) {
         selection.value = []
       }
 
-      // Show appropriate toast based on results
-      if (results.failed === 0) {
-        toast.add({
-          severity: 'success',
-          summary: m.success(),
-          detail: `Deleted ${results.succeeded} clip${results.succeeded === 1 ? '' : 's'} from history`,
-          life: 3000
-        })
-      } else if (results.succeeded === 0) {
-        toast.add({
-          severity: 'error',
-          summary: m.error(),
-          detail: `Failed to delete ${results.failed} clip${results.failed === 1 ? '' : 's'}`,
-          life: 3000
-        })
-      } else {
-        toast.add({
-          severity: 'warning',
-          summary: m.warning(),
-          detail: `Deleted ${results.succeeded} clip${results.succeeded === 1 ? '' : 's'}, ${results.failed} failed`,
-          life: 3000
-        })
-      }
+      batchResult(results.succeeded, results.failed, 'Deleted from history')
     },
     reject: () => {
       logger.debug(`[History]: deletion of ${clips.length} clip(s) was cancelled.`)

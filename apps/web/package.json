@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm typecheck && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "typecheck": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide && vue-tsc --build --force",
     "lint": "prettier --check . && eslint .",
@@ -22,16 +22,17 @@
     "@cq/schemas": "workspace:*",
     "@cq/services": "workspace:*",
     "@cq/ui": "workspace:*",
-    "@sentry/vue": "^10.17.0",
+    "@sentry/vue": "^10.19.0",
+    "@tanstack/vue-table": "^8.21.3",
     "pinia": "^3.0.3",
     "pinia-plugin-persistedstate": "^4.5.0",
-    "primevue": "^4.4.0",
     "vue": "catalog:",
     "vue-router": "^4.5.1",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@cq/config": "workspace:*",
+    "@iconify/json": "catalog:",
     "@inlang/cli": "^3.0.12",
     "@inlang/paraglide-js": "2.4.0",
     "@pinia/testing": "^1.0.2",
@@ -45,6 +46,7 @@
     "jsdom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
+    "unplugin-icons": "catalog:",
     "vite": "catalog:",
     "vue-tsc": "catalog:"
   }

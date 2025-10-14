@@ -10,7 +10,8 @@
       frameborder="0"
     ></iframe>
     <div v-else-if="format === 'video'" class="player">
-      <VideoJS
+      <VidStack
+        ref="vidstackRef"
         :poster="thumbnailUrl"
         :source
         :title
@@ -31,7 +32,9 @@
 </template>
 
 <script setup lang="ts">
-import VideoJS from './VideoJSPlayer.vue'
+import { ref } from 'vue'
+
+import VidStack from './VidStackPlayer.vue'
 
 export interface Props {
   format?: 'iframe' | 'video' | 'unknown'
@@ -55,13 +58,51 @@ const emit = defineEmits<{
   (e: 'ended'): void
   (e: 'error', error: string): void
 }>()
+
+const vidstackRef = ref<InstanceType<typeof VidStack> | null>(null)
+
+// Expose player API for external controls
+defineExpose({
+  get player() {
+    return vidstackRef.value?.player
+  },
+  get paused() {
+    return vidstackRef.value?.paused ?? true
+  },
+  get currentTime() {
+    return vidstackRef.value?.currentTime ?? 0
+  },
+  get duration() {
+    return vidstackRef.value?.duration ?? 0
+  },
+  get volume() {
+    return vidstackRef.value?.volume ?? 1
+  },
+  get muted() {
+    return vidstackRef.value?.muted ?? false
+  },
+  async play() {
+    await vidstackRef.value?.play()
+  },
+  pause() {
+    vidstackRef.value?.pause()
+  },
+  togglePlay() {
+    vidstackRef.value?.togglePlay()
+  },
+  seek(time: number) {
+    vidstackRef.value?.seek(time)
+  },
+  setVolume(volume: number) {
+    vidstackRef.value?.setVolume(volume)
+  },
+  toggleMute() {
+    vidstackRef.value?.toggleMute()
+  }
+})
 </script>
 
 <style>
-.player-container {
-  grid-area: player;
-}
-
 .player {
   aspect-ratio: 16 / 9;
   max-height: calc(100vh - 11rem);

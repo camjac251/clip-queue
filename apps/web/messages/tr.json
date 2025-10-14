@@ -2,8 +2,6 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "about_credits": "Katkılar ve Lisans",
   "about_description": "Clip Queue, sohbetinize entegre olur ve izleyiciler tarafından gönderilen klipleri sıraya koyar. Klipler, birden fazla platform desteği ve gerçek zamanlı senkronizasyon ile web arayüzü üzerinden kolayca izlenebilir.",
-  "about_fork_notice": "Bu, ek özellikler ve iyileştirmelerle birlikte orijinal Clip Queue projesinin bir çatalıdır.",
-  "about_license": "MIT Lisansı altında yayınlanmıştır. Ücretsiz ve açık kaynaklı yazılım.",
   "about_feature_commands_description": "Kanalın moderatörleri, kuyruğu doğrudan kontrol etmek için sohbet komutlarını kullanabilir.",
   "about_feature_commands_title": "Sohbet Komutları",
   "about_feature_connect_description": "Twitch sohbetinize otomatik olarak bağlanmak için giriş yapın. Sohbetteki kullanıcılar tarafından gönderilen klipler kuyruğa alınır.",
@@ -16,6 +14,9 @@
   "about_feature_popularity_title": "Popüler Klipler Yükselir",
   "about_feature_settings_description": "Kapsamlı özelleştirilebilir ayar seçenekleri ile deneyiminizi kişiselleştirin.",
   "about_feature_settings_title": "Ayarlar Özelleştirme",
+  "about_features": "Özellikler",
+  "about_fork_notice": "Bu, ek özellikler ve iyileştirmelerle birlikte orijinal Clip Queue projesinin bir çatalıdır.",
+  "about_license": "MIT Lisansı altında yayınlanmıştır. Ücretsiz ve açık kaynaklı yazılım.",
   "about_original_author": "Orijinal proje oluşturan",
   "allowed_commands": "İzin Verilen Komutlar:",
   "allowed_commands_description": "Sohbette kullanılmasına izin verilen komutlar.",
@@ -35,11 +36,11 @@
   "clear_logs_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} uzunluğundaki günlüğü temizlemek istediğinizden emin misiniz?",
         "lengthPlural=other": "{length} uzunluğundaki günlükleri temizlemek istediğinizden emin misiniz?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "clip_cache_purged": "Klip önbelleği temizlendi.",
@@ -47,14 +48,15 @@
   "clips": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} klip",
         "lengthPlural=other": "{length} klip"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "close": "Kapat",
+  "closed": "Kapalı",
   "command_clear": "Kuyruktaki tüm klipleri kaldır.",
   "command_close": "Kuyruğu kapat.",
   "command_disable_auto_mod": "Otomatik moderasyonu devre dışı bırak.",
@@ -83,11 +85,11 @@
   "delete_history_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} uzunluğundaki klibi geçmişten silmek istediğinizden emin misiniz?",
         "lengthPlural=other": "{length} uzunluğundaki klipleri geçmişten silmek istediğinizden emin misiniz?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "delete_label": "Sil",
@@ -97,11 +99,13 @@
   "error": "Hata",
   "experimental": "Deneysel",
   "fuchsia": "Fuşya",
+  "general": "Genel",
   "gray": "Gri",
   "green": "Yeşil",
   "history": "Geçmiş",
   "indigo": "Çivit Mavisi",
   "info": "Bilgi",
+  "information": "Bilgi",
   "language": "Dil:",
   "language_description": "Kullanıcı arayüzü boyunca kullanılan dil.",
   "level": "Seviye",
@@ -121,6 +125,7 @@
   "no_clip_playing": "Oynatılan klip yok",
   "no_clips_previously_watched": "Daha önce izlenmiş klip yok.",
   "no_logs_captured": "Hiçbir kayıt yakalanmadı.",
+  "no_results_found": "Sonuç bulunamadı.",
   "no_upcoming_clips": "Kuyruk boş",
   "none": "Hiçbiri",
   "now_playing": "Şu anda oynatılıyor",
@@ -154,6 +159,8 @@
   "rose": "Gül",
   "save": "Kaydet",
   "search": "Ara",
+  "search_settings": "Ayarları ara",
+  "search_settings_placeholder": "Bir ayar ara...",
   "settings": "Ayarlar",
   "settings_about": "Hakkında",
   "settings_chat": "Sohbet",
@@ -172,6 +179,7 @@
   "success": "Başarılı",
   "surface_color": "Yüzey Rengi:",
   "surface_color_description": "Kullanıcı arayüzü boyunca kullanılan yüzey rengi.",
+  "system": "Sistem",
   "teal": "Deniz Mavisi",
   "theme": "Tema",
   "theme_dark": "Koyu",
@@ -186,6 +194,5 @@
   "viva": "Viva",
   "warning": "Uyarı",
   "yellow": "Sarı",
-  "zinc": "Çinko",
-  "about_features": "Özellikler"
+  "zinc": "Çinko"
 }

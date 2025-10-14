@@ -19,7 +19,7 @@ describe('ClipPlayer.vue', () => {
     expect(wrapper.exists()).toEqual(true)
   })
 
-  it('mounts successfully when using video.js', async () => {
+  it('mounts successfully when using VidStack', async () => {
     wrapper.setProps({ clip: clipFromKick })
     await wrapper.vm.$nextTick()
     expect(wrapper.exists()).toEqual(true)

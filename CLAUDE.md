@@ -4,14 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Clip Queue is a self-hosted web application with a Node.js backend that continuously monitors Twitch chat via EventSub, automatically queuing clips submitted by viewers. The Vue.js frontend polls the backend via HTTP for real-time queue synchronization across multiple devices.
+Clip Queue is a self-hosted web application for Twitch streamers. The Node.js backend monitors Twitch chat via EventSub, automatically queuing clips submitted by viewers. The Vue.js frontend uses HTTP polling (with ETag optimization) for real-time queue synchronization across multiple devices.
 
-## Development Commands
+**Key Features:**
 
-### Setup
+- Server-side Twitch EventSub chat monitoring (not IRC)
+- HTTP polling architecture (no WebSockets for clients)
+- SQLite + Drizzle ORM for persistence
+- In-memory priority queue (sorted by popularity)
+- OAuth authentication with role-based permissions
+- Support for Twitch and Kick clips
+- shadcn-vue design system (Tailwind CSS v4)
+
+## Quick Start
 
 ```sh
-# Install dependencies (uses pnpm via corepack)
+# Install dependencies (requires Node.js >=20, pnpm >=10)
 corepack enable && corepack install
 pnpm install
 
@@ -19,714 +27,471 @@ pnpm install
 cp .env.example .env
 # Edit .env with: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL_NAME
 
-# Generate bot token (opens browser for OAuth, automatically updates .env)
+# Generate bot token (opens browser, auto-updates .env)
 pnpm api setup
-# Or: make api-setup
-# Token automatically written to TWITCH_BOT_TOKEN in .env
-```
 
-### Running Locally
-
-```sh
-# Run both backend and frontend (recommended)
+# Run both backend and frontend
 pnpm dev:all
-# Or: make dev-all
-
-# Or run separately:
-pnpm api dev  # Backend on port 3000 (or: make api-dev)
-pnpm web dev      # Frontend on port 5173 (or: make web-dev)
-
-# Per-package commands work from root
-pnpm api <script>    # Run backend/server script
-pnpm web <script>        # Run web script
-pnpm platforms <script>  # Run platforms script
-
-# Examples:
-pnpm api typecheck   # Type check backend
-pnpm web build           # Build frontend
-pnpm platforms typecheck # Type check platforms
 ```
 
-**Note**: A `Makefile` is available with aliases for common commands. Run `make help` to see all available commands.
+**Environment Variables Required:**
 
-### Common Commands
+```env
+TWITCH_CLIENT_ID=your_client_id
+TWITCH_CLIENT_SECRET=your_client_secret  # For OAuth token exchange (setup script)
+TWITCH_BOT_TOKEN=your_user_token         # From: pnpm api setup
+TWITCH_CHANNEL_NAME=your_channel         # Lowercase
+SESSION_SECRET=your_random_secret        # Generate: openssl rand -base64 48
+```
+
+**Optional** (backend):
+
+```env
+API_URL=http://localhost:3000          # API base URL (OAuth callbacks)
+FRONTEND_URL=http://localhost:5173     # CORS origin
+PORT=3000                              # Server port
+DB_PATH=./data/clips.db               # SQLite location
+```
+
+**Frontend** (`apps/web/.env`):
+
+```env
+VITE_TWITCH_CLIENT_ID=your_client_id
+VITE_API_URL=http://localhost:3000
+VITE_TWITCH_REDIRECT_URI=http://localhost:5173
+```
+
+## Common Commands
 
 ```sh
-# Build and test
-pnpm build              # Build all packages
-pnpm typecheck          # Type check all packages
-pnpm test               # Run all tests
-pnpm test:coverage      # Run tests with coverage
+# Development
+pnpm dev:all              # Run backend + frontend
+pnpm api dev              # Backend only (port 3000)
+pnpm web dev              # Frontend only (port 5173)
 
-# Linting and formatting
-pnpm lint               # Check formatting and lint
-pnpm lint:fix           # Auto-fix linting issues
-pnpm format             # Auto-format all files
+# Build and test
+pnpm build                # Build all packages
+pnpm typecheck            # Type check all packages
+pnpm test                 # Run all tests
+pnpm lint                 # Check formatting and lint
+pnpm lint:fix             # Auto-fix linting issues
 
 # Database operations
-pnpm --filter @cq/api db:generate  # Generate migration from schema changes
-pnpm --filter @cq/api db:migrate   # Apply migrations to database
+pnpm --filter @cq/api db:generate  # Generate migration
+pnpm --filter @cq/api db:migrate   # Apply migrations
 pnpm --filter @cq/api db:studio    # Open Drizzle Studio GUI
 
-# Internationalization (i18n)
-pnpm web i18n:check      # Check for missing translation keys
-pnpm web i18n:sync       # Sync missing keys from en.json (adds English placeholders)
-pnpm web i18n:translate  # Machine translate all untranslated keys
+# i18n (13 locales: ar, de, en, es, fr, hi, it, ja, ko, pt, ru, tr, zh)
+pnpm web i18n:check       # Validate translation completeness
+pnpm web i18n:sync        # Sync missing keys from en.json
+pnpm web i18n:translate   # Machine translate all keys
+
+# Per-package commands (work from root)
+pnpm api <script>         # Backend script (e.g., pnpm api dev, pnpm api db:generate)
+pnpm web <script>         # Frontend script (e.g., pnpm web dev, pnpm web i18n:check)
+pnpm platforms <script>   # Platforms package script
+pnpm ui <script>          # UI package script
+pnpm player <script>      # Player package script
+pnpm services <script>    # Services package script
 ```
 
-### Internationalization (i18n)
+**Makefile Available**: Run `make help` for aliases.
 
-**Framework**: [@inlang/paraglide-js](https://inlang.com/m/gerre34r/library-inlang-paraglideJs) v2.4.0
-- Zero runtime overhead, type-safe translations
-- 13 locales: ar, de, en, es, fr, hi, it, ja, ko, pt, ru, tr, zh
-- Messages stored in `apps/web/messages/*.json`
-- Usage: `import * as m from '@/paraglide/messages'` then `m.login()`
+**Common Makefile targets**:
 
-**Workflow**:
-1. **Add new keys** to `apps/web/messages/en.json` (base locale)
-2. **Sync keys** to other locales: `pnpm web i18n:sync` (adds English placeholders)
-3. **Machine translate**: `pnpm web i18n:translate` (uses inlang CLI AI translation)
-4. **Check completeness**: `pnpm web i18n:check` (validates all locales have same keys)
-
-**Scripts** (`apps/web/scripts/`):
-- `check-i18n.ts` - TypeScript script to validate translation completeness
-- `sync-i18n.ts` - TypeScript script to sync missing keys across locales
-
-**Turborepo Integration**:
-- Tasks defined in `turbo.json`: `i18n:check`, `i18n:sync`, `i18n:translate`
-- No caching (translation files change frequently)
-
-**Translation Quality**:
-- Machine translations via [@inlang/cli](https://inlang.com/m/2qj2w8pu/app-inlang-cli) are generally good for UI text
-- Technical terms and proper nouns may remain in English
-- Manual review recommended for user-facing strings
-
-### Git Hooks (Husky)
-
-**Pre-commit Hook** (`.husky/pre-commit`):
-- Runs `typecheck`, `lint`, and `test` on **changed packages only** (+ their dependents)
-- Uses Turborepo for caching and parallel execution
-- **Performance**: ~133ms on cache hit, ~2-10s on cache miss
-
-**Commit Message Hook** (`.husky/commit-msg`):
-- Validates commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
-- Format: `type(scope?): description` (e.g., `feat: add OAuth support`, `fix(api): handle null clips`)
-- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`, `revert`
-
-**Skipping Hooks** (for LLM workflows or urgent fixes):
 ```sh
-# Skip all hooks (use sparingly)
-git commit --no-verify
+# Setup
+make install       # Install all dependencies
+make api-setup     # Get Twitch bot token (OAuth)
 
-# Skip pre-commit only (via env var)
-SKIP_HOOKS=1 git commit
+# Development
+make api-dev       # Run backend API server
+make web-dev       # Run frontend dev server
+make dev-all       # Run both backend + frontend
 
-# Skip pre-commit via alias (add to .bashrc/.zshrc)
-alias gcf='SKIP_HOOKS=1 git commit'
-```
+# Build & Test
+make build         # Build everything
+make typecheck     # Type check all packages
+make lint          # Lint all packages
+make lint-fix      # Auto-fix linting issues
+make test          # Run all tests
 
-**Why this setup works:**
-- ✅ Catches 95% of issues before commit (types, lint, tests)
-- ✅ Fast with Turborepo caching (instant on subsequent commits)
-- ✅ Only checks affected packages (not entire monorepo)
-- ✅ Can bypass for LLM workflows (lower token usage)
-- ✅ CI still provides final validation
+# Docker
+make docker-build  # Build Docker images
+make docker-up     # Start containers
+make docker-down   # Stop containers
+make docker-logs   # View backend logs
 
-**Troubleshooting:**
-```sh
-# If hook fails unexpectedly, check what would run:
-turbo run typecheck lint test --filter='...[HEAD]' --dry-run
-
-# Clear Turbo cache if stale:
-rm -rf .turbo
-
-# Reinstall hooks if missing:
-pnpm prepare
+# Utilities
+make clean         # Clean build artifacts and node_modules
 ```
 
 ## Architecture Overview
 
-### System Architecture
+### System Flow
 
 ```
-┌─────────────────────────────────────────┐
-│  Twitch EventSub WebSocket API          │
-│  (channel.chat.message)                 │
-└─────────────┬───────────────────────────┘
-              │
-              ↓
-┌─────────────────────────────────────────┐
-│  Backend Server (Node.js)               │
-│  - Express REST API                     │
-│  - TwitchEventSubClient (eventsub.ts)   │
-│  - Drizzle ORM + SQLite                 │
-│  - In-memory ClipList (queue)           │
-└─────────────┬───────────────────────────┘
-              │
-              ↓ (HTTP Polling every 2s with ETag)
-┌─────────────────────────────────────────┐
-│  Frontend(s) (Vue.js SPA)               │
-│  - HTTP polling client                  │
-│  - Pinia stores (queue-server.ts)       │
-│  - Real-time UI updates                 │
-└─────────────────────────────────────────┘
+Twitch EventSub WebSocket (channel.chat.message)
+             ↓
+Backend (Node.js + Express + SQLite + In-memory ClipList)
+             ↓ HTTP Polling (2s intervals with ETag)
+Frontend(s) (Vue.js + Pinia + shadcn-vue)
 ```
 
-**Single-channel design**: Server monitors ONE Twitch channel (configured via `TWITCH_CHANNEL_NAME`). Multiple frontend clients can connect to view/control the same queue.
+**Single-channel design**: Server monitors ONE channel. Multiple clients can connect.
 
 ### Monorepo Structure
 
 ```
 apps/
-  api/           Express + REST API + EventSub + SQLite
-  web/           Vue.js frontend (HTTP polling client)
+  api/           @cq/api - Express REST API + EventSub + SQLite
+  web/           @cq/web - Vue.js SPA (HTTP polling client)
 
 packages/
-  config/        Shared configurations (TypeScript, ESLint, Vitest)
-  constants/     Shared constants (commands, platforms)
-  player/        Video.js clip player component
-  platforms/     Clip fetching (TwitchPlatform, KickPlatform)
-  queue-ops/     Queue operations (advance, previous, clear, play)
-  schemas/       Zod schemas (auth, settings, Twitch types)
-  services/      API clients (Twitch Helix API, Kick API)
-  ui/            PrimeVue component library
-  utils/         Shared utilities (HTTP, cache, URL parsing)
+  config/        @cq/config - Shared configs (TypeScript, ESLint, Prettier)
+  constants/     @cq/constants - Shared constants (commands, platforms, events)
+  player/        @cq/player - Vidstack video player component
+  platforms/     @cq/platforms - Clip fetching (Twitch, Kick) + ClipList
+  queue-ops/     @cq/queue-ops - Queue operations (advance, previous, clear)
+  schemas/       @cq/schemas - Zod schemas (settings, auth, twitch, clip)
+  services/      @cq/services - API clients (Twitch Helix, Kick)
+  ui/            @cq/ui - shadcn-vue components + Tailwind CSS v4
+  utils/         @cq/utils - Shared utilities (HTTP, cache, URL parsing)
 ```
 
-**Important**: Packages export TypeScript source (`.ts`), not compiled JS. Vite compiles everything together in the web app.
+**Package Manager**: pnpm (≥10) with workspace protocol and catalog dependencies
+**Note**: Packages export TypeScript source (`.ts`). Vite compiles everything together.
 
-### Build System (Turborepo)
+**Catalog Dependencies** (defined in `pnpm-workspace.yaml`):
 
-This project uses **Turborepo** for task orchestration, caching, and parallelization across the monorepo.
+- Shared versions across workspace: `@iconify/json`, `@tailwindcss/vite`, `@types/*`, `@vitejs/plugin-vue`, `@vue/*`, `jsdom`, `tailwindcss`, `typescript`, `unplugin-icons`, `vite`, `vue`, `vue-tsc`, `zod`
+- Peer catalog: `vue: ^3.0.0`
+- Only built dependencies: `@tailwindcss/oxide`, `better-sqlite3`, `esbuild`, `sqlite3`
 
-**Benefits:**
-- **Incremental builds** - Only rebuild changed packages and their dependents
-- **Task caching** - Reuse previous build outputs if inputs haven't changed (80-90% faster on cache hits)
-- **Parallel execution** - Automatically runs independent tasks in parallel
-- **Dependency-aware** - Ensures tasks run in the correct order based on package dependencies
+**Package Exports** (TypeScript source exports):
 
-**Task Pipeline:**
 ```
-dev (persistent, depends on ^build)
-  ↓
-build (cached, outputs: dist/)
-  ↓
-typecheck (cached)
-  ↓
-lint (cached)
-  ↓
-test (cached, outputs: coverage/)
+@cq/config      → /eslint/typescript | /eslint/vue | /prettier/base | /prettier/vue | /tsconfig
+@cq/constants   → . | /events | /commands | /platforms
+@cq/schemas     → . | /settings | /auth | /twitch | /clip
+@cq/utils       → . | /http | /cache | /url
+@cq/services    → /kick | /twitch
+@cq/platforms   → .
+@cq/queue-ops   → .
+@cq/player      → .
+@cq/ui          → .
 ```
 
-**Configuration:**
-- `turbo.json` - Task definitions and caching strategy
-- `.turboignore` - Files that shouldn't invalidate cache (e.g., README changes)
-- `.turbo/` - Local cache directory (gitignored)
+**Dependency Graph** (workspace dependencies only):
 
-**Caching Strategy:**
-- **Cached tasks**: `build`, `typecheck`, `lint`, `test` (reuses outputs when inputs unchanged)
-- **Non-cached tasks**: `dev`, `setup`, `db:*` (side effects or persistent processes)
-- **Cache invalidation**: Changes to source files, dependencies, or env vars (listed in `globalEnv`)
+```
+@cq/api
+  ├── @cq/constants
+  ├── @cq/platforms (→ @cq/schemas, @cq/services)
+  ├── @cq/queue-ops (→ @cq/platforms)
+  ├── @cq/schemas
+  ├── @cq/services (→ @cq/utils)
+  └── @cq/utils
 
-**Common Patterns:**
-```sh
-# Run task across all packages
-turbo run build
-
-# Run task in specific package
-turbo run build --filter=@cq/api
-
-# Run task in package + dependencies
-turbo run build --filter=@cq/web...
-
-# Run task in package + dependents
-turbo run build --filter=...@cq/platforms
-
-# Clear cache
-rm -rf .turbo
-
-# Check what would run (dry run)
-turbo run build --dry-run
+@cq/web
+  ├── @cq/constants
+  ├── @cq/platforms (→ @cq/schemas, @cq/services)
+  ├── @cq/player (→ @cq/services)
+  ├── @cq/schemas
+  ├── @cq/services (→ @cq/utils)
+  └── @cq/ui
 ```
 
-**Performance:**
-- First build: ~30-45s (cache miss)
-- Subsequent builds with no changes: ~0.5s (cache hit)
-- Partial changes: ~5-10s (only affected packages)
+**Key External Dependencies**:
+
+- **Backend**: Express, Drizzle ORM, better-sqlite3, ws (WebSocket for EventSub), helmet, express-rate-limit
+- **Frontend**: Vue, Vue Router, Pinia, @tanstack/vue-table, @inlang/paraglide-js
+- **UI**: shadcn-vue, radix-vue, reka-ui, Tailwind CSS v4, vue-sonner
+- **Player**: Vidstack (video player with HLS/DASH support)
+- **Validation**: Zod (catalog: shared across all packages)
+- **Build Tools**: Vite, Turbo, TypeScript, vue-tsc
 
 ### Key Architectural Decisions
 
-#### 1. Server-Side Chat Monitoring (EventSub)
+#### 1. HTTP Polling (Not WebSockets)
 
-**Backend** (`apps/api/src/eventsub.ts`):
+**Why polling over WebSockets:**
 
-- Uses Twitch's official EventSub WebSocket API (not IRC/tmi.js)
-- Single persistent connection to `wss://eventsub.wss.twitch.tv/ws`
-- Subscribes to `channel.chat.message` event type
-- Handles automatic reconnection via `session_reconnect` events
-- Validates all incoming messages with Zod schemas
+- Simpler implementation (~350 LOC removed)
+- More reliable for OBS browser sources
+- Efficient with ETag (most requests return 304 Not Modified)
+- Better for burst traffic (naturally batched)
+- Same perceived latency (2s polling + immediate fetch after commands)
 
-**Why EventSub over tmi.js**:
+**Optimizations:**
 
-- Official API (IRC is legacy)
-- Better reliability and structured data
-- Auto-reconnect built into protocol
-- Access to badge info (mod/broadcaster detection)
+- ETag includes submitter counts (detects priority changes)
+- SHA256 hash (effectively zero collisions)
+- POST endpoints return full state (immediate sync)
+- Exponential backoff on errors (2s → 4s → 8s → 16s → 30s max)
+- Adaptive polling: 500ms (after commands), 2s (normal), 10s (idle >30s)
+- Stops after 5 consecutive errors, clears stale ETag
+- Settings included in state for real-time sync across clients
 
-**Note**: The `ws` package is used **only** for backend-to-Twitch EventSub connection. The frontend does **not** use WebSockets.
+#### 2. Dual State Management
 
-#### 2. Database Layer (Drizzle ORM + SQLite)
+**In-Memory** (`ClipList`):
 
-**Schema** (`apps/api/src/schema.ts`):
+- Fast operations, popularity-based sorting
+- Source of truth for current session
+
+**Database** (SQLite + Drizzle):
+
+- Persistence across restarts
+- Status tracking (approved/pending/rejected/played)
+- Historical data (playedAt timestamps)
+
+**Sync Flow:**
+
+```
+Chat message → Validate → Fetch metadata → Check settings →
+Database upsert → In-memory add → ETag invalidation → Client poll
+```
+
+#### 3. Database Schema (Normalized)
 
 ```typescript
-// Normalized structure (no JSON blobs)
 clips:
-  - id: TEXT PRIMARY KEY              // UUID: "platform:clip_id"
-  - platform: TEXT (twitch|kick)
-  - clipId, url, embedUrl, thumbnailUrl, title, channel, creator, category
+  - id: TEXT PRIMARY KEY              // "platform:clip_id"
+  - platform, clipId, url, embedUrl, thumbnailUrl
+  - title, channel, creator, category
   - status: TEXT (approved|pending|rejected|played)
   - submittedAt, playedAt: TIMESTAMP
 
-clip_submitters:                       // Many-to-many relationship
+clip_submitters:                       // Many-to-many
   - clipId → clips.id (cascade delete)
   - submitter: TEXT
-  - UNIQUE(clipId, submitter)          // Prevents duplicate submissions
+  - UNIQUE(clipId, submitter)
 
-settings:                              // Single-row global settings
-  - version: INTEGER                   // Schema version for migrations
-  - commands, queue, logger: JSON      // Validated with Zod
+settings:                              // Single-row config
+  - version: INTEGER
+  - commands, queue, logger: JSON (Zod validated)
 ```
 
 **Database Operations** (`apps/api/src/db.ts`):
 
-- All operations use Drizzle ORM (type-safe queries)
-- `upsertClip()` uses transactions to prevent race conditions
-- `getClipsByStatus()` optimized to avoid N+1 queries (bulk fetch submitters)
+- All queries use Drizzle ORM (type-safe)
+- `upsertClip()` uses transactions (prevents race conditions)
+- `getClipsByStatus()` bulk fetches submitters (avoids N+1 queries)
 - Zod validates all JSON data on read/write
 
-**Migrations**:
+**Migrations**: Modify `schema.ts` → `pnpm api db:generate` → Auto-apply on startup
 
-```sh
-# 1. Modify schema.ts
-# 2. Generate migration
-pnpm api db:generate
-# 3. Drizzle creates: drizzle/0001_random_name.sql
-# 4. Add SQL comment at top to document changes:
-/**
- * Migration: Add channels table
- * Date: 2025-10-07
- *
- * Adds multi-channel support...
- */
-# 5. Migrations auto-apply on server startup
-```
+#### 4. Authentication & Authorization
 
-#### 3. Dual State Management
+**Backend** (`apps/api/src/auth.ts`, `apps/api/src/oauth.ts`):
 
-**Backend maintains TWO copies** of queue state:
-
-1. **In-Memory** (`ClipList` in `index.ts`):
-   - Fast operations
-   - Popularity-based sorting (by `submitters.length`)
-   - Source of truth for current session
-
-2. **Database** (SQLite via Drizzle):
-   - Persistence across restarts
-   - Status tracking (approved/pending/rejected/played)
-   - Historical data (playedAt timestamps)
-
-**Sync flow**:
-
-```
-Chat message → handleClipSubmission()
-  ↓
-  ├─ Check if queue is open (settings.queue.isOpen)
-  ├─ Fetch clip metadata (TwitchPlatform.getClip())
-  ├─ Check platform enabled (settings.queue.platforms)
-  ├─ Check queue limit (settings.queue.limit)
-  ├─ Check auto-moderation (settings.queue.hasAutoModerationEnabled)
-  ├─ upsertClip(db, ...) → SQLite
-  └─ queue.add(clip) → in-memory ClipList (if approved)
-  ↓
-State updated (clients will fetch on next poll)
-```
-
-#### 4. HTTP Polling Architecture
-
-**Server Endpoint** (`apps/api/src/index.ts`):
-
-```typescript
-app.get('/api/queue', (req, res) => {
-  // Generate ETag from current state
-  const etag = generateStateHash()
-
-  // Check if client has cached version
-  const clientETag = req.headers['if-none-match']
-  if (clientETag === etag) {
-    return res.status(304).end() // Not Modified
-  }
-
-  // Return full state with ETag
-  res.setHeader('ETag', etag)
-  res.setHeader('Cache-Control', 'no-cache')
-  res.json({
-    current: currentClip,
-    upcoming: queue.toArray(),
-    history: history.toArray(),
-    isOpen: isQueueOpen,
-    settings: settings // Include settings for client synchronization
-  })
-})
-```
-
-**Client Store** (`apps/web/src/stores/queue-server.ts`):
-
-- Polls `GET /api/queue` every 2 seconds with ETag header
-- Server returns `304 Not Modified` if state unchanged (efficient)
-- Immediately fetches state after sending commands (no wait for next poll)
-- Sends control commands via REST API:
-  - `GET /api/health` → server health check
-  - `GET /api/queue` → get current queue state
-  - `GET /api/settings` → get app settings
-  - `GET /api/queue/pending` → list pending clips (moderator)
-  - `GET /api/queue/rejected` → list rejected clips (moderator)
-  - `POST /api/queue/submit` → manually add clip (moderator)
-  - `POST /api/queue/advance` → next clip (moderator)
-  - `POST /api/queue/previous` → previous clip (moderator)
-  - `POST /api/queue/open` → open queue (broadcaster)
-  - `POST /api/queue/close` → close queue (broadcaster)
-  - `POST /api/queue/play` → play specific clip (moderator)
-  - `POST /api/queue/remove` → remove specific clip (moderator)
-  - `POST /api/queue/approve` → approve pending clip (moderator)
-  - `POST /api/queue/reject` → reject pending clip (moderator)
-  - `POST /api/queue/rejected/:clipId/restore` → restore rejected clip to queue (moderator)
-  - `POST /api/queue/history/:clipId/replay` → replay clip from history (moderator)
-  - `DELETE /api/queue/history/:clipId` → delete individual history clip (moderator)
-  - `POST /api/queue/batch/remove` → remove multiple clips (moderator)
-  - `POST /api/queue/batch/approve` → approve multiple pending clips (moderator)
-  - `POST /api/queue/batch/reject` → reject multiple pending clips (moderator)
-  - `POST /api/queue/refresh-video-url` → refresh expired Twitch video URL (public)
-  - `DELETE /api/queue` → clear queue (broadcaster)
-  - `DELETE /api/queue/history` → clear history (broadcaster)
-  - `PUT /api/settings` → update app settings (broadcaster)
-
-**Polling Implementation**:
-
-```typescript
-const POLL_INTERVAL_MS = 2000 // 2 seconds
-
-async function fetchQueueState() {
-  const headers = lastETag ? { 'If-None-Match': lastETag } : {}
-  const response = await fetch(`${API_URL}/api/queue`, { headers })
-
-  if (response.status === 304) {
-    // State unchanged, nothing to update
-    return
-  }
-
-  lastETag = response.headers.get('ETag')
-  const data = await response.json()
-  updateState(data)
-}
-
-function initialize() {
-  fetchQueueState() // Fetch immediately
-  pollInterval = setInterval(fetchQueueState, POLL_INTERVAL_MS)
-}
-```
-
-**Why Polling Over WebSockets**:
-
-- ✅ **Simpler**: ~350 LOC removed, no connection management
-- ✅ **More reliable for OBS**: Browser sources handle HTTP better than persistent WebSocket connections
-- ✅ **Efficient with ETag**: Most polls return `304 Not Modified` (empty response)
-- ✅ **Same UX**: 2-second polling + immediate fetch after commands = imperceptible latency
-- ✅ **Better for burst traffic**: Naturally batched updates during raid events
-
-**Polling Optimizations**:
-
-1. **Enhanced ETag with Submitter Counts**: ETag includes submitter count for each clip to detect priority changes
-2. **Full SHA256 Hash (64 chars)**: Reduces collision probability to effectively zero
-3. **POST Responses Return Full State**: All POST endpoints return `{ success: true, state: getQueueState() }` - clients can update from response instead of waiting for next poll
-4. **Exponential Backoff on Errors**: Poll interval doubles on consecutive errors (2s → 4s → 8s → 16s → 30s max)
-5. **Stale ETag Clearing**: After errors, clear ETag to force full refresh on recovery
-6. **Batch State Updates (O(n log n))**: Replace ClipList contents in bulk instead of incremental add/remove
-7. **Optimistic Updates with Rollback**: UI updates immediately, reverts on error
-8. **Adaptive Polling (500ms/2s/10s)**: 500ms after commands, 2s normal, 10s when idle >30s
-9. **Poll Jitter (±500ms)**: Random offset prevents thundering herd
-10. **Error Recovery**: Stops polling after 5 consecutive errors, clears stale state
-11. **Settings Synchronization**: Settings included in queue state and ETag - all clients stay in sync
-
-#### 5. API Endpoints Reference
-
-**Queue Management Endpoints:**
-
-**GET /api/queue/pending** (Moderator)
-- Lists all clips pending approval when auto-moderation is enabled
-- Returns: `{ clips: Clip[] }`
-- Use case: Review queue for manual moderation
-
-**POST /api/queue/approve** (Moderator)
-- Approves a pending clip and adds it to the active queue
-- Body: `{ clipId: string }`
-- Returns: `{ success: true, state: QueueState }`
-- Error 404: Clip not found or already processed
-
-**POST /api/queue/reject** (Moderator)
-- Rejects a pending clip (sets status to 'rejected')
-- Body: `{ clipId: string }`
-- Returns: `{ success: true, state: QueueState }`
-- Error 404: Clip not found or already processed
-
-**GET /api/queue/rejected** (Moderator)
-- Lists all rejected clips
-- Returns: `{ clips: Clip[] }`
-- Use case: Review rejected clips, restore false positives
-
-**POST /api/queue/rejected/:clipId/restore** (Moderator)
-- Restores a rejected clip back to approved status and adds to queue
-- URL param: `clipId` (e.g., `twitch:abc123`)
-- Returns: `{ success: true, state: QueueState }`
-- Error 404: Clip not found or not in rejected status
-- Error 400: Invalid clipId parameter
-
-**POST /api/queue/history/:clipId/replay** (Moderator)
-- Moves a played clip from history back to the active queue
-- URL param: `clipId` (e.g., `twitch:abc123`)
-- Returns: `{ success: true, state: QueueState }`
-- Error 404: Clip not found in history
-- Error 400: Invalid clipId parameter
-- Use case: Replay popular clips, requeue accidentally skipped clips
-
-**DELETE /api/queue/history/:clipId** (Moderator)
-- Permanently removes a specific clip from history
-- URL param: `clipId` (e.g., `twitch:abc123`)
-- Returns: `{ success: true, state: QueueState }`
-- Error 404: Clip not found in history
-- Error 400: Invalid clipId parameter
-- Use case: Clean up history without clearing entire list
-
-**Batch Operations Endpoints:**
-
-**POST /api/queue/batch/remove** (Moderator)
-- Removes multiple clips from queue at once (sets status to 'rejected')
-- Body: `{ clipIds: string[] }` (max 100 clips)
-- Returns: `{ success: true, removed: number, failed: string[], notFound: string[], state: QueueState }`
-- Partial success pattern: Some clips may fail while others succeed
-- Use case: Mass cleanup of spam or off-topic clips
-
-**POST /api/queue/batch/approve** (Moderator)
-- Approves multiple pending clips at once
-- Body: `{ clipIds: string[] }` (max 100 clips)
-- Returns: `{ success: true, approved: number, failed: string[], notFound: string[], state: QueueState }`
-- Partial success pattern: Some clips may fail while others succeed
-- Use case: Bulk approval after manual review
-
-**POST /api/queue/batch/reject** (Moderator)
-- Rejects multiple pending clips at once
-- Body: `{ clipIds: string[] }` (max 100 clips)
-- Returns: `{ success: true, rejected: number, failed: string[], notFound: string[], state: QueueState }`
-- Partial success pattern: Some clips may fail while others succeed
-- Use case: Bulk rejection of low-quality submissions
-
-**Input Validation:**
-- All endpoints validate input with Zod schemas
-- `clipId`: 1-200 characters, format: `platform:id` (e.g., `twitch:abc123`)
-- `clipIds`: Array of 1-100 clipIds
-- Invalid input returns 400 with error details
-
-**Error Handling:**
-- All async endpoints wrapped in `asyncHandler()` for consistent error responses
-- Database failures trigger automatic rollback of in-memory state changes
-- Structured error responses: `{ error: string, message: string, details?: any }`
-
-**State Synchronization:**
-- All successful mutations call `invalidateETag()` to trigger client updates
-- POST responses include full `state: QueueState` for immediate client sync
-- Batch operations only invalidate ETag if at least one operation succeeds
-
-**POST /api/queue/refresh-video-url** (Public)
-- Refreshes expired Twitch video URLs (Twitch signed URLs expire after ~24 hours)
-- Body: `{ clipId: string }` (format: `twitch:abc123`)
-- Returns: `{ success: true, videoUrl: string, message: string }`
-- Error 404: Clip not found in database
-- Use case: Video.js player automatically calls this on playback error (403/404)
-- Implementation: Fetches fresh signed URL from Twitch GraphQL API, updates database + in-memory state
-- Note: Kick clips ignored (URLs don't expire)
-
-#### 6. Platform/Service Separation
-
-**Services** (`packages/services`): Low-level API clients
-
-- `twitch/api.ts`: Helix API (getClips, getGames, getUsers)
-- `twitch/auth.ts`: OAuth flow
-- `kick/index.ts`: Kick API client
-
-**Platforms** (`packages/platforms`): High-level clip abstraction
-
-- `TwitchPlatform`: Fetches clip + game metadata, normalizes to `Clip` type
-- `KickPlatform`: Fetches Kick clips, normalizes to `Clip` type
-- `ClipList`: Priority queue implementation (sorts by submitter count)
-- `toClipUUID()`: Generates unique ID (`"twitch:abc123"` or `"kick:xyz789"`)
-
-**URL Detection** (`apps/api/src/index.ts`):
-
-```typescript
-// Twitch: https://twitch.tv/.../clip/... or https://clips.twitch.tv/...
-if (url.includes('twitch.tv') && (url.includes('clip') || url.includes('/clips/')))
-
-// Kick: https://kick.com/channel/clips/clip_ID
-if (url.includes('kick.com/') && url.includes('/clips/clip_'))
-```
-
-#### 7. Chat Commands
-
-**Detection** (`apps/api/src/index.ts`):
-
-- Messages starting with `settings.commands.prefix` (default: `!cq`)
-- Only mods/broadcasters can execute commands
-- Parsed in `handleChatCommand()`
-
-**Available Commands**:
-
-- `open/close` → toggle queue submissions
-- `clear` → delete all approved clips
-- `next` → move current to history, shift next from queue
-- `prev/previous` → move current back to queue, pop from history
-- `setlimit <number>` → set queue size limit (e.g., `!cq setlimit 50`)
-- `removelimit` → remove queue size limit
-- `removebysubmitter <username>` → remove all clips by a specific submitter
-- `removebyplatform <twitch|kick>` → remove all clips from a platform
-- `enableplatform <twitch|kick>` → enable clip submissions from a platform
-- `disableplatform <twitch|kick>` → disable clip submissions from a platform
-- `enableautomod` → enable auto-moderation (clips require approval)
-- `disableautomod` → disable auto-moderation (clips auto-approve)
-- `purgecache` → clear authentication caches
-- `purgehistory` → clear history
-
-#### 8. Authentication & Authorization
-
-**Backend** (`apps/api/src/auth.ts`, `apps/api/src/index.ts`):
-
-- Middleware: `authenticate()`, `requireModerator()`, `requireBroadcaster()`
-- Token validation with Twitch API (`/oauth2/validate`) - 5-minute cache
-- Role checking via Twitch Helix API - 2-minute cache (faster mod changes)
+- OAuth Authorization Code + PKCE flow (not deprecated Implicit Grant)
+- httpOnly cookies (XSS protection), SameSite=strict (CSRF protection)
+- Session store: SQLite (`connect-sqlite3`) for OAuth state + PKCE verifier
+- Token validation cache: 5min (capped from Twitch `expires_in`)
+- Role cache: 2min (faster mod status updates)
+- 60-day token lifetime (matches Twitch refresh token)
 - Rate limiting: 100 req/15min (general), 20 req/15min (auth failures)
 - Security headers: CSP, HSTS (1-year), Referrer-Policy
-- Input validation: Zod schemas on all POST endpoints
-- JSON body size limit: 1MB (DoS prevention)
-
-**Auth Endpoints:**
-
-- `GET /api/auth/me` → get user info + roles (authenticated)
-- `POST /api/auth/logout` → invalidate server-side caches (authenticated)
-- `GET /api/auth/validate` → proactive token validation (authenticated)
-- `GET /api/auth/cache/stats` → cache statistics (broadcaster only)
-- `POST /api/auth/cache/clear` → manual cache clear (broadcaster only)
 
 **Protected Routes:**
 
 - **Public**: `/api/health`, `/api/queue` (GET), `/api/settings` (GET)
-- **Moderator**:
-  - Single clip operations: `/api/queue/submit|advance|previous|remove|play|approve|reject` (POST)
-  - Pending/rejected management: `/api/queue/pending` (GET), `/api/queue/rejected` (GET), `/api/queue/rejected/:clipId/restore` (POST)
-  - History operations: `/api/queue/history/:clipId/replay` (POST), `/api/queue/history/:clipId` (DELETE)
-  - Batch operations: `/api/queue/batch/remove|approve|reject` (POST)
-- **Broadcaster**: `/api/queue/open|close` (POST), `/api/queue` (DELETE), `/api/queue/history` (DELETE), `/api/settings` (PUT), `/api/auth/cache/*`
+- **Moderator**: Queue operations, approve/reject, batch operations
+- **Broadcaster**: Open/close queue, clear queue/history, update settings, cache management
 
-**Frontend** (`apps/web/src/stores/user.ts`, `apps/web/src/utils/api.ts`):
+**Frontend** (`apps/web/src/stores/user.ts`):
 
-- OAuth flow with CSRF protection (state parameter in `packages/services/src/twitch/auth.ts`)
-- Fetches user role from `/api/auth/me` endpoint after login
-- Proactive token validation every 5 minutes via `/api/auth/validate`
-- Auto-logout on token expiration or validation failure
-- Role-based computed properties: `canControlQueue`, `canManageSettings`
-- UI conditionally shows/hides controls based on permissions
-- `fetchWithAuth()` utility with 30-second timeout, handles 401/403 responses
+- OAuth with CSRF protection
+- Proactive token validation every 5 minutes
+- Auto-logout on expiration
+- Role-based UI (computed: `canControlQueue`, `canManageSettings`)
 
-#### 9. OAuth Router (Authorization Code + PKCE)
+#### 5. Design System (shadcn-vue + Tailwind CSS v4)
 
-**Implementation** (`apps/api/src/oauth.ts`):
+**Stack**: [shadcn-vue](https://www.shadcn-vue.com/) (unstyled [radix-vue](https://www.radix-vue.com/) + [reka-ui](https://github.com/unovue/reka-ui) primitives) + Tailwind CSS v4
 
-- Uses Authorization Code + PKCE flow (not deprecated Implicit Grant)
-- Tokens stored in httpOnly cookies (XSS protection)
-- Session store uses SQLite (`connect-sqlite3`) for OAuth state + PKCE verifier
-- Session secret required via `SESSION_SECRET` env var
+**Theme System:**
 
-**OAuth Endpoints:**
+- Dark mode: `.dark` class on `<html>` (toggle via `preferences.toggleTheme()`)
+- CSS variables in `packages/ui/src/styles/tailwind.css`
+- OKLCH color space (perceptually uniform)
 
-- `GET /api/oauth/login` → Redirect to Twitch OAuth with PKCE challenge
-- `GET /api/oauth/callback` → Exchange code for tokens, set httpOnly cookies
-- `POST /api/oauth/refresh` → Refresh expired access token
-- `POST /api/oauth/logout` → Clear authentication cookies
+**✅ Use Semantic Tokens (Not Hardcoded Colors):**
 
-**Security Features:**
-
-- PKCE prevents authorization code interception attacks
-- httpOnly cookies prevent JavaScript access to tokens
-- Secure cookie flag in production (HTTPS only)
-- SameSite=strict for CSRF protection
-- 60-day token lifetime (matches Twitch refresh token)
-
-#### 10. Path Resolution Utilities
-
-**Implementation** (`apps/api/src/paths.ts`):
-
-- Uses `find-up-simple` to locate workspace root (`pnpm-workspace.yaml`)
-- Avoids hardcoded relative paths (`../../.env`) that break when `process.cwd()` changes
-- Works regardless of where commands are run from (root or subdirectory)
-- Node.js-only utility (kept in `@cq/api` to avoid bundling in browser code)
-
-**Functions:**
-
-- `findWorkspaceRoot()` → Walk up directories to find workspace root (cached)
-- `getWorkspaceRoot()` → Get cached workspace root
-- `resolveFromRoot(...paths)` → Resolve paths relative to workspace root
-
-**Usage:**
-
-```typescript
-import { resolveFromRoot } from './paths.js'
-
-// Load .env from workspace root (works from any subdirectory)
-config({ path: resolveFromRoot('.env') })
-
-// Database path
-const dbPath = resolveFromRoot('apps', 'api', 'data', 'clips.db')
-
-// Migrations path
-const migrationsPath = resolveFromRoot('apps', 'api', 'drizzle')
+```vue
+<!-- Correct -->
+<div class="bg-background text-foreground"></div>
 ```
 
-#### 11. Bootstrap Pattern (server.ts)
+**Available Tokens:**
 
-**Problem**: ESM (ES Modules) **hoists all imports** to the top before running any module body code. This causes issues when modules access `process.env` at import time (e.g., creating `session()` middleware), because dotenv hasn't loaded yet.
+- **Backgrounds**: `bg-background`, `bg-card`, `bg-popover`, `bg-muted`, `bg-secondary`
+- **Text**: `text-foreground`, `text-muted-foreground`, `text-card-foreground`
+- **Borders**: `border-border`, `border-input`
+- **Interactive**: `bg-primary`, `text-primary`, `bg-destructive`
 
-**Solution**: Bootstrap entry point (`apps/api/src/server.ts`) that:
-1. Loads `.env` via dotenv **first**
-2. Validates all required env vars
-3. Only then imports and runs `index.ts`
+**Component Usage (Compositional API):**
 
-**Implementation**:
+```vue
+<script setup>
+import { Button, Card, CardHeader, CardTitle, CardContent } from "@cq/ui";
+</script>
 
-```typescript
-// server.ts (entry point)
-import { config } from 'dotenv'
-import { resolveFromRoot } from './paths.js'
-
-config({ path: resolveFromRoot('.env') })  // Load FIRST
-validateEnvironment()                      // Validate SECOND
-import('./index.js')                       // Import app LAST
+<template>
+  <Card>
+    <CardHeader>
+      <CardTitle>Title</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <Button variant="default">Save</Button>
+    </CardContent>
+  </Card>
+</template>
 ```
 
-**Benefits**:
-- Explicit load order (no ESM hoisting surprises)
-- Centralized env validation with clear error messages
-- No need for lazy initialization wrappers
-- Standard Node.js pattern
+**Note**: Import from `@cq/ui` (not direct shadcn imports) to use project wrappers.
 
-**package.json scripts**:
+#### 6. Icon System (Centralized Registries)
+
+**Stack**: [unplugin-icons](https://github.com/unplugin/unplugin-icons) + [@iconify/json](https://icon-sets.iconify.design/)
+
+**Why unplugin-icons:**
+
+- Compile-time icon bundling (no runtime API calls)
+- Access to 200,000+ icons from 150+ icon sets
+- Tree-shakable (only bundles used icons)
+- TypeScript support via auto-generated types
+- Works with Vite's hot module replacement
+
+**Icon Sets Used:**
+
+- **Simple Icons** (`~icons/simple-icons/*`) - Official brand logos (Twitch, Kick)
+- **Lucide** (`~icons/lucide/*`) - Primary set for UI icons (1,500+ icons)
+
+**Architecture:**
+Icons are organized into centralized registries with semantic naming:
+
+- **App icons**: `apps/web/src/composables/icons.ts` (34 icons)
+- **UI package icons**: `packages/ui/src/icons.ts` (10 reusable component icons)
+
+**Icon Categories** (app registry):
+
+```typescript
+// Brands: BrandTwitch, BrandKick
+// Actions: ActionPlay, ActionPause, ActionSkipForward, ActionTrash, ActionLogOut, etc.
+// Media: MediaVolume, MediaVolumeMute
+// Navigation: NavList, NavHistory, NavSettings, NavInfo, NavBookOpen, etc.
+// Status: StatusLock, StatusClock, StatusAlertCircle, StatusCheck, etc.
+// UI: UiChevronDown, UiX, UiSearch, UiCircle, etc.
+// Theme: ThemeSun, ThemeMoon
+```
+
+**Usage Pattern:**
+
+```vue
+<script setup>
+import { ActionPlay, BrandTwitch, NavHistory } from "@/composables/icons";
+</script>
+
+<template>
+  <ActionPlay :size="24" />
+  <BrandTwitch :size="20" />
+  <NavHistory :size="16" />
+</template>
+```
+
+**UI Package Icons:**
+Import from `@cq/ui` for reusable component icons:
+
+```vue
+<script setup>
+import { IconCheck, IconChevronDown, IconX } from "@cq/ui";
+</script>
+```
+
+**Configuration:**
+
+- Vite plugins configured in `apps/web/vite.config.ts` and `packages/ui/vite.config.ts`
+- TypeScript declarations in `apps/web/src/env.d.ts` and `packages/ui/src/env.d.ts`
+- Icons are Vue functional components with `size` prop (defaults to 1em)
+
+**Finding Icons:**
+
+- Browse: [Iconify Icon Sets](https://icon-sets.iconify.design/)
+- Search: [Icônes](https://icones.js.org/) (visual search tool)
+- Import format in registry: `~icons/{collection}/{icon-name}` (e.g., `~icons/lucide/play-circle`)
+
+**Router Integration:**
+Route meta icons use typed keys from the centralized registry:
+
+```typescript
+// apps/web/src/composables/icons.ts
+export const routeIcons = {
+  list: NavList,
+  history: NavHistory,
+  settings: NavSettings,
+  // ... etc.
+} as const;
+
+export type RouteIconKey = keyof typeof routeIcons;
+
+// apps/web/src/router/index.ts
+import { routeIcons, type RouteIconKey } from "@/composables/icons";
+// Routes use typed keys: meta: { icon: 'list' as RouteIconKey }
+// Components map keys to components: routeIcons[iconKey]
+```
+
+**Adding New Icons:**
+
+1. Add import to `apps/web/src/composables/icons.ts` (or `packages/ui/src/icons.ts`)
+2. Add to appropriate category in `icons` object
+3. Export with semantic name (e.g., `ActionNewIcon`)
+4. Import and use: `import { ActionNewIcon } from '@/composables/icons'`
+
+#### 7. Chat Commands (EventSub)
+
+**EventSub Connection** (`apps/api/src/eventsub.ts`):
+
+- WebSocket to `wss://eventsub.wss.twitch.tv/ws` (not IRC/tmi.js)
+- Subscribes to `channel.chat.message` event
+- Handles `session_reconnect` (server-initiated reconnects)
+- Keepalive timeout monitoring (default 10s, configurable)
+- Auto-reconnect with exponential backoff (1s → 5min max)
+- Badge detection for mod/broadcaster permissions
+
+**Command Format**: `!cq <command>` (prefix configurable)
+**Permission**: Mods/broadcasters only
+
+**Available Commands:**
+
+- `open` / `close` - Toggle queue submissions
+- `clear` - Delete all approved clips
+- `next` / `prev` - Navigate queue
+- `setlimit <N>` / `removelimit` - Set queue size limit
+- `removebysubmitter <user>` - Remove clips by user
+- `removebyplatform <twitch|kick>` - Remove clips by platform
+- `enableplatform` / `disableplatform` - Toggle platform support
+- `enableautomod` / `disableautomod` - Toggle manual approval
+- `purgecache` - Clear auth caches
+- `purgehistory` - Clear history
+
+#### 8. Bootstrap Pattern (server.ts)
+
+**Problem**: ESM hoists imports before code execution, causing dotenv issues.
+
+**Solution**: Entry point `apps/api/src/server.ts`:
+
+```typescript
+import { config } from "dotenv";
+config({ path: resolveFromRoot(".env") }); // Load FIRST
+validateEnvironment(); // Validate SECOND
+import("./index.js"); // Import LAST
+```
+
+**package.json**:
+
 ```json
 {
   "dev": "tsx watch src/server.ts",
@@ -734,80 +499,92 @@ import('./index.js')                       // Import app LAST
 }
 ```
 
-### Environment Variables
+### API Endpoints Reference
 
-**Required for running the server** (validated at startup in `apps/api/src/server.ts`):
+**Queue Management:**
+| Method | Endpoint | Role | Description |
+|--------|----------|------|-------------|
+| GET | `/api/queue` | Public | Get current queue state |
+| GET | `/api/queue/pending` | Mod | List pending clips |
+| GET | `/api/queue/rejected` | Mod | List rejected clips |
+| POST | `/api/queue/submit` | Mod | Manually add clip |
+| POST | `/api/queue/advance` | Mod | Next clip |
+| POST | `/api/queue/previous` | Mod | Previous clip |
+| POST | `/api/queue/play` | Mod | Play specific clip |
+| POST | `/api/queue/remove` | Mod | Remove specific clip |
+| POST | `/api/queue/approve` | Mod | Approve pending clip |
+| POST | `/api/queue/reject` | Mod | Reject pending clip |
+| POST | `/api/queue/rejected/:clipId/restore` | Mod | Restore rejected clip |
+| POST | `/api/queue/history/:clipId/replay` | Mod | Replay from history |
+| DELETE | `/api/queue/history/:clipId` | Mod | Delete from history |
+| POST | `/api/queue/batch/remove` | Mod | Remove multiple (max 100) |
+| POST | `/api/queue/batch/approve` | Mod | Approve multiple (max 100) |
+| POST | `/api/queue/batch/reject` | Mod | Reject multiple (max 100) |
+| POST | `/api/queue/refresh-video-url` | Public | Refresh expired Twitch URL |
+| POST | `/api/queue/open` | Broadcaster | Open queue |
+| POST | `/api/queue/close` | Broadcaster | Close queue |
+| DELETE | `/api/queue` | Broadcaster | Clear queue |
+| DELETE | `/api/queue/history` | Broadcaster | Clear history |
 
-```env
-TWITCH_CLIENT_ID=your_client_id
-TWITCH_BOT_TOKEN=your_user_token       # Get via: pnpm api setup (or: make api-setup)
-TWITCH_CHANNEL_NAME=your_channel       # Lowercase
-SESSION_SECRET=your_random_secret      # Generate with: openssl rand -base64 48
-```
+**Settings & Auth:**
+| Method | Endpoint | Role | Description |
+|--------|----------|------|-------------|
+| GET | `/api/settings` | Public | Get app settings |
+| PUT | `/api/settings` | Broadcaster | Update settings |
+| GET | `/api/auth/me` | Auth | Get user info + roles |
+| POST | `/api/auth/logout` | Auth | Invalidate caches |
+| GET | `/api/auth/validate` | Auth | Validate token |
+| GET | `/api/auth/cache/stats` | Broadcaster | Cache statistics |
+| POST | `/api/auth/cache/clear` | Broadcaster | Clear caches |
 
-**Required for setup script** (`pnpm api setup`):
+**Notes:**
 
-```env
-TWITCH_CLIENT_ID=your_client_id
-TWITCH_CLIENT_SECRET=your_client_secret  # OAuth token exchange
-```
-
-**Optional**:
-
-```env
-API_URL=http://localhost:3000          # API base URL (for OAuth callbacks)
-FRONTEND_URL=http://localhost:5173     # CORS origin
-PORT=3000                              # Server port
-DB_PATH=./data/clips.db               # SQLite location
-```
-
-**Frontend** (`apps/web`):
-
-```env
-VITE_TWITCH_CLIENT_ID=your_client_id  # For OAuth login flow
-VITE_API_URL=http://localhost:3000    # Backend API URL
-VITE_TWITCH_REDIRECT_URI=http://localhost:5173  # OAuth callback URL
-```
+- All POST endpoints return `{ success: true, state: QueueState }` for immediate sync
+- Batch operations use partial success pattern (some may fail)
+- `clipId` format: `platform:id` (e.g., `twitch:abc123`)
+- Zod validates all inputs
 
 ### Critical Files
 
-**Backend**:
+**Backend:**
 
-1. `apps/api/src/server.ts` - Bootstrap entry point (loads .env, validates env vars, imports index.ts)
-2. `apps/api/src/index.ts` - Main server, event handlers, API endpoints, video URL refresh endpoint
-3. `apps/api/src/eventsub.ts` - Twitch EventSub WebSocket client (backend-to-Twitch only)
-4. `apps/api/src/auth.ts` - Authentication middleware, token validation, role checking
-5. `apps/api/src/oauth.ts` - OAuth router (Authorization Code + PKCE flow)
-6. `apps/api/src/db.ts` - Database operations (Drizzle), video URL updates
+1. `apps/api/src/server.ts` - Bootstrap entry point
+2. `apps/api/src/index.ts` - Main server + API endpoints
+3. `apps/api/src/eventsub.ts` - Twitch EventSub WebSocket client
+4. `apps/api/src/auth.ts` - Auth middleware + token validation
+5. `apps/api/src/oauth.ts` - OAuth router (PKCE flow)
+6. `apps/api/src/db.ts` - Database operations (Drizzle)
 7. `apps/api/src/schema.ts` - Database schema + Zod validators
 8. `apps/api/src/paths.ts` - Workspace path resolution utilities
-9. `apps/api/src/setup.ts` - OAuth setup script for bot token generation
+9. `apps/api/src/setup.ts` - OAuth setup script for bot token
 
-**Frontend**:
+**Frontend:**
 
-1. `apps/web/src/stores/queue-server.ts` - HTTP polling client, queue state management
-2. `apps/web/src/stores/user.ts` - User authentication, role management, token validation
-3. `apps/web/src/utils/api.ts` - Authenticated fetch wrapper, timeout handling, error responses
-4. `apps/web/src/utils/events.ts` - Auth event system for toast notifications
-5. `apps/web/src/utils/schemas.ts` - Zod schemas for API response validation
+1. `apps/web/src/stores/queue-server.ts` - HTTP polling + queue state
+2. `apps/web/src/stores/user.ts` - Auth + role management
+3. `apps/web/src/stores/preferences.ts` - Theme + language
+4. `apps/web/src/utils/api.ts` - Authenticated fetch wrapper
+5. `apps/web/src/composables/toast.ts` - Toast notifications composable
+6. `apps/web/src/composables/player-state.ts` - Video player state composable
+7. `apps/web/src/composables/icons.ts` - Centralized icon registry (34 icons)
+8. `apps/web/src/views/QueuePage.vue` - Main player view
 
-**Shared**:
+**Shared:**
 
-1. `packages/platforms/src/clip-list.ts` - Queue sorting logic
-2. `packages/platforms/src/types.ts` - `Clip` interface
-3. `packages/platforms/src/twitch.ts` - Twitch clip fetching
-4. `packages/platforms/src/kick.ts` - Kick clip fetching
-5. `packages/player/src/VideoJSPlayer.vue` - Video.js wrapper with automatic expired URL refresh
-6. `packages/player/src/CqPlayer.vue` - Player component router (iframe vs video)
-7. `packages/utils/src/http.ts` - HTTP utilities (fetch wrappers)
-8. `packages/utils/src/cache.ts` - TTL cache implementation
-9. `packages/queue-ops/src/index.ts` - Queue operations (advance, previous, clear)
-10. `packages/constants/src/commands.ts` - Chat command constants
-11. `packages/schemas/src/auth.ts` - Auth-related Zod schemas
+1. `packages/platforms/src/clip-list.ts` - Priority queue (popularity sorting)
+2. `packages/platforms/src/twitch.ts` / `kick.ts` - Clip fetching
+3. `packages/platforms/src/types.ts` - `Clip` interface + `toClipUUID()`
+4. `packages/player/src/VidStackPlayer.vue` - Video player (auto URL refresh)
+5. `packages/player/src/CqPlayer.vue` - Player component router
+6. `packages/ui/src/components/ui/` - shadcn-vue components
+7. `packages/ui/src/styles/tailwind.css` - Theme CSS variables
+8. `packages/ui/src/icons.ts` - UI package icon registry (10 component icons)
+9. `packages/queue-ops/src/index.ts` - Queue operations
+10. `packages/utils/src/http.ts` / `cache.ts` - HTTP + cache utilities
 
 ### Common Patterns
 
-#### Adding a New Clip Platform
+**Adding a New Clip Platform:**
 
 1. Create `packages/platforms/src/newplatform.ts`:
 
@@ -815,17 +592,7 @@ VITE_TWITCH_REDIRECT_URI=http://localhost:5173  # OAuth callback URL
 export class NewPlatform extends PlatformBase {
   async getClip(url: string): Promise<Clip | null> {
     // Fetch metadata, normalize to Clip type
-    return {
-      platform: Platform.NEW,
-      id: "...",
-      url,
-      embedUrl,
-      thumbnailUrl,
-      title,
-      channel,
-      creator,
-      submitters: [],
-    };
+    return { platform: Platform.NEW, id, url, ... }
   }
 }
 ```
@@ -833,40 +600,117 @@ export class NewPlatform extends PlatformBase {
 2. Add URL detection in `apps/api/src/index.ts`:
 
 ```typescript
+// Existing patterns:
+// Twitch: url.includes('twitch.tv') && (url.includes('clip') || url.includes('/clips/'))
+// Kick: url.includes('kick.com/') && url.includes('/clips/clip_')
+
 if (url.includes("newplatform.com/clips/")) {
   await handleClipSubmission(url, message.username, canAutoApprove);
 }
 ```
 
-3. Update `schema.ts` enum: `platform: text('platform', { enum: ['twitch', 'kick', 'new'] })`
+3. Update `schema.ts`: Add platform to enum
+4. Update `packages/platforms/src/types.ts`: Add to `Platform` enum
 
-#### Adding a Database Migration
+**Adding a Database Migration:**
 
 1. Modify `apps/api/src/schema.ts`
-2. Run `pnpm api db:generate`
-3. Add SQL comment header to generated migration file
-4. Migration auto-applies on next server start (via `initDatabase()`)
+2. Run `pnpm api db:generate` (creates `drizzle/0001_random_name.sql`)
+3. Add SQL comment header to document changes:
+   ```sql
+   /**
+    * Migration: Add channels table
+    * Date: 2025-10-13
+    * Adds multi-channel support...
+    */
+   ```
+4. Migration auto-applies on server startup via `initDatabase()`
+
+### Git Hooks (Husky)
+
+**Pre-commit**: Runs `typecheck`, `lint`, `test` on changed packages only (uses Turborepo caching)
+**Commit Message**: Validates [Conventional Commits](https://www.conventionalcommits.org/) format
+
+**Skip Hooks** (for LLM workflows):
+
+```sh
+SKIP_HOOKS=1 git commit
+# Or: git commit --no-verify
+```
+
+**Troubleshooting:**
+
+```sh
+turbo run typecheck lint test --filter='...[HEAD]' --dry-run  # Check what runs
+rm -rf .turbo  # Clear cache if stale
+```
+
+### Build System (Turborepo)
+
+**Benefits:** Incremental builds, task caching (80-90% faster on cache hits), parallel execution
+
+**Common Commands:**
+
+```sh
+turbo run build                      # All packages
+turbo run build --filter=@cq/api    # Specific package
+turbo run build --filter=@cq/web... # Package + dependencies
+rm -rf .turbo                        # Clear cache
+```
+
+**Performance:**
+
+- First build: ~30-45s (cache miss)
+- Subsequent with no changes: ~0.5s (cache hit)
+- Partial changes: ~5-10s (affected packages only)
+
+### i18n (Internationalization)
+
+**Framework**: [@inlang/paraglide-js](https://inlang.com/m/gerre34r/library-inlang-paraglideJs)
+**Locales**: ar, de, en, es, fr, hi, it, ja, ko, pt, ru, tr, zh (13 total)
+**Usage**: `import * as m from '@/paraglide/messages'` then `m.login()`
+
+**Workflow:**
+
+1. Add keys to `apps/web/messages/en.json` (base locale)
+2. `pnpm web i18n:sync` - Sync to other locales (adds English placeholders)
+3. `pnpm web i18n:translate` - Machine translate via [@inlang/cli](https://inlang.com/m/2qj2w8pu/app-inlang-cli)
+4. `pnpm web i18n:check` - Validate completeness (TypeScript script)
+
+**Scripts**: `apps/web/scripts/check-i18n.ts`, `sync-i18n.ts`
+**Quality**: Machine translations generally good for UI; technical terms may remain in English
 
 ### Testing
 
-- **Vitest** for unit tests
-- Tests colocated: `__tests__/` directories
-- Run single test file: `pnpm test <path/to/test.spec.ts>`
-- Mocks in `apps/web/src/__tests__/mocks/`
+- **Framework**: Vitest
+- **Location**: Colocated `__tests__/` directories
+- **Mocks**: `apps/web/src/__tests__/mocks/`
+- **Run single file**: `pnpm test <path/to/test.spec.ts>`
 
 ### Common Gotchas
 
-- **Bootstrap pattern**: Entry point is `server.ts` (not `index.ts`) - loads `.env` before any imports to avoid ESM hoisting issues
-- **EventSub requires valid token**: Run `pnpm api setup` (or `make api-setup`) to generate `TWITCH_BOT_TOKEN`
-- **SESSION_SECRET required**: OAuth flow needs `SESSION_SECRET` env var - generate with `openssl rand -base64 48`
-- **Database auto-migrates**: Migrations in `drizzle/` folder apply on server startup
-- **ClipList sorting**: Clips with more submitters rise to top (popularity-based)
-- **Single channel only**: Server monitors ONE channel per deployment (multi-channel not supported)
+- **Entry point is `server.ts`** (not `index.ts`) - loads `.env` before imports (ESM hoisting workaround)
+- **Path resolution**: Backend uses `resolveFromRoot()` from `paths.ts` for workspace-relative paths (avoids `process.cwd()` issues)
+- **EventSub requires token**: Run `pnpm api setup` to generate `TWITCH_BOT_TOKEN`
+- **SESSION_SECRET required**: Generate with `openssl rand -base64 48`
+- **Single channel only**: Server monitors ONE channel (multi-channel not supported)
+- **ClipList sorting**: Popularity-based (more submitters = higher priority)
+- **toClipUUID()**: Returns `"platform:id"` (lowercase) for deduplication
 - **Settings are JSON blobs**: Stored in SQLite, validated with Zod on read/write
 - **Kick URL format**: `kick.com/channel/clips/clip_ID` (note: `/clips/` with `clip_` prefix)
-- **toClipUUID()**: Returns `"platform:id"` (lowercase) for duplicate detection
-- **Auth caching**: Token cache (5min), role cache (2min) - broadcaster can clear via `/api/auth/cache/clear`
-- **Token validation**: Frontend automatically validates token every 5 minutes, auto-logout on expiration
-- **HTTP Polling**: Frontend polls every 2 seconds with ETag optimization (most requests return 304 Not Modified)
-- **Path resolution**: Backend uses `apps/api/src/paths.ts` utilities (`resolveFromRoot`) for workspace-relative paths - avoids `process.cwd()` issues
-- **Backend EventSub WebSocket**: The `ws` package is used for Twitch EventSub connection only (backend-to-Twitch), not for frontend communication
+- **Auth caching**: 5min token cache, 2min role cache (broadcaster can clear)
+- **Token validation**: Frontend validates every 5 minutes, auto-logout on expiration
+- **HTTP Polling**: 2s intervals with ETag (most return 304 Not Modified)
+- **Backend EventSub**: `ws` package for Twitch only (not frontend)
+- **Batch operations**: Max 100 items, partial success pattern (some may fail)
+- **Input validation**: Zod on all endpoints; clipId 1-200 chars, clipIds array 1-100 items
+- **Design system**: Use semantic tokens (`bg-background`, etc.) not `zinc-*` colors
+- **Dark mode**: `.dark` class on `<html>` (not `.app-dark`)
+- **Tailwind CSS v4 required**: Cannot be removed (shadcn-vue foundation)
+- **Compositional API**: Use sub-components (e.g., `SelectTrigger` + `SelectContent`)
+- **Video player**: Vidstack (not Video.js) with client-side URL fetching
+- **Composables**: Use `useToastNotifications()` and `usePlayerState()`
+- **Generic typecheck errors**: MultiSelect/DataTable show TS4025 (known vue-tsc issue, runtime works)
+- **Icon imports**: Use centralized registries (`@/composables/icons` for app, `@cq/ui` for UI package) - do NOT import directly from `~icons/*`
+- **Icon naming**: Use semantic prefixes (Brand*, Action*, Nav*, Status*, Media*, Ui*, Theme\*) for clarity
+- **env.d.ts files**: Provide TypeScript declarations for Vite features and unplugin-icons imports (do not modify)

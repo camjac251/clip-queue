@@ -1,109 +1,97 @@
 <template>
   <div>
-    <Card class="mx-auto max-w-xl">
-      <template #content>
+    <Card class="mx-auto max-w-3xl">
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <NavPalette :size="20" class="text-violet-600 dark:text-violet-500" />
+          Preferences
+        </CardTitle>
+        <CardDescription> Customize your interface and language settings </CardDescription>
+      </CardHeader>
+      <CardContent>
         <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-2 text-left">
-            <label for="language">{{ m.language() }}</label>
-            <Select
-              v-model="formPreferences.language"
-              :options="[...locales]"
-              label-id="language"
-              :option-label="(value: Locale) => languageLabels[value]"
-              aria-describedby="language-help"
-            >
-            </Select>
-            <Message id="language-help" size="small" severity="secondary" variant="simple">{{
-              m.language_description()
-            }}</Message>
-            <label for="theme">{{ m.theme() }}</label>
-            <Select
-              v-model="formPreferences.theme"
-              :options="[...availableThemes]"
-              label-id="theme"
-              :option-label="(value: Theme) => themeTranslations[value]()"
-              aria-describedby="theme-help"
-            >
-            </Select>
-            <Message id="theme-help" size="small" severity="secondary" variant="simple">{{
-              m.theme_description()
-            }}</Message>
-            <label for="primaryColor">{{ m.primary_color() }}</label>
-            <Select
-              v-model="formPreferences.primary"
-              :options="colors"
-              data-key="name"
-              label-id="primaryColor"
-              aria-describedby="primaryColor-help"
-            >
-              <template #value="{ value }: { value: ColorOption }">
-                <ColorName :name="value.name" :color="value.palette[500]" />
-              </template>
-              <template #option="{ option }: { option: ColorOption }">
-                <ColorName :name="option.name" :color="option.palette[500]" />
-              </template>
-            </Select>
-            <Message id="primaryColor-help" size="small" severity="secondary" variant="simple">{{
-              m.primary_color_description()
-            }}</Message>
-            <label for="surfaceColor">{{ m.surface_color() }}</label>
-            <Select
-              v-model="formPreferences.surface"
-              data-key="name"
-              :options="surfaces"
-              label-id="surfaceColor"
-              aria-describedby="surfaceColor-help"
-            >
-              <template #value="{ value }: { value: ColorOption }">
-                <ColorName :name="value.name" :color="value.palette[500]" />
-              </template>
-              <template #option="{ option }: { option: ColorOption }">
-                <ColorName :name="option.name" :color="option.palette[500]" />
-              </template>
-            </Select>
-            <Message id="surfaceColor-help" size="small" severity="secondary" variant="simple">{{
-              m.surface_color_description()
-            }}</Message>
+          <div class="flex flex-col gap-4 text-left">
+            <div class="space-y-2">
+              <label for="language" class="font-medium">{{ m.language() }}</label>
+              <Select v-model="formPreferences.language">
+                <SelectTrigger id="language" aria-describedby="language-help">
+                  <SelectValue :placeholder="languageLabels[formPreferences.language]" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="locale in locales" :key="locale" :value="locale">
+                    {{ languageLabels[locale] }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Message id="language-help" size="sm" severity="secondary" variant="simple">{{
+                m.language_description()
+              }}</Message>
+            </div>
+            <div class="space-y-2">
+              <label for="theme" class="font-medium">{{ m.theme() }}</label>
+              <Select v-model="formPreferences.theme">
+                <SelectTrigger id="theme" aria-describedby="theme-help">
+                  <SelectValue :placeholder="themeTranslations[formPreferences.theme]()" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="theme in availableThemes" :key="theme" :value="theme">
+                    {{ themeTranslations[theme]() }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Message id="theme-help" size="sm" severity="secondary" variant="simple">{{
+                m.theme_description()
+              }}</Message>
+            </div>
           </div>
-          <div class="mt-3">
-            <SecondaryButton
-              :label="m.save()"
-              size="small"
-              class="mr-2"
+          <div class="border-border/50 mt-6 flex gap-2 border-t pt-4">
+            <Button
+              variant="default"
+              class="flex-1"
               type="submit"
+              size="sm"
               :disabled="!preferences.isModifiedFrom(formPreferences)"
-            ></SecondaryButton>
-            <DangerButton
+            >
+              {{ m.save() }}
+            </Button>
+            <Button
+              variant="destructive"
+              class="flex-1"
               type="reset"
-              :label="m.cancel()"
-              size="small"
+              size="sm"
               :disabled="!preferences.isModifiedFrom(formPreferences)"
-            ></DangerButton>
+            >
+              {{ m.cancel() }}
+            </Button>
           </div>
         </form>
-      </template>
+      </CardContent>
     </Card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, toRaw, watch } from 'vue'
+import { onMounted, ref, toRaw } from 'vue'
 
-import type { ColorOption } from '@cq/ui'
 import {
+  Button,
   Card,
-  colors,
-  DangerButton,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
   Message,
-  SecondaryButton,
   Select,
-  surfaces,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   useToast
 } from '@cq/ui'
 
 import type { Locale } from '@/paraglide/runtime'
 import type { Theme } from '@/stores/preferences'
-import ColorName from '@/components/ColorName.vue'
+import { NavPalette } from '@/composables/icons'
 import * as m from '@/paraglide/messages'
 import { locales } from '@/paraglide/runtime'
 import { availableThemes, usePreferences } from '@/stores/preferences'
@@ -113,6 +101,11 @@ const preferences = usePreferences()
 
 const formKey = ref(1)
 const formPreferences = ref(structuredClone(toRaw(preferences.preferences)))
+
+onMounted(() => {
+  // Initialize form with latest preferences
+  formPreferences.value = structuredClone(toRaw(preferences.preferences))
+})
 
 const themeTranslations: Record<Theme, () => string> = {
   dark: m.theme_dark,
@@ -134,8 +127,6 @@ const languageLabels: Record<Locale, string> = {
   tr: 'Türkçe (Turkish)',
   zh: '中文 (Chinese)'
 }
-
-watch(preferences.preferences, (v) => (formPreferences.value.theme = v.theme))
 
 function onReset() {
   formPreferences.value = structuredClone(toRaw(preferences.preferences))

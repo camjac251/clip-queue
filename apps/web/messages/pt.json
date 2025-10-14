@@ -2,8 +2,6 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "about_credits": "Créditos e Licença",
   "about_description": "Clip Queue integra-se ao seu chat e enfileira clipes enviados pelos espectadores. Os clipes podem ser facilmente visualizados através da interface web com suporte para múltiplas plataformas e sincronização em tempo real.",
-  "about_fork_notice": "Este é um fork do projeto original Clip Queue com recursos e melhorias adicionais.",
-  "about_license": "Lançado sob a Licença MIT. Software livre e de código aberto.",
   "about_feature_commands_description": "Moderadores do canal podem usar comandos no chat para interagir diretamente com a fila.",
   "about_feature_commands_title": "Comandos no Chat",
   "about_feature_connect_description": "Faça login para conectar automaticamente ao seu chat do Twitch. Clipes enviados por usuários no chat serão adicionados à fila.",
@@ -16,6 +14,9 @@
   "about_feature_popularity_title": "Clipes Populares em Destaque",
   "about_feature_settings_description": "Personalize sua experiência por meio das diversas opções de configurações disponíveis.",
   "about_feature_settings_title": "Personalização de Configurações",
+  "about_features": "Funcionalidades",
+  "about_fork_notice": "Este é um fork do projeto original Clip Queue com recursos e melhorias adicionais.",
+  "about_license": "Lançado sob a Licença MIT. Software livre e de código aberto.",
   "about_original_author": "Projeto original criado por",
   "allowed_commands": "Comandos Permitidos:",
   "allowed_commands_description": "Comandos permitidos para uso no chat.",
@@ -35,11 +36,11 @@
   "clear_logs_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "Tem certeza de que deseja limpar o log {length}?",
         "lengthPlural=other": "Tem certeza de que deseja limpar os logs {length}?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "clip_cache_purged": "Cache de clipes limpo.",
@@ -47,14 +48,15 @@
   "clips": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} clipe",
         "lengthPlural=other": "{length} clipes"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "close": "Fechar",
+  "closed": "Fechado",
   "command_clear": "Remover todos os clipes da fila.",
   "command_close": "Fechar a fila.",
   "command_disable_auto_mod": "Desabilitar moderação automática.",
@@ -83,11 +85,11 @@
   "delete_history_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "Tem certeza de que deseja excluir o clipe {length} do histórico?",
         "lengthPlural=other": "Tem certeza de que deseja excluir clipes {length} do histórico?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "delete_label": "Excluir",
@@ -97,11 +99,13 @@
   "error": "Erro",
   "experimental": "Experimentais",
   "fuchsia": "Fúcsia",
+  "general": "Geral",
   "gray": "Cinza",
   "green": "Verde",
   "history": "Histórico",
   "indigo": "Índigo",
   "info": "Informação",
+  "information": "Informações",
   "language": "Idioma:",
   "language_description": "Idioma usado na interface do usuário.",
   "level": "Nível",
@@ -121,6 +125,7 @@
   "no_clip_playing": "Nenhum clipe em reprodução",
   "no_clips_previously_watched": "Nenhum clipe assistido anteriormente.",
   "no_logs_captured": "Nenhum registro capturado.",
+  "no_results_found": "Nenhum resultado encontrado.",
   "no_upcoming_clips": "A fila está vazia",
   "none": "Nenhum",
   "now_playing": "Reproduzindo agora",
@@ -154,6 +159,8 @@
   "rose": "Rosa",
   "save": "Salvar",
   "search": "Pesquisar",
+  "search_settings": "Pesquisar configurações",
+  "search_settings_placeholder": "Pesquisar uma configuração...",
   "settings": "Configurações",
   "settings_about": "Sobre",
   "settings_chat": "Chat",
@@ -172,6 +179,7 @@
   "success": "Sucesso",
   "surface_color": "Cor de Fundo:",
   "surface_color_description": "Cor de fundo usada na interface do usuário.",
+  "system": "Sistema",
   "teal": "Verde-azulado",
   "theme": "Tema",
   "theme_dark": "Escuro",
@@ -186,6 +194,5 @@
   "viva": "Viva",
   "warning": "Aviso",
   "yellow": "Amarelo",
-  "zinc": "Zinco",
-  "about_features": "Funcionalidades"
+  "zinc": "Zinco"
 }

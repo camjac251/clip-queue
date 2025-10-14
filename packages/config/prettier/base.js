@@ -5,7 +5,7 @@ export default {
   singleQuote: true,
   printWidth: 100,
   trailingComma: 'none',
-  plugins: ['@ianvs/prettier-plugin-sort-imports'],
+  plugins: ['@ianvs/prettier-plugin-sort-imports', 'prettier-plugin-sort-json'],
   importOrder: [
     '<TYPES>^(node:)',
     '<BUILT_IN_MODULES>',
@@ -21,5 +21,7 @@ export default {
     '<TYPES>^[.]',
     '^[.]'
   ],
-  importOrderTypeScriptVersion: '5.0.0'
+  importOrderTypeScriptVersion: '5.0.0',
+  // JSON sorting configuration
+  jsonRecursiveSort: true
 }

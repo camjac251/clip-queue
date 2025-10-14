@@ -1,58 +1,99 @@
 <template>
   <div v-if="user.canManageSettings">
-    <Card class="mx-auto max-w-xl">
-      <template #content>
+    <Card class="mx-auto max-w-4xl">
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <NavMessageSquare :size="20" class="text-violet-600 dark:text-violet-500" />
+          Chat Commands
+        </CardTitle>
+        <CardDescription> Configure chat command prefix and allowed commands </CardDescription>
+      </CardHeader>
+      <CardContent>
         <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-2 text-left">
-            <label for="commandPrefix">{{ m.command_prefix() }}</label>
-            <InputText
-              id="commandPrefix"
-              v-model="formSettings.prefix"
-              required
-              maxlength="8"
-              aria-describedby="commandPrefix-help"
-              @keydown.space.prevent
-            />
-            <Message id="commandPrefix-help" size="small" severity="secondary" variant="simple">{{
-              m.command_prefix_description()
-            }}</Message>
-            <label for="allowedCommands">{{ m.allowed_commands() }}</label>
-            <MultiSelect
-              v-model="formSettings.allowed"
-              input-id="allowedCommands"
-              :options="Object.values(Command)"
-              :placeholder="m.none()"
-              display="chip"
-              aria-describedby="allowedCommands-help"
-            >
-              <template #option="{ option }: { option: Command }">
-                <div class="flex flex-col gap-1">
-                  <p>{{ toCommandCall(option) }}</p>
-                  <small>{{ commandHelp[option].description }}</small>
+          <div class="flex flex-col gap-6 text-left">
+            <!-- Command Prefix -->
+            <div class="space-y-2">
+              <label for="commandPrefix" class="font-medium">{{ m.command_prefix() }}</label>
+              <InputText
+                id="commandPrefix"
+                v-model="formSettings.prefix"
+                required
+                :maxlength="8"
+                aria-describedby="commandPrefix-help"
+                @keydown.space.prevent
+              />
+              <Message id="commandPrefix-help" size="sm" severity="secondary" variant="simple">{{
+                m.command_prefix_description()
+              }}</Message>
+            </div>
+
+            <!-- Commands Grid -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="font-medium">{{ m.allowed_commands() }}</label>
+                <div class="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" @click="selectAll">
+                    Select All
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" @click="selectNone">
+                    Select None
+                  </Button>
                 </div>
-              </template>
-            </MultiSelect>
-            <Message id="allowedCommands-help" size="small" severity="secondary" variant="simple">{{
-              m.allowed_commands_description()
-            }}</Message>
+              </div>
+              <Message size="sm" severity="secondary" variant="simple">{{
+                m.allowed_commands_description()
+              }}</Message>
+
+              <!-- Command List -->
+              <div class="grid gap-2 sm:grid-cols-2">
+                <div
+                  v-for="command in Object.values(Command)"
+                  :key="command"
+                  class="group border-border bg-card hover:bg-muted/30 relative flex items-start gap-3 rounded-md border p-3 transition-colors hover:border-violet-500/50"
+                >
+                  <Checkbox :id="`cmd-${command}`" v-model="commandStates[command]" />
+                  <div class="flex-1 space-y-0.5">
+                    <label
+                      :for="`cmd-${command}`"
+                      class="cursor-pointer font-mono text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {{ formSettings.prefix }}{{ command }}
+                      <span v-if="commandHelp[command].args" class="text-muted-foreground">
+                        {{ commandHelp[command].args!.map((arg) => `<${arg}>`).join(' ') }}
+                      </span>
+                    </label>
+                    <p class="text-muted-foreground text-xs">
+                      {{ commandHelp[command].description }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="mt-3">
-            <SecondaryButton
-              :label="m.save()"
-              size="small"
-              class="mr-2"
+
+          <!-- Action Buttons -->
+          <div class="border-border/50 mt-6 flex gap-2 border-t pt-4">
+            <Button
+              variant="default"
+              class="flex-1"
               type="submit"
+              size="sm"
               :disabled="!settings.isCommandsSettingsModified(formSettings)"
-            ></SecondaryButton>
-            <DangerButton
+            >
+              {{ m.save() }}
+            </Button>
+            <Button
+              variant="destructive"
+              class="flex-1"
               type="reset"
-              :label="m.cancel()"
-              size="small"
+              size="sm"
               :disabled="!settings.isCommandsSettingsModified(formSettings)"
-            ></DangerButton>
+            >
+              {{ m.cancel() }}
+            </Button>
           </div>
         </form>
-      </template>
+      </CardContent>
     </Card>
   </div>
   <div v-else>
@@ -63,18 +104,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRaw } from 'vue'
+import { onMounted, ref, toRaw, watch } from 'vue'
 
 import {
+  Button,
   Card,
-  DangerButton,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Checkbox,
   InputText,
   Message,
-  MultiSelect,
-  SecondaryButton,
   useToast
 } from '@cq/ui'
 
+import { NavMessageSquare } from '@/composables/icons'
 import * as m from '@/paraglide/messages'
 import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
@@ -95,7 +140,6 @@ const commandHelp: Record<Command, { description: string; args?: string[] }> = {
   },
   [Command.REMOVE_LIMIT]: { description: m.command_remove_limit() },
   [Command.PREV]: { description: m.command_previous() },
-  [Command.PREVIOUS]: { description: m.command_previous() },
   [Command.NEXT]: { description: m.command_next() },
   [Command.REMOVE_BY_SUBMITTER]: {
     args: [m.submitter().toLocaleLowerCase()],
@@ -122,18 +166,51 @@ const commandHelp: Record<Command, { description: string; args?: string[] }> = {
 const formKey = ref(1)
 const formSettings = ref(structuredClone(toRaw(settings.commands)))
 
-function toCommandCall(command: Command) {
-  const help = commandHelp[command]
-  let cmd = command.toString()
-  if (help.args && help.args.length > 0) {
-    cmd += ' '
-    cmd += help.args.map((arg) => `<${arg}>`).join(' ')
-  }
-  return cmd
+// Track individual checkbox states for reactivity
+const commandStates = ref<Record<string, boolean>>({})
+
+function initializeCommandStates() {
+  const states: Record<string, boolean> = {}
+  Object.values(Command).forEach((cmd) => {
+    states[cmd] = formSettings.value.allowed.includes(cmd)
+  })
+  commandStates.value = states
+}
+
+// Sync commandStates changes back to formSettings.allowed
+watch(
+  commandStates,
+  (newStates) => {
+    formSettings.value.allowed = Object.entries(newStates)
+      .filter(([, enabled]) => enabled)
+      .map(([cmd]) => cmd as Command)
+  },
+  { deep: true }
+)
+
+onMounted(() => {
+  formSettings.value = structuredClone(toRaw(settings.commands))
+  initializeCommandStates()
+  formKey.value += 1
+})
+
+function selectAll() {
+  formSettings.value.allowed = [...Object.values(Command)]
+  Object.values(Command).forEach((cmd) => {
+    commandStates.value[cmd] = true
+  })
+}
+
+function selectNone() {
+  formSettings.value.allowed = []
+  Object.values(Command).forEach((cmd) => {
+    commandStates.value[cmd] = false
+  })
 }
 
 function onReset() {
   formSettings.value = structuredClone(toRaw(settings.commands))
+  initializeCommandStates()
   formKey.value += 1
 }
 

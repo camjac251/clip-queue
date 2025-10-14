@@ -3,26 +3,28 @@ packages:
   - packages/*
 
 catalog:
-  '@tailwindcss/vite': ^4.1.14
-  '@types/jsdom': ^27.0.0
-  '@types/node': ^24.7.0
-  '@vitejs/plugin-vue': ^6.0.1
-  '@vue/test-utils': ^2.4.6
-  '@vue/tsconfig': ^0.8.1
+  "@iconify/json": ^2.2.293
+  "@tailwindcss/vite": ^4.1.14
+  "@types/jsdom": ^27.0.0
+  "@types/node": ^24.7.2
+  "@vitejs/plugin-vue": ^6.0.1
+  "@vue/test-utils": ^2.4.6
+  "@vue/tsconfig": ^0.8.1
   jsdom: ^27.0.0
   tailwindcss: ^4.1.14
   typescript: ^5.9.3
+  unplugin-icons: ^22.4.2
   vite: ^7.1.9
   vue: ^3.5.22
   vue-tsc: ^3.1.1
-  zod: ^3.24.1
+  zod: ^4.1.12
 
 catalogs:
   peers:
     vue: ^3.0.0
 
 onlyBuiltDependencies:
-  - '@tailwindcss/oxide'
+  - "@tailwindcss/oxide"
   - better-sqlite3
   - esbuild
   - sqlite3

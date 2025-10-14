@@ -61,7 +61,9 @@ export class TwitchPlatform extends BasePlatform {
     return 'video'
   }
 
-  public getPlayerSource(clip: Clip): string {
-    return clip.videoUrl || `${clip.embedUrl}&autoplay=true&parent=${window.location.hostname}`
+  public getPlayerSource(clip: Clip): string | undefined {
+    // Return undefined so VidStack fetches direct URL client-side
+    // (Twitch signed URLs expire after ~24h, client-side fetching avoids backend expiration handling)
+    return clip.videoUrl
   }
 }

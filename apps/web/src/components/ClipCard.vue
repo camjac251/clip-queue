@@ -1,23 +1,26 @@
 <template>
   <Card class="max-w-2xs shrink-0 overflow-hidden text-left">
-    <template #header>
-      <img
-        class="aspect-video w-full"
-        :alt="clip.title"
-        :src="clip.thumbnailUrl"
-        @error="emit('remove')"
-      />
-    </template>
-    <template #title>
-      <span :title="clip.title" class="line-clamp-1 font-normal">{{ clip.title }}</span>
-    </template>
-    <template #subtitle>
-      <span :title="subtitle" class="line-clamp-1">{{ subtitle }}</span>
-    </template>
-    <template #content>
-      <div class="text-surface-400 text-xs">
-        <p class="line-clamp-1">
-          {{ m.submitter_name({ name: clip.submitters[0] ?? '' }) }}
+    <img
+      class="aspect-video w-full"
+      :alt="clip.title"
+      :src="clip.thumbnailUrl"
+      @error="emit('remove')"
+    />
+    <CardHeader>
+      <CardTitle class="line-clamp-1 text-base font-normal" :title="clip.title">
+        {{ clip.title }}
+      </CardTitle>
+      <CardDescription class="line-clamp-1" :title="subtitle">
+        {{ subtitle }}
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      <div class="text-muted-foreground text-xs">
+        <p
+          v-if="clip.submitters[0]"
+          class="line-clamp-1 font-medium text-violet-600 dark:text-violet-400"
+        >
+          {{ m.submitter_name({ name: clip.submitters[0] }) }}
         </p>
         <p class="line-clamp-1">
           {{ m.creator_name({ name: clip.creator ?? m.unknown() }) }}
@@ -27,27 +30,17 @@
           <PlatformName :platform="clip.platform" class="font-normal" />
         </div>
       </div>
-    </template>
-    <template v-if="canControl" #footer>
-      <div class="flex justify-between gap-2">
-        <SecondaryButton
-          class="grow"
-          icon="pi pi-play"
-          :label="m.play()"
-          size="small"
-          @click="emit('play')"
-        >
-        </SecondaryButton>
-        <DangerButton
-          class="grow"
-          icon="pi pi-trash"
-          :label="m.remove()"
-          size="small"
-          @click="emit('remove')"
-        >
-        </DangerButton>
+    </CardContent>
+    <CardFooter v-if="canControl">
+      <div class="flex w-full justify-between gap-2">
+        <Button class="grow" variant="secondary" size="sm" @click="emit('play')">
+          {{ m.play() }}
+        </Button>
+        <Button class="grow" variant="destructive" size="sm" @click="emit('remove')">
+          {{ m.remove() }}
+        </Button>
       </div>
-    </template>
+    </CardFooter>
   </Card>
 </template>
 
@@ -55,7 +48,15 @@
 import { computed, toRefs } from 'vue'
 
 import type { Clip } from '@cq/platforms'
-import { Card, DangerButton, SecondaryButton } from '@cq/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from '@cq/ui'
 
 import PlatformName from '@/components/PlatformName.vue'
 import * as m from '@/paraglide/messages'
@@ -80,6 +81,5 @@ const subtitle = computed(() => {
 const emit = defineEmits<{
   (e: 'play'): void
   (e: 'remove'): void
-  (e: 'add'): void
 }>()
 </script>

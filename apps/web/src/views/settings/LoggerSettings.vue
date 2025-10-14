@@ -1,92 +1,250 @@
 <template>
-  <div>
-    <Card class="mx-auto mb-2 max-w-xl">
-      <template #content>
-        <div class="m-0 flex flex-col gap-2 p-0 text-left">
-          <p>{{ m.logs_colon() }}</p>
-          <SecondaryButton
-            :label="m.view()"
-            icon="pi pi-book"
-            size="small"
-            fluid
-            as="router-link"
-            :to="{ name: RouteNameConstants.LOGS }"
-          >
-          </SecondaryButton>
-        </div>
-      </template>
-    </Card>
-    <Card class="mx-auto max-w-xl">
-      <template #content>
+  <div class="space-y-4">
+    <!-- Logger Configuration -->
+    <Card class="mx-auto max-w-4xl">
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <NavSettings :size="20" class="text-violet-600 dark:text-violet-500" />
+          Logger Configuration
+        </CardTitle>
+        <CardDescription> Configure log level and storage limits </CardDescription>
+      </CardHeader>
+      <CardContent>
         <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-2 text-left">
-            <label for="loggerLevel">{{ m.level_colon() }}</label>
-            <Select
-              v-model="formSettings.level"
-              :options="availableLogLevels"
-              label-id="loggerLevel"
-              :option-label="(value: LogLevel) => logLevelTranslations[value]()"
-              aria-describedby="loggerLevel-help"
-            >
-            </Select>
-            <Message id="loggerLevel-help" size="small" severity="secondary" variant="simple">{{
-              m.logger_level_description()
-            }}</Message>
-            <label for="loggerLimit">{{ m.size_limit() }}</label>
-            <InputNumber
-              v-model="formSettings.limit"
-              input-id="loggerLimit"
-              :allow-empty="false"
-              :locale="preferences.preferences.language"
-              :min="1"
-              :max="100000"
-              :step="1"
-              show-buttons
-              aria-describedby="loggerLimit-help"
-            />
-            <Message id="loggerLimit-help" size="small" severity="secondary" variant="simple">{{
-              m.logger_size_limit_description()
-            }}</Message>
+          <div class="flex flex-col gap-4 text-left">
+            <div class="space-y-2">
+              <label for="loggerLevel" class="font-medium">{{ m.level_colon() }}</label>
+              <Select v-model="formSettings.level">
+                <SelectTrigger id="loggerLevel" aria-describedby="loggerLevel-help">
+                  <SelectValue :placeholder="logLevelTranslations[formSettings.level]()" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="level in availableLogLevels" :key="level" :value="level">
+                    {{ logLevelTranslations[level]() }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Message id="loggerLevel-help" size="sm" severity="secondary" variant="simple">{{
+                m.logger_level_description()
+              }}</Message>
+            </div>
+            <div class="space-y-2">
+              <label for="loggerLimit" class="font-medium">{{ m.size_limit() }}</label>
+              <InputNumber
+                v-model="formSettings.limit"
+                input-id="loggerLimit"
+                :allow-empty="false"
+                :locale="preferences.preferences.language"
+                :min="1"
+                :max="100000"
+                :step="1"
+                show-buttons
+                aria-describedby="loggerLimit-help"
+              />
+              <Message id="loggerLimit-help" size="sm" severity="secondary" variant="simple">{{
+                m.logger_size_limit_description()
+              }}</Message>
+            </div>
           </div>
-          <div class="mt-3">
-            <SecondaryButton
-              :label="m.save()"
-              size="small"
-              class="mr-2"
+          <div class="border-border/50 mt-6 flex gap-2 border-t pt-4">
+            <Button
+              variant="default"
+              class="flex-1"
               type="submit"
+              size="sm"
               :disabled="!settings.isLoggerSettingsModified(formSettings)"
-            ></SecondaryButton>
-            <DangerButton
+            >
+              {{ m.save() }}
+            </Button>
+            <Button
+              variant="destructive"
+              class="flex-1"
               type="reset"
-              :label="m.cancel()"
-              size="small"
+              size="sm"
               :disabled="!settings.isLoggerSettingsModified(formSettings)"
-            ></DangerButton>
+            >
+              {{ m.cancel() }}
+            </Button>
           </div>
         </form>
-      </template>
+      </CardContent>
+    </Card>
+
+    <!-- Logs View -->
+    <Card class="mx-auto max-w-4xl">
+      <CardHeader>
+        <div class="flex items-center justify-between">
+          <div>
+            <CardTitle class="flex items-center gap-2">
+              <NavBookOpen :size="20" class="text-violet-600 dark:text-violet-500" />
+              {{ m.logs() }}
+            </CardTitle>
+            <CardDescription> View application logs and debugging information </CardDescription>
+          </div>
+          <div class="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              :disabled="logs.length === 0"
+              @click="exportCSV()"
+            >
+              {{ m.download() }}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              :disabled="logs.length === 0"
+              @click="deleteAllLogs()"
+            >
+              {{ m.clear() }}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent class="p-0">
+        <DataTable
+          ref="table"
+          :data="logs"
+          :columns="columns"
+          paginator
+          export-filename="logs.clip-queue"
+          :rows="10"
+          :rows-per-page-options="[10, 20, 50]"
+        >
+          <template #empty>
+            <div class="text-muted-foreground flex flex-col items-center justify-center py-12">
+              <NavBookOpen :size="48" class="mb-4 opacity-50" />
+              <p class="text-lg font-medium">{{ m.no_logs_captured() }}</p>
+              <p class="text-sm">Application logs will appear here</p>
+            </div>
+          </template>
+        </DataTable>
+      </CardContent>
     </Card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, toRaw } from 'vue'
+import type { ColumnDef } from '@tanstack/vue-table'
+import { computed, h, onMounted, ref, toRaw, useTemplateRef } from 'vue'
 
-import { Card, DangerButton, InputNumber, Message, SecondaryButton, Select, useToast } from '@cq/ui'
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  DataTable,
+  InputNumber,
+  Message,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  useConfirm,
+  useToast
+} from '@cq/ui'
 
-import type { LogLevel } from '@/stores/logger'
+import type { Log } from '@/stores/logger'
+import { NavBookOpen, NavSettings } from '@/composables/icons'
 import * as m from '@/paraglide/messages'
-import { RouteNameConstants } from '@/router'
-import { availableLogLevels, logLevelTranslations } from '@/stores/logger'
+import { datetime } from '@/paraglide/registry'
+import {
+  availableLogLevels,
+  logLevelSeverities,
+  logLevelTranslations,
+  useLogger
+} from '@/stores/logger'
 import { usePreferences } from '@/stores/preferences'
 import { useSettings } from '@/stores/settings'
 
 const toast = useToast()
+const confirm = useConfirm()
 const preferences = usePreferences()
 const settings = useSettings()
+const logger = useLogger()
+const table = useTemplateRef<{ exportCSV: () => void }>('table')
 
 const formKey = ref(1)
 const formSettings = ref(structuredClone(toRaw(settings.logger)))
+
+onMounted(() => {
+  // Initialize form with latest settings
+  formSettings.value = structuredClone(toRaw(settings.logger))
+})
+
+const logs = computed(() => {
+  return [...logger.logs].sort((a, b) => {
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  })
+})
+
+function formatTimestamp(timestamp: string) {
+  return datetime(preferences.preferences.language, timestamp, {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+    hour12: false
+  })
+}
+
+const columns = computed<ColumnDef<Log>[]>(() => [
+  {
+    accessorKey: 'timestamp',
+    header: m.timestamp(),
+    cell: ({ row }) => formatTimestamp(row.original.timestamp)
+  },
+  {
+    accessorKey: 'level',
+    header: m.level(),
+    cell: ({ row }) => {
+      const level = row.original.level
+      const severity = logLevelSeverities[level]
+      const severityMap: Record<string, 'default' | 'secondary' | 'destructive'> = {
+        success: 'default',
+        info: 'secondary',
+        warn: 'default',
+        error: 'destructive',
+        secondary: 'secondary'
+      }
+      return h(Badge, { variant: severityMap[severity] || 'default' }, () =>
+        logLevelTranslations[level]()
+      )
+    }
+  },
+  {
+    accessorKey: 'message',
+    header: m.message()
+  }
+])
+
+function exportCSV() {
+  logger.debug('[Logs]: exporting logs as CSV.')
+  table.value?.exportCSV()
+}
+
+function deleteAllLogs() {
+  logger.debug('[Logs]: attempting to delete all logs.')
+  confirm.require({
+    header: m.clear_logs(),
+    message: m.clear_logs_confirm({ length: logs.value.length }),
+    rejectProps: {
+      label: m.cancel()
+    },
+    acceptProps: {
+      label: m.confirm()
+    },
+    accept: () => {
+      logger.debug('[Logs]: deleting all logs.')
+      logger.$reset()
+    },
+    reject: () => {
+      logger.debug('[Logs]: deletion of logs was cancelled.')
+    }
+  })
+}
 
 function onReset() {
   formSettings.value = structuredClone(toRaw(settings.logger))

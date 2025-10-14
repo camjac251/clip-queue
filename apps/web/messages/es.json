@@ -2,8 +2,6 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "about_credits": "Créditos y Licencia",
   "about_description": "Clip Queue se integra en tu chat y pone en cola los clips enviados por los espectadores. Los clips se pueden ver fácilmente a través de la interfaz web con soporte para múltiples plataformas y sincronización en tiempo real.",
-  "about_fork_notice": "Este es un fork del proyecto original Clip Queue con funciones y mejoras adicionales.",
-  "about_license": "Publicado bajo la Licencia MIT. Software gratuito y de código abierto.",
   "about_feature_commands_description": "Los moderadores del canal pueden usar comandos de chat para interactuar directamente con la cola.",
   "about_feature_commands_title": "Comandos de chat",
   "about_feature_connect_description": "Inicia sesión para conectarte automáticamente a tu chat de Twitch. Los clips enviados por los usuarios en el chat se agregarán a la cola.",
@@ -16,6 +14,9 @@
   "about_feature_popularity_title": "Clips populares destacan",
   "about_feature_settings_description": "Personaliza tu experiencia con las múltiples opciones de configuración personalizables.",
   "about_feature_settings_title": "Personalización de configuración",
+  "about_features": "Características",
+  "about_fork_notice": "Este es un fork del proyecto original Clip Queue con funciones y mejoras adicionales.",
+  "about_license": "Publicado bajo la Licencia MIT. Software gratuito y de código abierto.",
   "about_original_author": "Proyecto original creado por",
   "allowed_commands": "Comandos permitidos:",
   "allowed_commands_description": "Comandos permitidos para usar en el chat.",
@@ -35,11 +36,11 @@
   "clear_logs_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "¿Estás seguro de que quieres borrar {length} registro?",
         "lengthPlural=other": "¿Estás seguro de que quieres borrar {length} registros?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "clip_cache_purged": "Caché de clips purgado.",
@@ -47,14 +48,15 @@
   "clips": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} clip",
         "lengthPlural=other": "{length} clips"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "close": "Cerrar",
+  "closed": "Cerrado",
   "command_clear": "Eliminar todos los clips de la cola.",
   "command_close": "Cerrar la cola.",
   "command_disable_auto_mod": "Deshabilitar moderación automática.",
@@ -83,11 +85,11 @@
   "delete_history_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "¿Estás seguro de que quieres eliminar {length} clip del historial?",
         "lengthPlural=other": "¿Estás seguro de que quieres eliminar {length} clips del historial?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "delete_label": "Eliminar",
@@ -97,11 +99,13 @@
   "error": "Error",
   "experimental": "Experimental",
   "fuchsia": "Fucsia",
+  "general": "General",
   "gray": "Gris",
   "green": "Verde",
   "history": "Historial",
   "indigo": "Índigo",
   "info": "Información",
+  "information": "Información",
   "language": "Idioma:",
   "language_description": "Idioma utilizado en toda la interfaz.",
   "level": "Nivel",
@@ -121,6 +125,7 @@
   "no_clip_playing": "No hay clip reproduciéndose",
   "no_clips_previously_watched": "No se han visto clips anteriormente.",
   "no_logs_captured": "No se capturaron registros.",
+  "no_results_found": "No se encontraron resultados.",
   "no_upcoming_clips": "La cola está vacía",
   "none": "Ninguno",
   "now_playing": "Reproduciendo ahora",
@@ -154,6 +159,8 @@
   "rose": "Rosa",
   "save": "Guardar",
   "search": "Buscar",
+  "search_settings": "Buscar configuración",
+  "search_settings_placeholder": "Buscar una configuración...",
   "settings": "Configuración",
   "settings_about": "Acerca de",
   "settings_chat": "Chat",
@@ -172,6 +179,7 @@
   "success": "Éxito",
   "surface_color": "Color de superficie:",
   "surface_color_description": "Color de superficie utilizado en toda la interfaz.",
+  "system": "Sistema",
   "teal": "Verde azulado",
   "theme": "Tema",
   "theme_dark": "Oscuro",
@@ -186,6 +194,5 @@
   "viva": "Viva",
   "warning": "Advertencia",
   "yellow": "Amarillo",
-  "zinc": "Zinc",
-  "about_features": "Características"
+  "zinc": "Zinc"
 }

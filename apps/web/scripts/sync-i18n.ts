@@ -4,12 +4,13 @@
  *
  * This script adds any missing keys from the base locale (en.json) to other locale files.
  * Missing keys are added with English text as placeholders, preserving existing translations.
- * Files are formatted with sorted keys and 2-space indentation.
+ * Files are automatically sorted and formatted with Prettier (using prettier-plugin-sort-json).
  *
  * Usage:
  *   pnpm i18n:sync
  *   npm run i18n:sync
  */
+import { execSync } from 'node:child_process'
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,24 +25,24 @@ interface MessageFile {
   [key: string]: unknown
 }
 
-function sortKeys(obj: MessageFile): MessageFile {
-  const sorted: MessageFile = {}
-  const keys = Object.keys(obj).sort()
-
-  for (const key of keys) {
-    sorted[key] = obj[key]
-  }
-
-  return sorted
-}
-
 async function syncTranslations(): Promise<void> {
   console.log(`🔄 Syncing missing translation keys from ${BASE_LANG}...\n`)
 
   // Read base language file
   const baseFilePath = path.join(MESSAGES_DIR, BASE_LANG)
-  const baseContent = await readFile(baseFilePath, 'utf-8')
-  const baseMessages: MessageFile = JSON.parse(baseContent)
+
+  // Format base file first (canonical source) - Prettier will sort keys automatically
+  console.log(`📝 Formatting base language file (${BASE_LANG})`)
+  try {
+    execSync(`prettier --write "${baseFilePath}"`, { stdio: 'ignore' })
+  } catch {
+    console.warn(`⚠️  Could not format ${BASE_LANG} with Prettier`)
+  }
+
+  // Re-read base file after formatting (now sorted)
+  const formattedBaseContent = await readFile(baseFilePath, 'utf-8')
+  const formattedBaseMessages: MessageFile = JSON.parse(formattedBaseContent)
+  console.log()
 
   // Get all language files
   const files = await readdir(MESSAGES_DIR)
@@ -53,28 +54,47 @@ async function syncTranslations(): Promise<void> {
     const langMessages: MessageFile = JSON.parse(langContent)
 
     // Count keys (excluding $schema)
-    const baseKeys = Object.keys(baseMessages).filter((k) => k !== '$schema')
+    const baseKeys = Object.keys(formattedBaseMessages).filter((k) => k !== '$schema')
     const langKeys = Object.keys(langMessages).filter((k) => k !== '$schema')
     const baseCount = baseKeys.length
     const langCount = langKeys.length
 
-    if (langCount < baseCount) {
-      const missing = baseCount - langCount
-      console.log(`📝 Updating ${langFile} (${missing} missing keys)`)
+    // Detect changes needed
+    const missingKeys = baseKeys.filter((k) => !langKeys.includes(k))
+    const needsFormatting = langCount === baseCount // All keys present, may just need sorting
+
+    if (missingKeys.length > 0) {
+      console.log(`📝 Updating ${langFile} (${missingKeys.length} missing keys)`)
+      console.log(
+        `   New keys: ${missingKeys.slice(0, 5).join(', ')}${missingKeys.length > 5 ? '...' : ''}`
+      )
 
       // Merge: base keys into language file (keeps existing translations, adds missing)
-      const merged: MessageFile = { ...baseMessages, ...langMessages }
+      const merged: MessageFile = { ...formattedBaseMessages, ...langMessages }
 
-      // Sort keys alphabetically
-      const sorted = sortKeys(merged)
+      // Write back - Prettier will sort and format automatically
+      await writeFile(langFilePath, JSON.stringify(merged, null, 2) + '\n', 'utf-8')
 
-      // Write back with pretty formatting
-      await writeFile(langFilePath, JSON.stringify(sorted, null, 2) + '\n', 'utf-8')
+      // Format with Prettier (sorts keys automatically via prettier-plugin-sort-json)
+      try {
+        execSync(`prettier --write "${langFilePath}"`, { stdio: 'ignore' })
+      } catch {
+        console.warn(`⚠️  Could not format ${langFile} with Prettier`)
+      }
+    } else if (needsFormatting) {
+      // No missing keys, but may need sorting/formatting
+      console.log(`📝 Formatting ${langFile} (sorting keys)`)
+      try {
+        execSync(`prettier --write "${langFilePath}"`, { stdio: 'ignore' })
+      } catch {
+        console.warn(`⚠️  Could not format ${langFile} with Prettier`)
+      }
     }
   }
 
   console.log()
   console.log('✅ Done! All language files now have the same keys.')
+  console.log('   Keys are automatically sorted alphabetically.')
   console.log('   New keys use English text as placeholders - translate them with:')
   console.log('   pnpm i18n:translate')
   console.log()

@@ -128,6 +128,9 @@ export const useSettings = defineStore('settings', () => {
       commands.value = data.commands as CommandSettings
       queue.value = data.queue as QueueSettings
       logger.value = data.logger as LoggerSettings
+      log.info(
+        `[Settings] Loaded from backend: commands=${commands.value.allowed.length} allowed, queue.platforms=${queue.value.platforms.length}, logger.level=${logger.value.level}`
+      )
     } catch (error: unknown) {
       log.error(`[Settings] Failed to load from backend: ${error}`)
     }

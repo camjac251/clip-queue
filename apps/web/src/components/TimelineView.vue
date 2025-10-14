@@ -1,79 +1,126 @@
 <template>
-  <div class="timeline-container">
-    <div class="timeline-header">
-      <div class="timeline-section-label">
-        <i class="pi pi-history"></i>
-        <span>{{ m.history() }} ({{ historyClips.length }})</span>
+  <div class="border-border bg-card rounded-lg border p-2 sm:p-3 lg:p-4">
+    <!-- Header -->
+    <div class="mb-2 grid grid-cols-3 items-center gap-2 text-center sm:mb-3 sm:gap-4 lg:mb-4">
+      <div
+        class="text-muted-foreground flex items-center justify-start gap-1 text-[10px] font-semibold tracking-wide uppercase sm:gap-1.5 sm:text-xs"
+      >
+        <NavHistory :size="12" class="sm:hidden" />
+        <NavHistory :size="14" class="hidden sm:block" />
+        <span class="hidden sm:inline">{{ m.history() }} ({{ historyClips.length }})</span>
+        <span class="sm:hidden">{{ historyClips.length }}</span>
       </div>
-      <div class="timeline-center">
-        <i class="pi pi-play-circle"></i>
-        <span>{{ m.now_playing() }}</span>
+      <div
+        class="flex items-center justify-center gap-1 text-xs font-bold tracking-wide text-violet-600 uppercase sm:gap-1.5 sm:text-sm dark:text-violet-500"
+      >
+        <ActionPlayCircle :size="14" class="sm:hidden" />
+        <ActionPlayCircle :size="16" class="hidden sm:block" />
+        <span class="hidden md:inline">{{ m.now_playing() }}</span>
+        <span class="md:hidden">Now</span>
       </div>
-      <div class="timeline-section-label">
-        <i class="pi pi-clock"></i>
-        <span>{{ m.upcoming_clips() }} ({{ upcomingClips.length }})</span>
+      <div
+        class="text-muted-foreground flex items-center justify-end gap-1 text-[10px] font-semibold tracking-wide uppercase sm:gap-1.5 sm:text-xs"
+      >
+        <StatusClock :size="12" class="sm:hidden" />
+        <StatusClock :size="14" class="hidden sm:block" />
+        <span class="hidden sm:inline">{{ m.upcoming_clips() }} ({{ upcomingClips.length }})</span>
+        <span class="sm:hidden">{{ upcomingClips.length }}</span>
       </div>
     </div>
 
-    <div ref="timelineRef" class="timeline-scroll" @scroll="handleScroll">
-      <div class="timeline-track">
-        <!-- History clips (reversed to show newest first) -->
+    <!-- Scrollable timeline -->
+    <div
+      ref="timelineRef"
+      class="scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent hover:scrollbar-thumb-foreground -webkit-overflow-scrolling-touch [scroll-snap-type:x_proximity] overflow-x-auto overflow-y-hidden scroll-smooth"
+      @scroll="handleScroll"
+    >
+      <div class="flex min-w-min gap-2 py-1 sm:gap-3 sm:py-2">
+        <!-- History clips -->
         <div
           v-for="(clip, index) in historyClips"
           :key="`history-${toClipUUID(clip)}`"
-          class="timeline-clip history-clip"
-          :class="{ 'can-interact': canControl }"
+          class="scroll-snap-align-center relative flex w-[140px] flex-shrink-0 flex-col gap-1.5 transition-all duration-200 sm:w-[180px] sm:gap-2 lg:w-[200px]"
+          :class="canControl && 'cursor-pointer hover:scale-105'"
           @click="handleHistoryClick(clip)"
         >
-          <div class="clip-thumbnail-wrapper">
-            <img :src="clip.thumbnailUrl" :alt="clip.title" class="clip-thumbnail" />
-            <div class="clip-overlay">
-              <i class="pi pi-replay"></i>
+          <div
+            class="bg-muted relative aspect-video w-full overflow-hidden rounded-md shadow-md sm:rounded-lg"
+          >
+            <img
+              :src="clip.thumbnailUrl"
+              :alt="clip.title"
+              class="h-full w-full object-cover opacity-60 transition-opacity duration-200"
+              :class="canControl && 'hover:opacity-100'"
+            />
+            <div
+              v-if="canControl"
+              class="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity duration-200 hover:opacity-100"
+            >
+              <ActionRotateCcw :size="16" class="sm:hidden" />
+              <ActionRotateCcw :size="20" class="hidden sm:block" />
             </div>
-            <div class="clip-index">-{{ historyClips.length - index }}</div>
+            <div
+              class="absolute top-1 left-1 rounded bg-black/75 px-1 py-0.5 text-[10px] font-semibold text-white sm:top-2 sm:left-2 sm:px-1.5 sm:text-xs"
+            >
+              -{{ historyClips.length - index }}
+            </div>
           </div>
-          <div class="clip-info">
-            <div class="clip-title">{{ clip.title }}</div>
-            <div class="clip-meta">
-              <PlatformName :platform="clip.platform" size="small" />
-            </div>
+          <div
+            class="text-foreground line-clamp-2 text-[10px] leading-tight font-medium sm:text-xs"
+          >
+            {{ clip.title }}
           </div>
         </div>
 
-        <!-- Current clip (highlighted) -->
+        <!-- Current clip -->
         <div
           v-if="currentClip"
           :key="`current-${toClipUUID(currentClip)}`"
           ref="currentClipRef"
-          class="timeline-clip current-clip"
+          class="scroll-snap-align-center relative flex w-[140px] flex-shrink-0 flex-col gap-1.5 sm:w-[180px] sm:gap-2 lg:w-[200px]"
         >
-          <div class="clip-thumbnail-wrapper">
-            <img :src="currentClip.thumbnailUrl" :alt="currentClip.title" class="clip-thumbnail" />
-            <div class="current-indicator">
-              <div class="pulse-ring"></div>
-              <i class="pi pi-play"></i>
+          <div
+            class="bg-muted relative aspect-video w-full overflow-hidden rounded-md border-2 border-violet-600 shadow-[0_0_0_1px_rgb(124_58_237),0_0_20px_rgb(124_58_237_/_0.3)] sm:rounded-lg dark:border-violet-500 dark:shadow-[0_0_0_1px_rgb(139_92_246),0_0_20px_rgb(139_92_246_/_0.3)]"
+          >
+            <img
+              :src="currentClip.thumbnailUrl"
+              :alt="currentClip.title"
+              class="h-full w-full object-cover"
+            />
+            <div
+              class="pointer-events-none absolute inset-0 flex items-center justify-center bg-violet-600/20 text-white dark:bg-violet-500/20"
+            >
+              <div
+                class="absolute h-10 w-10 animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite] rounded-full border-2 border-white sm:h-12 sm:w-12"
+              ></div>
+              <ActionPlay :size="24" class="sm:hidden" />
+              <ActionPlay :size="32" class="hidden sm:block" />
             </div>
           </div>
-          <div class="clip-info">
-            <div class="clip-title">{{ currentClip.title }}</div>
-            <div class="clip-meta">
-              <PlatformName :platform="currentClip.platform" size="small" />
-              <span v-if="currentClip.submitters[0]" class="submitter">
-                {{ currentClip.submitters[0] }}
-              </span>
-            </div>
+          <div
+            class="text-foreground line-clamp-2 text-[10px] leading-tight font-semibold sm:text-xs"
+          >
+            {{ currentClip.title }}
           </div>
         </div>
 
         <!-- Empty state for no current clip -->
-        <div v-else class="timeline-clip current-clip empty-current">
-          <div class="clip-thumbnail-wrapper">
-            <div class="empty-thumbnail">
-              <i class="pi pi-play-circle"></i>
+        <div
+          v-else
+          class="scroll-snap-align-center relative flex w-[140px] flex-shrink-0 flex-col gap-1.5 sm:w-[180px] sm:gap-2 lg:w-[200px]"
+        >
+          <div
+            class="bg-muted relative aspect-video w-full overflow-hidden rounded-md border-2 border-violet-600 shadow-[0_0_0_1px_rgb(124_58_237),0_0_20px_rgb(124_58_237_/_0.3)] sm:rounded-lg dark:border-violet-500 dark:shadow-[0_0_0_1px_rgb(139_92_246),0_0_20px_rgb(139_92_246_/_0.3)]"
+          >
+            <div class="text-muted-foreground flex h-full w-full items-center justify-center">
+              <ActionPlayCircle :size="24" class="sm:hidden" />
+              <ActionPlayCircle :size="32" class="hidden sm:block" />
             </div>
           </div>
-          <div class="clip-info">
-            <div class="clip-title">{{ m.no_clip_playing() }}</div>
+          <div
+            class="text-muted-foreground text-[10px] leading-tight font-medium italic sm:text-xs"
+          >
+            {{ m.no_clip_playing() }}
           </div>
         </div>
 
@@ -81,52 +128,74 @@
         <div
           v-for="(clip, index) in upcomingClips"
           :key="`queue-${toClipUUID(clip)}`"
-          class="timeline-clip queue-clip"
-          :class="{ 'can-interact': canControl }"
+          class="scroll-snap-align-center relative flex w-[140px] flex-shrink-0 flex-col gap-1.5 transition-all duration-200 sm:w-[180px] sm:gap-2 lg:w-[200px]"
+          :class="canControl && 'cursor-pointer hover:scale-105'"
           @click="handleQueueClick(clip)"
         >
-          <div class="clip-thumbnail-wrapper">
-            <img :src="clip.thumbnailUrl" :alt="clip.title" class="clip-thumbnail" />
-            <div class="clip-overlay">
-              <i class="pi pi-play"></i>
+          <div
+            class="bg-muted relative aspect-video w-full overflow-hidden rounded-md shadow-md sm:rounded-lg"
+          >
+            <img
+              :src="clip.thumbnailUrl"
+              :alt="clip.title"
+              class="h-full w-full object-cover opacity-80 transition-opacity duration-200"
+              :class="canControl && 'hover:opacity-100'"
+            />
+            <div
+              v-if="canControl"
+              class="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity duration-200 hover:opacity-100"
+            >
+              <ActionPlay :size="16" class="sm:hidden" />
+              <ActionPlay :size="20" class="hidden sm:block" />
             </div>
-            <div class="clip-index">+{{ index + 1 }}</div>
-            <div v-if="clip.submitters.length > 1" class="submitter-count">
+            <div
+              class="absolute top-1 left-1 rounded bg-black/75 px-1 py-0.5 text-[10px] font-semibold text-white sm:top-2 sm:left-2 sm:px-1.5 sm:text-xs"
+            >
+              +{{ index + 1 }}
+            </div>
+            <div
+              v-if="clip.submitters.length > 1"
+              class="absolute top-1 right-1 rounded bg-violet-600/90 px-1 py-0.5 text-[10px] font-semibold text-white sm:top-2 sm:right-2 sm:px-1.5 sm:text-xs dark:bg-violet-500/90"
+            >
               {{ clip.submitters.length }}×
             </div>
           </div>
-          <div class="clip-info">
-            <div class="clip-title">{{ clip.title }}</div>
-            <div class="clip-meta">
-              <PlatformName :platform="clip.platform" size="small" />
-              <span v-if="clip.submitters[0]" class="submitter">
-                {{ clip.submitters[0] }}
-              </span>
-            </div>
+          <div
+            class="text-foreground line-clamp-2 text-[10px] leading-tight font-medium sm:text-xs"
+          >
+            {{ clip.title }}
           </div>
         </div>
 
         <!-- Empty state for empty queue -->
-        <div v-if="upcomingClips.length === 0" class="timeline-clip queue-clip empty-queue">
-          <div class="clip-thumbnail-wrapper">
-            <div class="empty-thumbnail">
-              <i class="pi pi-inbox"></i>
+        <div
+          v-if="upcomingClips.length === 0"
+          class="scroll-snap-align-center relative flex w-[140px] flex-shrink-0 flex-col gap-1.5 sm:w-[180px] sm:gap-2 lg:w-[200px]"
+        >
+          <div
+            class="bg-muted relative aspect-video w-full overflow-hidden rounded-md shadow-md sm:rounded-lg"
+          >
+            <div class="text-muted-foreground flex h-full w-full items-center justify-center">
+              <NavInbox :size="24" class="sm:hidden" />
+              <NavInbox :size="32" class="hidden sm:block" />
             </div>
           </div>
-          <div class="clip-info">
-            <div class="clip-title">{{ m.no_upcoming_clips() }}</div>
+          <div
+            class="text-muted-foreground text-[10px] leading-tight font-medium italic sm:text-xs"
+          >
+            {{ m.no_upcoming_clips() }}
           </div>
         </div>
       </div>
     </div>
 
     <!-- Navigation dots indicator -->
-    <div class="timeline-indicator">
+    <div class="mt-2 flex justify-center gap-1 sm:mt-3 sm:gap-1.5">
       <div
         v-for="section in 3"
         :key="section"
-        class="indicator-dot"
-        :class="{ active: currentSection === section - 1 }"
+        class="bg-muted h-1 w-1 rounded-full transition-all duration-300 sm:h-1.5 sm:w-1.5"
+        :class="currentSection === section - 1 && 'scale-150 bg-violet-600 dark:bg-violet-500'"
       ></div>
     </div>
   </div>
@@ -138,7 +207,14 @@ import { nextTick, onMounted, ref, watch } from 'vue'
 import type { Clip } from '@cq/platforms'
 import { toClipUUID } from '@cq/platforms'
 
-import PlatformName from '@/components/PlatformName.vue'
+import {
+  ActionPlay,
+  ActionPlayCircle,
+  ActionRotateCcw,
+  NavHistory,
+  NavInbox,
+  StatusClock
+} from '@/composables/icons'
 import * as m from '@/paraglide/messages'
 
 export interface Props {
@@ -218,321 +294,3 @@ onMounted(() => {
 
 watch(() => props.currentClip, scrollToCurrentClip)
 </script>
-
-<style scoped>
-.timeline-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1.5rem;
-  background: linear-gradient(to bottom, rgb(24 24 27 / 0.95), rgb(39 39 42 / 0.98));
-  border-radius: 1rem;
-  box-shadow:
-    0 4px 6px -1px rgb(0 0 0 / 0.2),
-    0 2px 4px -2px rgb(0 0 0 / 0.1),
-    0 0 0 1px rgb(255 255 255 / 0.05);
-}
-
-.timeline-header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 2rem;
-  align-items: center;
-  padding: 0 1rem;
-}
-
-.timeline-section-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgb(161 161 170);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.timeline-section-label i {
-  font-size: 1rem;
-}
-
-.timeline-center {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1rem;
-  font-weight: 700;
-  color: rgb(139 92 246);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  justify-self: center;
-}
-
-.timeline-center i {
-  font-size: 1.25rem;
-}
-
-.timeline-scroll {
-  position: relative;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-behavior: smooth;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(82 82 91) transparent;
-}
-
-.timeline-scroll::-webkit-scrollbar {
-  height: 8px;
-}
-
-.timeline-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.timeline-scroll::-webkit-scrollbar-thumb {
-  background: rgb(82 82 91);
-  border-radius: 4px;
-}
-
-.timeline-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgb(113 113 122);
-}
-
-.timeline-track {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem 0;
-  min-width: min-content;
-}
-
-.timeline-clip {
-  flex-shrink: 0;
-  width: 280px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  scroll-snap-align: center;
-  transition: transform 0.2s ease;
-}
-
-.timeline-clip.can-interact {
-  cursor: pointer;
-}
-
-.timeline-clip.can-interact:hover {
-  transform: translateY(-4px);
-}
-
-.clip-thumbnail-wrapper {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: 0.75rem;
-  overflow: hidden;
-  background: rgb(39 39 42);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
-}
-
-.clip-thumbnail {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.empty-thumbnail {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, rgb(39 39 42) 0%, rgb(24 24 27) 100%);
-  color: rgb(82 82 91);
-  font-size: 3rem;
-}
-
-.clip-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgb(0 0 0 / 0.6);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  font-size: 2rem;
-  color: white;
-}
-
-.timeline-clip.can-interact:hover .clip-overlay {
-  opacity: 1;
-}
-
-.clip-index {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  background: rgb(0 0 0 / 0.8);
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  backdrop-filter: blur(8px);
-}
-
-.submitter-count {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: rgb(139 92 246 / 0.9);
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  backdrop-filter: blur(8px);
-}
-
-.current-indicator {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(to bottom, rgb(139 92 246 / 0.3), rgb(124 58 237 / 0.5));
-  color: white;
-  font-size: 3rem;
-  pointer-events: none;
-}
-
-.pulse-ring {
-  position: absolute;
-  width: 4rem;
-  height: 4rem;
-  border: 3px solid rgb(139 92 246);
-  border-radius: 50%;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.1);
-  }
-}
-
-.current-clip {
-  box-shadow: 0 0 0 3px rgb(139 92 246 / 0.5);
-  border-radius: 0.75rem;
-}
-
-.current-clip .clip-thumbnail-wrapper {
-  box-shadow:
-    0 0 20px rgb(139 92 246 / 0.4),
-    0 4px 12px rgb(0 0 0 / 0.3);
-}
-
-.history-clip .clip-thumbnail-wrapper {
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.history-clip:hover .clip-thumbnail-wrapper {
-  opacity: 1;
-}
-
-.queue-clip .clip-thumbnail-wrapper {
-  opacity: 0.85;
-  transition: opacity 0.2s ease;
-}
-
-.queue-clip:hover .clip-thumbnail-wrapper {
-  opacity: 1;
-}
-
-.clip-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.clip-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgb(228 228 231);
-  line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.empty-current .clip-title,
-.empty-queue .clip-title {
-  color: rgb(113 113 122);
-  font-style: italic;
-}
-
-.clip-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: rgb(161 161 170);
-}
-
-.submitter {
-  color: rgb(139 92 246);
-  font-weight: 500;
-}
-
-.timeline-indicator {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  padding-top: 0.5rem;
-}
-
-.indicator-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgb(82 82 91);
-  transition: all 0.3s ease;
-}
-
-.indicator-dot.active {
-  background: rgb(139 92 246);
-  transform: scale(1.25);
-}
-
-@media (max-width: 1024px) {
-  .timeline-clip {
-    width: 240px;
-  }
-}
-
-@media (max-width: 768px) {
-  .timeline-header {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-    text-align: center;
-  }
-
-  .timeline-section-label {
-    justify-content: center;
-  }
-
-  .timeline-clip {
-    width: 200px;
-  }
-}
-</style>

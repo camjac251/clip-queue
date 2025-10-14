@@ -1,16 +1,13 @@
 <template>
   <div class="flex items-center gap-2" :class="containerClass">
-    <div :class="iconContainerClass">
-      <!-- eslint-disable-next-line vue/no-v-html -->
-      <svg v-if="svg" :class="iconClass" v-html="svg"></svg>
-    </div>
+    <component :is="platformIcon" :class="iconClass" />
     <div :class="textClass">{{ displayName }}</div>
-    <i
+    <StatusAlertTriangle
       v-if="platforms.isExperimental(platform)"
-      v-tooltip="m.experimental()"
-      class="pi pi-exclamation-triangle text-yellow-600 dark:text-yellow-500"
-      :class="warningClass"
-    ></i>
+      :title="m.experimental()"
+      :size="size === 'small' ? 12 : size === 'large' ? 16 : 14"
+      class="text-yellow-600 dark:text-yellow-500"
+    />
   </div>
 </template>
 
@@ -18,7 +15,9 @@
 import { computed, toRefs } from 'vue'
 
 import type { Platform } from '@cq/platforms'
+import { Platform as PlatformEnum } from '@cq/platforms'
 
+import { BrandKick, BrandTwitch, StatusAlertTriangle } from '@/composables/icons'
 import * as m from '@/paraglide/messages'
 import { usePlatforms } from '@/stores/platforms'
 
@@ -34,7 +33,17 @@ const { platform, size } = toRefs(props)
 
 const platforms = usePlatforms()
 
-const svg = computed(() => platforms.svg(platform.value))
+const platformIcon = computed(() => {
+  switch (platform.value) {
+    case PlatformEnum.TWITCH:
+      return BrandTwitch
+    case PlatformEnum.KICK:
+      return BrandKick
+    default:
+      return BrandTwitch
+  }
+})
+
 const displayName = computed(() => platforms.displayName(platform.value))
 
 const containerClass = computed(() => {
@@ -45,17 +54,6 @@ const containerClass = computed(() => {
       return 'gap-3'
     default:
       return 'gap-2'
-  }
-})
-
-const iconContainerClass = computed(() => {
-  switch (size.value) {
-    case 'small':
-      return 'h-3'
-    case 'large':
-      return 'h-7'
-    default:
-      return 'h-5'
   }
 })
 
@@ -78,17 +76,6 @@ const textClass = computed(() => {
       return 'text-lg'
     default:
       return 'text-base'
-  }
-})
-
-const warningClass = computed(() => {
-  switch (size.value) {
-    case 'small':
-      return 'text-xs'
-    case 'large':
-      return 'text-base'
-    default:
-      return 'text-sm'
   }
 })
 </script>

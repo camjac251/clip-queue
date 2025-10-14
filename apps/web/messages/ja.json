@@ -2,8 +2,6 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "about_credits": "クレジットとライセンス",
   "about_description": "Clip Queueはチャットに統合され、視聴者が提出したクリップをキューに入れます。クリップは、複数のプラットフォームのサポートとリアルタイム同期により、Webインターフェースから簡単に視聴できます。",
-  "about_fork_notice": "これは、追加機能と改善を加えたオリジナルのClip Queueプロジェクトのフォークです。",
-  "about_license": "MITライセンスの下でリリースされています。無料でオープンソースのソフトウェアです。",
   "about_feature_commands_description": "チャンネルのモデレーターはチャットコマンドを使用して直接キューを操作できます。",
   "about_feature_commands_title": "チャットコマンド",
   "about_feature_connect_description": "ログインして自動的にTwitchチャットに接続します。ユーザーがチャットで提出したクリップがキューに追加されます。",
@@ -16,6 +14,9 @@
   "about_feature_popularity_title": "人気クリップが優先表示",
   "about_feature_settings_description": "豊富なカスタマイズ可能な設定を通じて、体験を個人化できます。",
   "about_feature_settings_title": "設定のカスタマイズ",
+  "about_features": "機能",
+  "about_fork_notice": "これは、追加機能と改善を加えたオリジナルのClip Queueプロジェクトのフォークです。",
+  "about_license": "MITライセンスの下でリリースされています。無料でオープンソースのソフトウェアです。",
   "about_original_author": "オリジナルプロジェクトの作成者",
   "allowed_commands": "許可されたコマンド:",
   "allowed_commands_description": "チャットで使用できるコマンド。",
@@ -35,11 +36,11 @@
   "clear_logs_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} ログをクリアしてもよろしいですか?",
         "lengthPlural=other": "{length} 個のログをクリアしてもよろしいですか?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "clip_cache_purged": "クリップキャッシュが消去されました。",
@@ -47,14 +48,15 @@
   "clips": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} クリップ",
         "lengthPlural=other": "{length} クリップ"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "close": "閉じる",
+  "closed": "閉じられました",
   "command_clear": "キュー内のすべてのクリップを削除する。",
   "command_close": "キューを閉じる。",
   "command_disable_auto_mod": "自動モデレーションを無効化する。",
@@ -83,11 +85,11 @@
   "delete_history_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "履歴から {length} クリップを削除してもよろしいですか?",
         "lengthPlural=other": "履歴から {length} 個のクリップを削除してもよろしいですか?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "delete_label": "削除",
@@ -97,11 +99,13 @@
   "error": "エラー",
   "experimental": "実験的",
   "fuchsia": "フクシア",
+  "general": "一般",
   "gray": "グレー",
   "green": "グリーン",
   "history": "履歴",
   "indigo": "インディゴ",
   "info": "情報",
+  "information": "情報",
   "language": "言語:",
   "language_description": "UI全体で使用される言語。",
   "level": "レベル",
@@ -121,6 +125,7 @@
   "no_clip_playing": "クリップが再生されていません",
   "no_clips_previously_watched": "以前に視聴したクリップはありません。",
   "no_logs_captured": "ログはキャプチャされません。",
+  "no_results_found": "結果が見つかりません。",
   "no_upcoming_clips": "キューが空です",
   "none": "なし",
   "now_playing": "再生中",
@@ -154,6 +159,8 @@
   "rose": "ローズ",
   "save": "保存",
   "search": "検索",
+  "search_settings": "設定を検索",
+  "search_settings_placeholder": "設定を検索...",
   "settings": "設定",
   "settings_about": "について",
   "settings_chat": "チャット",
@@ -172,6 +179,7 @@
   "success": "成功",
   "surface_color": "サーフェスカラー:",
   "surface_color_description": "UI全体で使用されるサーフェスカラー。",
+  "system": "システム",
   "teal": "ティール",
   "theme": "テーマ",
   "theme_dark": "ダーク",
@@ -186,6 +194,5 @@
   "viva": "ビバ",
   "warning": "警告",
   "yellow": "イエロー",
-  "zinc": "ジンク",
-  "about_features": "機能"
+  "zinc": "ジンク"
 }

@@ -2,8 +2,6 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "about_credits": "致谢与许可",
   "about_description": "Clip Queue集成到您的聊天中，并将观众提交的剪辑排队。可以通过Web界面轻松查看剪辑，支持多个平台和实时同步。",
-  "about_fork_notice": "这是原始Clip Queue项目的分支，具有附加功能和改进。",
-  "about_license": "根据MIT许可证发布。免费和开源软件。",
   "about_feature_commands_description": "频道的管理员可以使用聊天命令直接与队列互动。",
   "about_feature_commands_title": "聊天命令",
   "about_feature_connect_description": "登录后自动连接到您的 Twitch 聊天。用户在聊天中提交的剪辑将排队。",
@@ -16,6 +14,9 @@
   "about_feature_popularity_title": "热门剪辑优先",
   "about_feature_settings_description": "通过大量可定制的设置个性化您的体验。",
   "about_feature_settings_title": "设置自定义",
+  "about_features": "功能",
+  "about_fork_notice": "这是原始Clip Queue项目的分支，具有附加功能和改进。",
+  "about_license": "根据MIT许可证发布。免费和开源软件。",
   "about_original_author": "原始项目创建者",
   "allowed_commands": "允许的命令：",
   "allowed_commands_description": "聊天中允许使用的命令。",
@@ -35,11 +36,11 @@
   "clear_logs_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "您确定要清除 {length} 个日志吗？",
         "lengthPlural=other": "您确定要清除 {length} 条日志吗？"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "clip_cache_purged": "剪辑缓存已清除。",
@@ -47,14 +48,15 @@
   "clips": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} 个剪辑",
         "lengthPlural=other": "{length} 个剪辑"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "close": "关闭",
+  "closed": "已关闭",
   "command_clear": "移除队列中的所有剪辑。",
   "command_close": "关闭队列。",
   "command_disable_auto_mod": "禁用自动管理。",
@@ -83,11 +85,11 @@
   "delete_history_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "您确定要从历史记录中删除 {length} 个剪辑吗？",
         "lengthPlural=other": "您确定要从历史记录中删除 {length} 个剪辑吗？"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "delete_label": "删除",
@@ -97,11 +99,13 @@
   "error": "错误",
   "experimental": "实验性的",
   "fuchsia": "紫红色",
+  "general": "常规",
   "gray": "灰色",
   "green": "绿色",
   "history": "历史记录",
   "indigo": "靛蓝色",
   "info": "信息",
+  "information": "信息",
   "language": "语言：",
   "language_description": "界面中使用的语言。",
   "level": "等级",
@@ -121,6 +125,7 @@
   "no_clip_playing": "没有正在播放的剪辑",
   "no_clips_previously_watched": "没有之前观看的剪辑。",
   "no_logs_captured": "没有捕获日志。",
+  "no_results_found": "未找到结果。",
   "no_upcoming_clips": "队列为空",
   "none": "无",
   "now_playing": "正在播放",
@@ -154,6 +159,8 @@
   "rose": "玫瑰红",
   "save": "保存",
   "search": "搜索",
+  "search_settings": "搜索设置",
+  "search_settings_placeholder": "搜索设置...",
   "settings": "设置",
   "settings_about": "关于",
   "settings_chat": "聊天",
@@ -172,6 +179,7 @@
   "success": "成功",
   "surface_color": "表面颜色：",
   "surface_color_description": "界面中使用的表面颜色。",
+  "system": "系统",
   "teal": "青蓝色",
   "theme": "主题",
   "theme_dark": "暗黑",
@@ -186,6 +194,5 @@
   "viva": "活力色",
   "warning": "警告",
   "yellow": "黄色",
-  "zinc": "锌灰色",
-  "about_features": "功能"
+  "zinc": "锌灰色"
 }

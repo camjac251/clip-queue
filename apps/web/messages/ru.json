@@ -2,8 +2,6 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "about_credits": "Благодарности и Лицензия",
   "about_description": "Clip Queue интегрируется в ваш чат и ставит в очередь клипы, отправленные зрителями. Клипы можно легко просматривать через веб-интерфейс с поддержкой нескольких платформ и синхронизацией в реальном времени.",
-  "about_fork_notice": "Это форк оригинального проекта Clip Queue с дополнительными функциями и улучшениями.",
-  "about_license": "Выпущено под лицензией MIT. Бесплатное программное обеспечение с открытым исходным кодом.",
   "about_feature_commands_description": "Модераторы канала могут использовать команды чата для прямого взаимодействия с очередью.",
   "about_feature_commands_title": "Команды чата",
   "about_feature_connect_description": "Войдите в систему, чтобы автоматически подключиться к чату Twitch. Клипы, отправленные пользователями в чате, будут добавлены в очередь.",
@@ -16,6 +14,9 @@
   "about_feature_popularity_title": "Популярные клипы поднимаются наверх",
   "about_feature_settings_description": "Персонализируйте свой опыт с помощью множества настраиваемых параметров.",
   "about_feature_settings_title": "Настройка параметров",
+  "about_features": "Функции",
+  "about_fork_notice": "Это форк оригинального проекта Clip Queue с дополнительными функциями и улучшениями.",
+  "about_license": "Выпущено под лицензией MIT. Бесплатное программное обеспечение с открытым исходным кодом.",
   "about_original_author": "Оригинальный проект создан",
   "allowed_commands": "Разрешенные команды:",
   "allowed_commands_description": "Команды, которые можно использовать в чате.",
@@ -35,11 +36,11 @@
   "clear_logs_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "Вы уверены, что хотите очистить журнал {length}?",
         "lengthPlural=other": "Вы уверены, что хотите очистить {length} журналов?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "clip_cache_purged": "Кэш клипов очищен.",
@@ -47,14 +48,15 @@
   "clips": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "{length} клип",
         "lengthPlural=other": "{length} клипов"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "close": "Закрыть",
+  "closed": "Закрыто",
   "command_clear": "Удалить все клипы из очереди.",
   "command_close": "Закрыть очередь.",
   "command_disable_auto_mod": "Отключить авто-модерацию.",
@@ -83,11 +85,11 @@
   "delete_history_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "Вы уверены, что хотите удалить клип {length} из истории?",
         "lengthPlural=other": "Вы уверены, что хотите удалить {length} клипов из истории?"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "delete_label": "Удалить",
@@ -97,11 +99,13 @@
   "error": "Ошибка",
   "experimental": "Экспериментальный",
   "fuchsia": "Фуксия",
+  "general": "Общие",
   "gray": "Серый",
   "green": "Зеленый",
   "history": "История",
   "indigo": "Индиго",
   "info": "Информация",
+  "information": "Информация",
   "language": "Язык:",
   "language_description": "Язык, используемый в интерфейсе.",
   "level": "Уровень",
@@ -121,6 +125,7 @@
   "no_clip_playing": "Клип не воспроизводится",
   "no_clips_previously_watched": "Ранее просмотренных клипов нет.",
   "no_logs_captured": "Журналы не зафиксированы.",
+  "no_results_found": "Результаты не найдены.",
   "no_upcoming_clips": "Очередь пуста",
   "none": "Нет",
   "now_playing": "Сейчас играет",
@@ -154,6 +159,8 @@
   "rose": "Розовый",
   "save": "Сохранить",
   "search": "Поиск",
+  "search_settings": "Поиск настроек",
+  "search_settings_placeholder": "Искать настройку...",
   "settings": "Настройки",
   "settings_about": "О программе",
   "settings_chat": "Чат",
@@ -172,6 +179,7 @@
   "success": "Успех",
   "surface_color": "Цвет фона:",
   "surface_color_description": "Цвет фона, используемый в интерфейсе.",
+  "system": "Система",
   "teal": "Бирюзовый",
   "theme": "Тема",
   "theme_dark": "Тёмная",
@@ -186,6 +194,5 @@
   "viva": "Вива",
   "warning": "Предупреждение",
   "yellow": "Желтый",
-  "zinc": "Цинк",
-  "about_features": "Функции"
+  "zinc": "Цинк"
 }

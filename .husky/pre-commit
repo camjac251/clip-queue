@@ -1,13 +1,13 @@
 # Skip if SKIP_HOOKS=1 (for LLM workflows: SKIP_HOOKS=1 git commit)
 [ "$SKIP_HOOKS" = "1" ] && exit 0
 
-# Run format, typecheck, lint, and test on changed packages + their dependents
+# Format staged files only (automatically re-stages changes)
+npx lint-staged || exit 1
+
+# Run typecheck, lint, and test on changed packages + their dependents
 # Uses Turbo for caching
 # Filter explanation:
 #   --filter='...[HEAD]' = changed packages since last commit + their dependents
 #   --output-logs=errors-only = silent on success, show errors on failure
 #   --concurrency=100% = use all CPU cores for parallel execution
-turbo run format typecheck lint test --filter='...[HEAD]' --output-logs=errors-only --concurrency=100% || exit 1
-
-# Re-stage formatted files
-git add -u
+turbo run typecheck lint test --filter='...[HEAD]' --output-logs=errors-only --concurrency=100% || exit 1

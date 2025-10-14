@@ -2,8 +2,6 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "about_credits": "الاعتمادات والترخيص",
   "about_description": "يتكامل Clip Queue مع دردشتك ويضع المقاطع المقدمة من المشاهدين في قائمة انتظار. يمكن مشاهدة المقاطع بسهولة من خلال واجهة الويب مع دعم منصات متعددة ومزامنة في الوقت الفعلي.",
-  "about_fork_notice": "هذا نسخة معدلة من مشروع Clip Queue الأصلي مع ميزات وتحسينات إضافية.",
-  "about_license": "صدر بموجب ترخيص MIT. برنامج مجاني ومفتوح المصدر.",
   "about_feature_commands_description": "يمكن لمشرفي القناة استخدام أوامر الدردشة للتفاعل مباشرة مع قائمة الانتظار.",
   "about_feature_commands_title": "أوامر الدردشة",
   "about_feature_connect_description": "سجل الدخول للاتصال تلقائيًا بدردشة Twitch الخاصة بك. سيتم إدخال المقاطع التي يرسلها المستخدمون في قائمة الانتظار.",
@@ -16,6 +14,9 @@
   "about_feature_popularity_title": "المقاطع الشهيرة تظهر أولاً",
   "about_feature_settings_description": "قم بتخصيص تجربتك من خلال مجموعة واسعة من الخيارات القابلة للتخصيص.",
   "about_feature_settings_title": "تخصيص الإعدادات",
+  "about_features": "الميزات",
+  "about_fork_notice": "هذا نسخة معدلة من مشروع Clip Queue الأصلي مع ميزات وتحسينات إضافية.",
+  "about_license": "صدر بموجب ترخيص MIT. برنامج مجاني ومفتوح المصدر.",
   "about_original_author": "المشروع الأصلي من إنشاء",
   "allowed_commands": "الأوامر المسموح بها:",
   "allowed_commands_description": "الأوامر المسموح باستخدامها في الدردشة.",
@@ -35,11 +36,11 @@
   "clear_logs_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "هل أنت متأكد أنك تريد مسح سجل واحد؟",
         "lengthPlural=other": "هل أنت متأكد أنك تريد مسح {length} سجلات؟"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "clip_cache_purged": "تم مسح ذاكرة التخزين المؤقت للمقاطع.",
@@ -47,14 +48,15 @@
   "clips": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "مقطع واحد",
         "lengthPlural=other": "{length} مقاطع"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "close": "إغلاق",
+  "closed": "مغلق",
   "command_clear": "إزالة جميع المقاطع من قائمة الانتظار.",
   "command_close": "إغلاق قائمة الانتظار.",
   "command_disable_auto_mod": "تعطيل الإشراف التلقائي.",
@@ -83,11 +85,11 @@
   "delete_history_confirm": [
     {
       "declarations": ["input length", "local lengthPlural = length: plural"],
-      "selectors": ["lengthPlural"],
       "match": {
         "lengthPlural=one": "هل أنت متأكد أنك تريد حذف مقطع واحد من السجل؟",
         "lengthPlural=other": "هل أنت متأكد أنك تريد حذف {length} مقاطع من السجل؟"
-      }
+      },
+      "selectors": ["lengthPlural"]
     }
   ],
   "delete_label": "حذف",
@@ -97,11 +99,13 @@
   "error": "خطأ",
   "experimental": "تجريبي",
   "fuchsia": "الفوشيا",
+  "general": "عام",
   "gray": "الرمادي",
   "green": "الأخضر",
   "history": "السجل",
   "indigo": "النيلي",
   "info": "معلومات",
+  "information": "معلومات",
   "language": "اللغة:",
   "language_description": "اللغة المستخدمة في واجهة المستخدم.",
   "level": "المستوى",
@@ -121,6 +125,7 @@
   "no_clip_playing": "لا يوجد مقطع قيد التشغيل",
   "no_clips_previously_watched": "لم تتم مشاهدة أي مقاطع سابقًا.",
   "no_logs_captured": "لم يتم التقاط أي سجلات.",
+  "no_results_found": "لم يتم العثور على نتائج.",
   "no_upcoming_clips": "قائمة الانتظار فارغة",
   "none": "لا شيء",
   "now_playing": "يُعرض الآن",
@@ -154,6 +159,8 @@
   "rose": "الوردي",
   "save": "حفظ",
   "search": "بحث",
+  "search_settings": "البحث في الإعدادات",
+  "search_settings_placeholder": "البحث عن إعداد...",
   "settings": "الإعدادات",
   "settings_about": "حول",
   "settings_chat": "الدردشة",
@@ -172,6 +179,7 @@
   "success": "نجاح",
   "surface_color": "لون السطح:",
   "surface_color_description": "لون السطح المستخدم في واجهة المستخدم.",
+  "system": "النظام",
   "teal": "الأزرق المخضر",
   "theme": "السمة",
   "theme_dark": "داكنة",
@@ -186,6 +194,5 @@
   "viva": "فيفا",
   "warning": "تحذير",
   "yellow": "الأصفر",
-  "zinc": "الزنك",
-  "about_features": "الميزات"
+  "zinc": "الزنك"
 }

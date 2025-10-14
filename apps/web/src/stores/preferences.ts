@@ -1,9 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
-import type { ColorOption } from '@cq/ui'
-import { colors, setColorPalette, surfaces } from '@cq/ui'
-
 import type { Locale } from '@/paraglide/runtime'
 import { baseLocale, isLocale, setLocale } from '@/paraglide/runtime'
 
@@ -66,14 +63,6 @@ export interface UserPreferences {
    */
   theme: Theme
   /**
-   * The primary color.
-   */
-  primary: ColorOption
-  /**
-   * The surface color.
-   */
-  surface: ColorOption
-  /**
    * Whether to automatically advance to the next clip when the current one ends.
    */
   autoplay: boolean
@@ -82,8 +71,6 @@ export interface UserPreferences {
 export const DEFAULTS: UserPreferences = {
   language: getInferredDefaultLanguage(baseLocale),
   theme: getInferredDefaultTheme('light'),
-  primary: structuredClone(colors[12]!), // Purple
-  surface: structuredClone(surfaces[2]!), // Zinc
   autoplay: false
 }
 
@@ -101,8 +88,6 @@ export const usePreferences = defineStore(
         return (
           preferences.value.language !== p.language ||
           preferences.value.theme !== p.theme ||
-          preferences.value.primary.name !== p.primary.name ||
-          preferences.value.surface.name !== p.surface.name ||
           preferences.value.autoplay !== p.autoplay
         )
       }
@@ -124,24 +109,18 @@ export const usePreferences = defineStore(
           setLocale(DEFAULTS.language, { reload: false })
         }
       }
-      if (value.primary.name !== old?.primary.name) {
-        setColorPalette('primary', value.primary.palette)
-      }
-      if (value.surface.name !== old?.surface.name) {
-        setColorPalette('surface', value.surface.palette)
-      }
       if (value.theme !== old?.theme) {
         if (value.theme === 'dark') {
-          document?.querySelector('html')?.classList.add('app-dark')
+          document?.querySelector('html')?.classList.add('dark')
         } else {
-          document.querySelector('html')?.classList.remove('app-dark')
+          document.querySelector('html')?.classList.remove('dark')
         }
       }
     }
 
     function toggleTheme() {
       preferences.value.theme = preferences.value.theme === 'dark' ? 'light' : 'dark'
-      document.querySelector('html')?.classList.toggle('app-dark')
+      document.querySelector('html')?.classList.toggle('dark')
     }
 
     function $reset() {
