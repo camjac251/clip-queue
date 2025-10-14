@@ -138,6 +138,9 @@ router.beforeEach(async (to, from, next) => {
   const logger = useLogger()
   const user = useUser()
 
+  // Wait for initial auth check to complete (prevents race condition on page refresh)
+  await user.ensureInitialized()
+
   // Redirect to queue if trying to access protected route while not logged in
   if (!user.isLoggedIn && to.meta.requiresAuth) {
     logger.debug(`[Router]: User is not logged in, redirecting to queue page from ${to.fullPath}.`)

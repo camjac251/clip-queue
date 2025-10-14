@@ -26,6 +26,10 @@ export const useUser = defineStore('user', () => {
   const canControlQueue = computed(() => isModerator.value || isBroadcaster.value)
   const canManageSettings = computed(() => isBroadcaster.value)
 
+  // Track initialization state to prevent race conditions with router guards
+  const isInitialized = ref<boolean>(false)
+  let initializationPromise: Promise<void> | null = null
+
   // Token validation interval (every 5 minutes to detect expired tokens)
   let validationInterval: ReturnType<typeof setInterval> | null = null
 
@@ -104,7 +108,22 @@ export const useUser = defineStore('user', () => {
     } catch (error: unknown) {
       logger.error(`[User]: Failed to check login status: ${error}`)
       isLoggedIn.value = false
+    } finally {
+      isInitialized.value = true
     }
+  }
+
+  /**
+   * Ensure initialization completes before router guards check auth status
+   * Returns a promise that resolves when initial login check is done
+   */
+  async function ensureInitialized(): Promise<void> {
+    if (isInitialized.value) return
+    if (initializationPromise) return initializationPromise
+
+    // Store the promise so multiple calls wait for the same initialization
+    initializationPromise = checkLoginStatus()
+    await initializationPromise
   }
 
   /**
@@ -119,7 +138,7 @@ export const useUser = defineStore('user', () => {
       logger.info('[User]: OAuth login successful')
       await checkLoginStatus()
 
-      // Clean URL
+      // Clean OAuth callback params from URL
       router.replace({ query: {} })
     } else if (loginStatus === 'error') {
       const reason = params.get('reason') || 'unknown'
@@ -130,7 +149,7 @@ export const useUser = defineStore('user', () => {
         message: `Login failed: ${reason}. Please try again.`
       })
 
-      // Clean URL
+      // Clean OAuth callback params from URL
       router.replace({ query: {} })
     }
   }
@@ -219,8 +238,10 @@ export const useUser = defineStore('user', () => {
     isModerator,
     canControlQueue,
     canManageSettings,
+    isInitialized,
     redirect,
     checkLoginStatus,
+    ensureInitialized,
     handleOAuthCallback,
     logout,
     fetchUserRole
