@@ -87,9 +87,11 @@ export function closeDatabase(): void {
     try {
       // Get underlying SQLite instance and close it
       // @ts-expect-error - accessing internal property
-      const sqlite = dbInstance._.session.db as Database.Database
-      sqlite.close()
-      console.log('[Database] Connection closed')
+      const sqlite = dbInstance._.session?.db as Database.Database | undefined
+      if (sqlite) {
+        sqlite.close()
+        console.log('[Database] Connection closed')
+      }
     } catch (error) {
       console.error('[Database] Error closing connection:', error)
     } finally {
