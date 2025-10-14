@@ -562,20 +562,21 @@ import("./index.js"); // Import LAST
 
 1. `apps/web/src/stores/queue-server.ts` - HTTP polling + queue state
 2. `apps/web/src/stores/user.ts` - Auth + role management
-3. `apps/web/src/stores/preferences.ts` - Theme + language
+3. `apps/web/src/stores/preferences.ts` - Theme + language + autoplay preference
 4. `apps/web/src/utils/api.ts` - Authenticated fetch wrapper
 5. `apps/web/src/composables/toast.ts` - Toast notifications composable
 6. `apps/web/src/composables/player-state.ts` - Video player state composable
 7. `apps/web/src/composables/icons.ts` - Centralized icon registry (34 icons)
-8. `apps/web/src/views/QueuePage.vue` - Main player view
+8. `apps/web/src/views/QueuePage.vue` - Main player view (passes autoplay preference)
+9. `apps/web/src/components/ClipPlayer.vue` - Clip player wrapper (threads autoplay to CqPlayer)
 
 **Shared:**
 
 1. `packages/platforms/src/clip-list.ts` - Priority queue (popularity sorting)
 2. `packages/platforms/src/twitch.ts` / `kick.ts` - Clip fetching
 3. `packages/platforms/src/types.ts` - `Clip` interface + `toClipUUID()`
-4. `packages/player/src/VidStackPlayer.vue` - Video player (auto URL refresh)
-5. `packages/player/src/CqPlayer.vue` - Player component router
+4. `packages/player/src/VidStackPlayer.vue` - Video player (auto URL refresh + play button overlay)
+5. `packages/player/src/CqPlayer.vue` - Player component router (accepts autoplay prop)
 6. `packages/ui/src/components/ui/` - shadcn-vue components
 7. `packages/ui/src/styles/tailwind.css` - Theme CSS variables
 8. `packages/ui/src/icons.ts` - UI package icon registry (10 component icons)
@@ -628,15 +629,95 @@ if (url.includes("newplatform.com/clips/")) {
 
 ### Git Hooks (Husky)
 
-**Pre-commit**: Runs `typecheck`, `lint`, `test` on changed packages only (uses Turborepo caching)
-**Commit Message**: Validates [Conventional Commits](https://www.conventionalcommits.org/) format
+**Hooks Active:**
 
-**Skip Hooks** (for LLM workflows):
+- **pre-commit**: Format staged files (lint-staged) + run `typecheck`, `lint`, `test` on changed packages (Turborepo)
+- **commit-msg**: Validate commit message format (commitlint)
+
+**Pre-commit Hook Details:**
+
+1. **lint-staged** (`.husky/pre-commit:5`):
+   - Runs `prettier --write --ignore-unknown` on all staged files
+   - Auto-formats code before commit
+   - Automatically re-stages formatted files
+
+2. **Turborepo validation** (`.husky/pre-commit:13`):
+   - Runs `turbo run typecheck lint test --filter='...[HEAD]'`
+   - Only checks changed packages + their dependents (fast!)
+   - Uses cached results when possible (80-90% faster on cache hits)
+   - Parallel execution with all CPU cores
+
+**Commit-msg Hook Details:**
+
+- Validates [Conventional Commits](https://www.conventionalcommits.org/) format
+- Enforces line length limits (subject: 72, body/footer: 120)
+- Validates type and scope (see rules below)
+
+**Commit Message Format:**
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**Rules** (enforced by commitlint):
+
+- **Subject**: Max 72 chars (git best practice for single-line display)
+- **Body**: Max 120 chars per line (wrap long explanations)
+- **Footer**: Max 120 chars per line (for issue refs, breaking changes)
+
+**Available Types:**
+
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation only
+- `style` - Code style (formatting, semicolons, etc.)
+- `refactor` - Code change (neither fixes bug nor adds feature)
+- `perf` - Performance improvement
+- `test` - Adding/updating tests
+- `build` - Build system or dependencies
+- `ci` - CI configuration
+- `chore` - Other changes (doesn't modify src/test)
+- `revert` - Revert previous commit
+
+**Available Scopes** (optional):
+`api`, `web`, `player`, `platforms`, `queue-ops`, `services`, `schemas`, `ui`, `utils`, `constants`, `config`, `deps`, `i18n`, `docs`, `ci`, `docker`, `db`
+
+**Examples:**
 
 ```sh
-SKIP_HOOKS=1 git commit
-# Or: git commit --no-verify
+# Good (fits line limits)
+git commit -m "fix(player): respect autoplay preference and add play button
+
+- Thread autoplay through component chain
+- Fix hot reload autoplay bug
+- Add clickable overlay when autoplay disabled"
+
+# Bad (subject too long, body lines too long)
+git commit -m "fix(player): respect autoplay preference and add manual play button overlay
+
+- Thread autoplay preference through component chain (QueuePage → ClipPlayer → CqPlayer → VidStackPlayer)"
 ```
+
+**Skip Hooks:**
+
+```sh
+# Skip pre-commit hook only (still validates commit message)
+SKIP_HOOKS=1 git commit
+
+# Skip all hooks (pre-commit AND commit-msg)
+git commit --no-verify
+# Or: SKIP_HOOKS=1 git commit --no-verify
+```
+
+**When to skip:**
+
+- LLM workflows where formatting/tests already passed
+- Emergency hotfixes (use sparingly!)
+- Amending commits after pre-commit hook made changes
 
 **Troubleshooting:**
 
@@ -714,3 +795,5 @@ rm -rf .turbo                        # Clear cache
 - **Icon imports**: Use centralized registries (`@/composables/icons` for app, `@cq/ui` for UI package) - do NOT import directly from `~icons/*`
 - **Icon naming**: Use semantic prefixes (Brand*, Action*, Nav*, Status*, Media*, Ui*, Theme\*) for clarity
 - **env.d.ts files**: Provide TypeScript declarations for Vite features and unplugin-icons imports (do not modify)
+- **Autoplay preference**: Thread through component chain (QueuePage → ClipPlayer → CqPlayer → VidStackPlayer); when disabled, shows clickable play button overlay that auto-hides after playback starts
+- **Player autoplay prop**: Always pass `preferences.preferences.autoplay` to `ClipPlayer` to prevent hot reload bugs where video autoplays despite preference being off
