@@ -95,7 +95,11 @@ onMounted(async () => {
   // Initialize stores
   queueServer.initialize()
   settings.initialize()
-  await settings.loadSettings() // Requires broadcaster authentication
+
+  // Only load settings if authenticated as broadcaster
+  if (user.canManageSettings) {
+    await settings.loadSettings()
+  }
 
   // Start polling for auth events every 100ms
   authEventInterval = window.setInterval(checkAuthEvents, 100)
