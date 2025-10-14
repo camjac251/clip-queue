@@ -8,6 +8,7 @@
           ref="clipPlayerRef"
           :key="toClipUUID(queue.current)"
           :clip="queue.current"
+          :autoplay="preferences.preferences.autoplay"
           @ended="handleNext()"
         />
         <div

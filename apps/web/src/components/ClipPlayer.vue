@@ -8,6 +8,7 @@
       :thumbnail-url="clip.thumbnailUrl"
       :clip-id="clip.id"
       :clip-platform="clip.platform"
+      :autoplay="shouldAutoplay"
       @ended="handleVideoEnded"
       @error="handleVideoError"
     >
@@ -29,13 +30,21 @@ import { usePreferences } from '@/stores/preferences'
 
 export interface Props {
   clip: Clip
+  autoplay?: boolean
 }
 
-const props = defineProps<Props>()
-const { clip } = toRefs(props)
+const props = withDefaults(defineProps<Props>(), {
+  autoplay: undefined
+})
+const { clip, autoplay } = toRefs(props)
 
 const logger = useLogger()
 const preferences = usePreferences()
+
+// Use prop autoplay if provided, otherwise fall back to preference
+const shouldAutoplay = computed(() => {
+  return autoplay.value !== undefined ? autoplay.value : preferences.preferences.autoplay
+})
 
 const emit = defineEmits<{
   (e: 'ended'): void

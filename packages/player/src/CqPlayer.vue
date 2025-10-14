@@ -17,7 +17,7 @@
         :title
         :clip-id="clipId"
         :clip-platform="clipPlatform"
-        autoplay
+        :autoplay
         @ended="emit('ended')"
         @error="(error) => emit('error', error)"
       />
@@ -43,6 +43,7 @@ export interface Props {
   thumbnailUrl?: string
   clipId?: string
   clipPlatform?: string
+  autoplay?: boolean
 }
 
 const {
@@ -51,7 +52,8 @@ const {
   source = undefined,
   thumbnailUrl = undefined,
   clipId = undefined,
-  clipPlatform = undefined
+  clipPlatform = undefined,
+  autoplay = true
 } = defineProps<Props>()
 
 const emit = defineEmits<{

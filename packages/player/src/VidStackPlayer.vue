@@ -1,21 +1,45 @@
 <template>
-  <media-player
-    ref="playerElement"
-    class="cq-player"
-    :title
-    :src="currentVideoUrl"
-    :autoplay
-    playsinline
-    @provider-change="handleProviderChange"
-    @can-play="handleCanPlay"
-    @ended="emit('ended')"
-    @error="handleError"
-    @volume-change="handleVolumeChange"
-  >
-    <media-provider>
-      <media-poster v-if="poster" class="vds-poster" :src="poster" :alt="title" />
-    </media-provider>
-  </media-player>
+  <div class="cq-player-wrapper">
+    <media-player
+      ref="playerElement"
+      class="cq-player"
+      :title
+      :src="currentVideoUrl"
+      :autoplay
+      playsinline
+      @provider-change="handleProviderChange"
+      @can-play="handleCanPlay"
+      @playing="handlePlaying"
+      @ended="emit('ended')"
+      @error="handleError"
+      @volume-change="handleVolumeChange"
+    >
+      <media-provider>
+        <media-poster v-if="poster" class="vds-poster" :src="poster" :alt="title" />
+      </media-provider>
+    </media-player>
+
+    <!-- Play button overlay when autoplay is disabled -->
+    <div
+      v-if="!autoplay && !hasStartedPlaying && isPlayerReady"
+      class="cq-play-overlay"
+      @click="handlePlayClick"
+    >
+      <div class="cq-play-button">
+        <svg
+          width="80"
+          height="80"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <circle cx="12" cy="12" r="10" fill="rgba(139, 92, 246, 0.9)" />
+          <path d="M9.5 8.5L16.5 12L9.5 15.5V8.5Z" fill="white" />
+        </svg>
+      </div>
+      <p class="cq-play-text">Click to play</p>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -57,6 +81,7 @@ const hasRefreshed = ref(false)
 const currentVideoUrl = ref<string | undefined>(undefined)
 const isPlayerReady = ref(false)
 const pendingPlay = ref(false)
+const hasStartedPlaying = ref(false)
 
 // Expose player API for external controls
 defineExpose({
@@ -237,6 +262,10 @@ function handleProviderChange() {
   isPlayerReady.value = false
 }
 
+function handlePlaying() {
+  hasStartedPlaying.value = true
+}
+
 async function handleCanPlay() {
   console.log('[VidStack] Media can play')
   isPlayerReady.value = true
@@ -260,6 +289,17 @@ async function handleCanPlay() {
   }
 }
 
+async function handlePlayClick() {
+  if (playerElement.value) {
+    try {
+      await playerElement.value.play()
+    } catch (error) {
+      console.error('[VidStack] Failed to start playback:', error)
+      emit('error', 'Failed to start playback')
+    }
+  }
+}
+
 // Watch for source or clipId changes
 watch(
   [source, clipId, clipPlatform],
@@ -267,6 +307,7 @@ watch(
     hasRefreshed.value = false
     isPlayerReady.value = false
     pendingPlay.value = false
+    hasStartedPlaying.value = false
 
     // If no source provided but we have a Twitch clip ID, fetch it
     if (!newSource && newClipId && newPlatform === 'twitch') {
@@ -282,6 +323,7 @@ onMounted(async () => {
   hasRefreshed.value = false
   isPlayerReady.value = false
   pendingPlay.value = false
+  hasStartedPlaying.value = false
 
   // If no source provided but we have a Twitch clip ID, fetch it
   if (!source.value && clipId?.value && clipPlatform?.value === 'twitch') {
@@ -296,6 +338,12 @@ onMounted(async () => {
 <!-- Style block required for third-party library (Vidstack CSS variable API) -->
 <style>
 /* Custom purple/violet theme - matches Queue/Timeline design */
+.cq-player-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
 .cq-player {
   /* Brand colors (violet-500: rgb(139 92 246)) */
   --brand-color: rgb(139 92 246);
@@ -316,5 +364,39 @@ onMounted(async () => {
     0 10px 15px -3px rgb(0 0 0 / 0.2),
     0 4px 6px -4px rgb(0 0 0 / 0.2),
     0 0 0 1px rgb(255 255 255 / 0.05);
+}
+
+/* Play button overlay for manual playback */
+.cq-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  transition: background 0.3s ease;
+  z-index: 10;
+}
+
+.cq-play-overlay:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.cq-play-button {
+  transition: transform 0.2s ease;
+}
+
+.cq-play-overlay:hover .cq-play-button {
+  transform: scale(1.1);
+}
+
+.cq-play-text {
+  margin-top: 1rem;
+  color: white;
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 </style>
