@@ -17,6 +17,8 @@ export const useUser = defineStore('user', () => {
 
   const isLoggedIn = ref<boolean>(false)
   const username = ref<string | undefined>(undefined)
+  const displayName = ref<string | undefined>(undefined)
+  const profileImageUrl = ref<string | undefined>(undefined)
 
   // Role information from backend
   const isBroadcaster = ref<boolean>(false)
@@ -77,12 +79,14 @@ export const useUser = defineStore('user', () => {
 
       const data = parseResult.data
       username.value = data.username
+      displayName.value = data.displayName
+      profileImageUrl.value = data.profileImageUrl
       isBroadcaster.value = data.isBroadcaster
       isModerator.value = data.isModerator
       isLoggedIn.value = true
 
       logger.info(
-        `[User]: Role fetched - User: ${data.username}, Broadcaster: ${data.isBroadcaster}, Moderator: ${data.isModerator}`
+        `[User]: Role fetched - User: ${data.displayName} (${data.username}), Broadcaster: ${data.isBroadcaster}, Moderator: ${data.isModerator}`
       )
     } catch (error: unknown) {
       logger.error(`[User]: Failed to fetch role: ${error}`)
@@ -102,12 +106,17 @@ export const useUser = defineStore('user', () => {
       } else {
         isLoggedIn.value = false
         username.value = undefined
+        displayName.value = undefined
+        profileImageUrl.value = undefined
         isBroadcaster.value = false
         isModerator.value = false
       }
     } catch (error: unknown) {
       logger.error(`[User]: Failed to check login status: ${error}`)
       isLoggedIn.value = false
+      username.value = undefined
+      displayName.value = undefined
+      profileImageUrl.value = undefined
     } finally {
       isInitialized.value = true
     }
@@ -227,6 +236,8 @@ export const useUser = defineStore('user', () => {
     // Clear local state
     isLoggedIn.value = false
     username.value = undefined
+    displayName.value = undefined
+    profileImageUrl.value = undefined
     isBroadcaster.value = false
     isModerator.value = false
   }
@@ -234,6 +245,8 @@ export const useUser = defineStore('user', () => {
   return {
     isLoggedIn,
     username,
+    displayName,
+    profileImageUrl,
     isBroadcaster,
     isModerator,
     canControlQueue,

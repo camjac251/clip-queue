@@ -131,14 +131,24 @@
             class="w-full gap-3 transition-all duration-300"
             :class="isCollapsed ? 'h-10 p-0' : 'h-auto px-3 py-2'"
           >
+            <img
+              v-if="user.profileImageUrl"
+              :src="user.profileImageUrl"
+              :alt="user.displayName"
+              class="shrink-0 rounded-full object-cover shadow-sm"
+              :class="isCollapsed ? 'h-8 w-8' : 'h-10 w-10'"
+            />
             <div
+              v-else
               class="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 font-bold text-white shadow-md"
               :class="isCollapsed ? 'h-8 w-8 text-sm' : 'h-10 w-10 text-base'"
             >
-              {{ user.username?.charAt(0).toUpperCase() }}
+              {{
+                user.displayName?.charAt(0).toUpperCase() || user.username?.charAt(0).toUpperCase()
+              }}
             </div>
             <div v-if="!isCollapsed" class="flex flex-1 flex-col items-start overflow-hidden">
-              <span class="truncate text-sm font-semibold">{{ user.username }}</span>
+              <span class="truncate text-sm font-semibold">{{ user.displayName }}</span>
               <span class="text-muted-foreground text-xs">
                 {{ user.isBroadcaster ? 'Broadcaster' : user.isModerator ? 'Moderator' : 'Viewer' }}
               </span>
@@ -148,7 +158,7 @@
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" :side="isCollapsed ? 'right' : 'top'">
           <DropdownMenuItem disabled class="font-semibold">
-            {{ user.username }}
+            {{ user.displayName }}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem @click="handleLogout">
