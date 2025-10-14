@@ -18,9 +18,13 @@
         >
           {{ m.reset_settings() }}
         </Button>
-        <Message class="mt-3" size="sm" severity="secondary" variant="simple">{{
-          m.reset_settings_description()
-        }}</Message>
+        <Message
+          class="mt-4 text-xs leading-relaxed"
+          size="sm"
+          severity="secondary"
+          variant="simple"
+          >{{ m.reset_settings_description() }}</Message
+        >
       </CardContent>
     </Card>
 
@@ -42,9 +46,13 @@
         >
           {{ m.purge_history() }}
         </Button>
-        <Message class="mt-3" size="sm" severity="secondary" variant="simple">{{
-          m.purge_history_description()
-        }}</Message>
+        <Message
+          class="mt-4 text-xs leading-relaxed"
+          size="sm"
+          severity="secondary"
+          variant="simple"
+          >{{ m.purge_history_description() }}</Message
+        >
       </CardContent>
     </Card>
   </div>

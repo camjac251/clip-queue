@@ -10,22 +10,29 @@
       </CardHeader>
       <CardContent>
         <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-4 text-left">
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <label for="autoModeration" class="font-medium">{{ m.auto_mod() }}</label>
+          <div class="flex flex-col gap-8 text-left">
+            <div>
+              <div class="mb-2.5 flex items-center justify-between gap-4">
+                <label for="autoModeration" class="text-sm font-semibold">{{ m.auto_mod() }}</label>
                 <ToggleSwitch
                   v-model="formSettings.hasAutoModerationEnabled"
                   input-id="autoModeration"
                   aria-describedby="autoModeration-help"
                 />
               </div>
-              <Message id="autoModeration-help" size="sm" severity="secondary" variant="simple">{{
-                m.auto_mod_description()
-              }}</Message>
+              <Message
+                id="autoModeration-help"
+                size="sm"
+                severity="secondary"
+                variant="simple"
+                class="text-xs leading-relaxed"
+                >{{ m.auto_mod_description() }}</Message
+              >
             </div>
-            <div class="space-y-2">
-              <label for="limit" class="font-medium">{{ m.size_limit() }}</label>
+            <div>
+              <label for="limit" class="mb-2.5 block text-sm font-semibold">{{
+                m.size_limit()
+              }}</label>
               <InputNumber
                 v-model="formSettings.limit"
                 input-id="limit"
@@ -36,12 +43,19 @@
                 show-buttons
                 aria-describedby="limit-help"
               />
-              <Message id="limit-help" size="sm" severity="secondary" variant="simple">{{
-                m.size_limit_description()
-              }}</Message>
+              <Message
+                id="limit-help"
+                size="sm"
+                severity="secondary"
+                variant="simple"
+                class="mt-2.5 text-xs leading-relaxed"
+                >{{ m.size_limit_description() }}</Message
+              >
             </div>
-            <div class="space-y-2">
-              <label for="allowedPlatforms" class="font-medium">{{ m.allowed_platforms() }}</label>
+            <div>
+              <label for="allowedPlatforms" class="mb-2.5 block text-sm font-semibold">{{
+                m.allowed_platforms()
+              }}</label>
               <MultiSelect
                 v-model="formSettings.platforms"
                 input-id="allowedPlatforms"
@@ -59,12 +73,17 @@
                   </Chip>
                 </template>
               </MultiSelect>
-              <Message id="allowedPlatforms-help" size="sm" severity="secondary" variant="simple">{{
-                m.allowed_platforms_description()
-              }}</Message>
+              <Message
+                id="allowedPlatforms-help"
+                size="sm"
+                severity="secondary"
+                variant="simple"
+                class="mt-2.5 text-xs leading-relaxed"
+                >{{ m.allowed_platforms_description() }}</Message
+              >
             </div>
           </div>
-          <div class="border-border/50 mt-6 flex gap-2 border-t pt-4">
+          <div class="border-border/50 mt-8 flex gap-2 border-t pt-6">
             <Button
               variant="default"
               class="flex-1"

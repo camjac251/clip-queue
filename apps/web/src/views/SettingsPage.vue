@@ -33,7 +33,7 @@
 
       <!-- Content Area -->
       <main class="flex-1 overflow-y-auto">
-        <div class="mx-auto max-w-4xl p-4 lg:p-6">
+        <div class="mx-auto max-w-4xl px-4 py-8 lg:px-6 lg:py-12">
           <RouterView />
         </div>
       </main>

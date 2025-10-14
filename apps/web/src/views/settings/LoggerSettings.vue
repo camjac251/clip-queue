@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <!-- Logger Configuration -->
-    <Card class="mx-auto max-w-4xl">
+    <Card class="mx-auto max-w-3xl">
       <CardHeader>
         <CardTitle class="flex items-center gap-2">
           <NavSettings :size="20" class="text-violet-600 dark:text-violet-500" />
@@ -11,9 +11,11 @@
       </CardHeader>
       <CardContent>
         <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-4 text-left">
-            <div class="space-y-2">
-              <label for="loggerLevel" class="font-medium">{{ m.level_colon() }}</label>
+          <div class="flex flex-col gap-8 text-left">
+            <div>
+              <label for="loggerLevel" class="mb-2.5 block text-sm font-semibold">{{
+                m.level_colon()
+              }}</label>
               <Select v-model="formSettings.level">
                 <SelectTrigger id="loggerLevel" aria-describedby="loggerLevel-help">
                   <SelectValue :placeholder="logLevelTranslations[formSettings.level]()" />
@@ -24,12 +26,19 @@
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <Message id="loggerLevel-help" size="sm" severity="secondary" variant="simple">{{
-                m.logger_level_description()
-              }}</Message>
+              <Message
+                id="loggerLevel-help"
+                size="sm"
+                severity="secondary"
+                variant="simple"
+                class="mt-2.5 text-xs leading-relaxed"
+                >{{ m.logger_level_description() }}</Message
+              >
             </div>
-            <div class="space-y-2">
-              <label for="loggerLimit" class="font-medium">{{ m.size_limit() }}</label>
+            <div>
+              <label for="loggerLimit" class="mb-2.5 block text-sm font-semibold">{{
+                m.size_limit()
+              }}</label>
               <InputNumber
                 v-model="formSettings.limit"
                 input-id="loggerLimit"
@@ -41,12 +50,17 @@
                 show-buttons
                 aria-describedby="loggerLimit-help"
               />
-              <Message id="loggerLimit-help" size="sm" severity="secondary" variant="simple">{{
-                m.logger_size_limit_description()
-              }}</Message>
+              <Message
+                id="loggerLimit-help"
+                size="sm"
+                severity="secondary"
+                variant="simple"
+                class="mt-2.5 text-xs leading-relaxed"
+                >{{ m.logger_size_limit_description() }}</Message
+              >
             </div>
           </div>
-          <div class="border-border/50 mt-6 flex gap-2 border-t pt-4">
+          <div class="border-border/50 mt-8 flex gap-2 border-t pt-6">
             <Button
               variant="default"
               class="flex-1"
@@ -71,7 +85,7 @@
     </Card>
 
     <!-- Logs View -->
-    <Card class="mx-auto max-w-4xl">
+    <Card class="mx-auto max-w-3xl">
       <CardHeader>
         <div class="flex items-center justify-between">
           <div>

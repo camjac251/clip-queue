@@ -1,6 +1,6 @@
 <template>
   <div v-if="user.canManageSettings">
-    <Card class="mx-auto max-w-4xl">
+    <Card class="mx-auto max-w-3xl">
       <CardHeader>
         <CardTitle class="flex items-center gap-2">
           <NavMessageSquare :size="20" class="text-violet-600 dark:text-violet-500" />
@@ -10,10 +10,12 @@
       </CardHeader>
       <CardContent>
         <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-6 text-left">
+          <div class="flex flex-col gap-8 text-left">
             <!-- Command Prefix -->
-            <div class="space-y-2">
-              <label for="commandPrefix" class="font-medium">{{ m.command_prefix() }}</label>
+            <div>
+              <label for="commandPrefix" class="mb-2.5 block text-sm font-semibold">{{
+                m.command_prefix()
+              }}</label>
               <InputText
                 id="commandPrefix"
                 v-model="formSettings.prefix"
@@ -22,15 +24,20 @@
                 aria-describedby="commandPrefix-help"
                 @keydown.space.prevent
               />
-              <Message id="commandPrefix-help" size="sm" severity="secondary" variant="simple">{{
-                m.command_prefix_description()
-              }}</Message>
+              <Message
+                id="commandPrefix-help"
+                size="sm"
+                severity="secondary"
+                variant="simple"
+                class="mt-2.5 text-xs leading-relaxed"
+                >{{ m.command_prefix_description() }}</Message
+              >
             </div>
 
             <!-- Commands Grid -->
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <label class="font-medium">{{ m.allowed_commands() }}</label>
+            <div>
+              <div class="mb-2.5 flex items-center justify-between gap-4">
+                <label class="text-sm font-semibold">{{ m.allowed_commands() }}</label>
                 <div class="flex gap-2">
                   <Button type="button" variant="outline" size="sm" @click="selectAll">
                     Select All
@@ -40,12 +47,16 @@
                   </Button>
                 </div>
               </div>
-              <Message size="sm" severity="secondary" variant="simple">{{
-                m.allowed_commands_description()
-              }}</Message>
+              <Message
+                size="sm"
+                severity="secondary"
+                variant="simple"
+                class="mb-3 text-xs leading-relaxed"
+                >{{ m.allowed_commands_description() }}</Message
+              >
 
               <!-- Command List -->
-              <div class="grid gap-2 sm:grid-cols-2">
+              <div class="grid gap-3 sm:grid-cols-2">
                 <div
                   v-for="command in Object.values(Command)"
                   :key="command"
@@ -72,7 +83,7 @@
           </div>
 
           <!-- Action Buttons -->
-          <div class="border-border/50 mt-6 flex gap-2 border-t pt-4">
+          <div class="border-border/50 mt-8 flex gap-2 border-t pt-6">
             <Button
               variant="default"
               class="flex-1"

@@ -10,9 +10,11 @@
       </CardHeader>
       <CardContent>
         <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-4 text-left">
-            <div class="space-y-2">
-              <label for="language" class="font-medium">{{ m.language() }}</label>
+          <div class="flex flex-col gap-8 text-left">
+            <div>
+              <label for="language" class="mb-2.5 block text-sm font-semibold">{{
+                m.language()
+              }}</label>
               <Select v-model="formPreferences.language">
                 <SelectTrigger id="language" aria-describedby="language-help">
                   <SelectValue :placeholder="languageLabels[formPreferences.language]" />
@@ -23,12 +25,17 @@
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <Message id="language-help" size="sm" severity="secondary" variant="simple">{{
-                m.language_description()
-              }}</Message>
+              <Message
+                id="language-help"
+                size="sm"
+                severity="secondary"
+                variant="simple"
+                class="mt-2.5 text-xs leading-relaxed"
+                >{{ m.language_description() }}</Message
+              >
             </div>
-            <div class="space-y-2">
-              <label for="theme" class="font-medium">{{ m.theme() }}</label>
+            <div>
+              <label for="theme" class="mb-2.5 block text-sm font-semibold">{{ m.theme() }}</label>
               <Select v-model="formPreferences.theme">
                 <SelectTrigger id="theme" aria-describedby="theme-help">
                   <SelectValue :placeholder="themeTranslations[formPreferences.theme]()" />
@@ -39,12 +46,17 @@
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <Message id="theme-help" size="sm" severity="secondary" variant="simple">{{
-                m.theme_description()
-              }}</Message>
+              <Message
+                id="theme-help"
+                size="sm"
+                severity="secondary"
+                variant="simple"
+                class="mt-2.5 text-xs leading-relaxed"
+                >{{ m.theme_description() }}</Message
+              >
             </div>
           </div>
-          <div class="border-border/50 mt-6 flex gap-2 border-t pt-4">
+          <div class="border-border/50 mt-8 flex gap-2 border-t pt-6">
             <Button
               variant="default"
               class="flex-1"

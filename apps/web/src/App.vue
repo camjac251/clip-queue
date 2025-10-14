@@ -7,7 +7,10 @@
       class="h-full min-h-screen text-center transition-all duration-300"
       :class="sidebar.isCollapsed.value ? 'ml-16' : 'ml-64'"
     >
-      <div v-if="route.name !== 'queue'" class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+      <div
+        v-if="route.name !== 'queue' && !route.name?.toString().startsWith('settings')"
+        class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"
+      >
         <RouterView />
       </div>
       <RouterView v-else />
