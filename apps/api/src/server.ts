@@ -6,6 +6,7 @@
  */
 
 import { config } from 'dotenv'
+
 import { resolveFromRoot } from './paths.js'
 
 // Load .env from project root BEFORE any other imports
@@ -16,10 +17,14 @@ config({ path: resolveFromRoot('.env') })
  */
 function validateEnvironment(): void {
   // Trim all environment variables to remove accidental whitespace
-  if (process.env.TWITCH_CLIENT_ID) process.env.TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID.trim()
-  if (process.env.TWITCH_CLIENT_SECRET) process.env.TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET.trim()
-  if (process.env.TWITCH_BOT_TOKEN) process.env.TWITCH_BOT_TOKEN = process.env.TWITCH_BOT_TOKEN.trim()
-  if (process.env.TWITCH_CHANNEL_NAME) process.env.TWITCH_CHANNEL_NAME = process.env.TWITCH_CHANNEL_NAME.trim()
+  if (process.env.TWITCH_CLIENT_ID)
+    process.env.TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID.trim()
+  if (process.env.TWITCH_CLIENT_SECRET)
+    process.env.TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET.trim()
+  if (process.env.TWITCH_BOT_TOKEN)
+    process.env.TWITCH_BOT_TOKEN = process.env.TWITCH_BOT_TOKEN.trim()
+  if (process.env.TWITCH_CHANNEL_NAME)
+    process.env.TWITCH_CHANNEL_NAME = process.env.TWITCH_CHANNEL_NAME.trim()
   if (process.env.SESSION_SECRET) process.env.SESSION_SECRET = process.env.SESSION_SECRET.trim()
   if (process.env.API_URL) process.env.API_URL = process.env.API_URL.trim()
   if (process.env.FRONTEND_URL) process.env.FRONTEND_URL = process.env.FRONTEND_URL.trim()
@@ -34,14 +39,17 @@ function validateEnvironment(): void {
   }
 
   const missing = Object.entries(required)
-    .filter(([_, value]) => !value)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    .filter(([_key, value]) => !value)
     .map(([key]) => key)
 
   if (missing.length > 0) {
     console.error('[Server] Missing required environment variables:')
     missing.forEach((key) => console.error(`  - ${key}`))
     console.error('\nPlease copy .env.example to .env and fill in the required values.')
-    console.error('Run "pnpm api setup" (or "make api-setup") to generate TWITCH_BOT_TOKEN automatically.')
+    console.error(
+      'Run "pnpm api setup" (or "make api-setup") to generate TWITCH_BOT_TOKEN automatically.'
+    )
     console.error('For SESSION_SECRET, generate a random string: openssl rand -base64 48')
     process.exit(1)
   }

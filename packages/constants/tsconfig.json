@@ -1,14 +1,14 @@
 {
-  "extends": "@cq/config/tsconfig",
-  "include": ["src/**/*"],
   "compilerOptions": {
+    "baseUrl": ".",
     "lib": ["ES2020"],
     "module": "ES2020",
     "moduleResolution": "Bundler",
     "outDir": "./dist",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
-  }
+  },
+  "extends": "@cq/config/tsconfig",
+  "include": ["src/**/*"]
 }

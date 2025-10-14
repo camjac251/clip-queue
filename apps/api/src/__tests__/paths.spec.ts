@@ -1,6 +1,8 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest'
-import { findWorkspaceRoot, getWorkspaceRoot, resolveFromRoot } from '../paths'
 import { sep } from 'path'
+
+import { describe, expect, it } from 'vitest'
+
+import { findWorkspaceRoot, getWorkspaceRoot, resolveFromRoot } from '../paths'
 
 describe('paths.ts', () => {
   // Note: We can't fully mock file system in ESM without complex setup,

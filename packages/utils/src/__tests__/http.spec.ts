@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createAuthHeaders, fetchJSON, fetchJSONWithAuth } from '../http'
 
 // Mock fetch globally
@@ -129,10 +130,7 @@ describe('http utilities', () => {
         json: async () => mockData
       } as Response)
 
-      const result = await fetchJSONWithAuth(
-        'https://api.example.com/user',
-        'test_token'
-      )
+      const result = await fetchJSONWithAuth('https://api.example.com/user', 'test_token')
 
       expect(result).toEqual(mockData)
       expect(fetch).toHaveBeenCalledWith('https://api.example.com/user', {
@@ -150,11 +148,7 @@ describe('http utilities', () => {
         json: async () => mockData
       } as Response)
 
-      await fetchJSONWithAuth(
-        'https://api.example.com/data',
-        'test_token',
-        'test_client_id'
-      )
+      await fetchJSONWithAuth('https://api.example.com/data', 'test_token', 'test_client_id')
 
       expect(fetch).toHaveBeenCalledWith('https://api.example.com/data', {
         headers: {
@@ -172,17 +166,12 @@ describe('http utilities', () => {
         json: async () => mockData
       } as Response)
 
-      await fetchJSONWithAuth(
-        'https://api.example.com/data',
-        'test_token',
-        undefined,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Custom-Header': 'value'
-          }
+      await fetchJSONWithAuth('https://api.example.com/data', 'test_token', undefined, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Custom-Header': 'value'
         }
-      )
+      })
 
       expect(fetch).toHaveBeenCalledWith('https://api.example.com/data', {
         headers: {
@@ -202,15 +191,10 @@ describe('http utilities', () => {
         json: async () => mockData
       } as Response)
 
-      await fetchJSONWithAuth(
-        'https://api.example.com/create',
-        'test_token',
-        undefined,
-        {
-          method: 'POST',
-          body: JSON.stringify(requestBody)
-        }
-      )
+      await fetchJSONWithAuth('https://api.example.com/create', 'test_token', undefined, {
+        method: 'POST',
+        body: JSON.stringify(requestBody)
+      })
 
       expect(fetch).toHaveBeenCalledWith('https://api.example.com/create', {
         method: 'POST',
@@ -265,9 +249,9 @@ describe('http utilities', () => {
     it('handles network errors with authentication', async () => {
       vi.mocked(fetch).mockRejectedValueOnce(new Error('Connection timeout'))
 
-      await expect(
-        fetchJSONWithAuth('https://api.example.com/data', 'test_token')
-      ).rejects.toThrow('Connection timeout')
+      await expect(fetchJSONWithAuth('https://api.example.com/data', 'test_token')).rejects.toThrow(
+        'Connection timeout'
+      )
     })
   })
 

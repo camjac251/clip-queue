@@ -4,23 +4,24 @@
  * Type-safe database operations with transactions and validation.
  */
 
+import { existsSync, mkdirSync } from 'fs'
+import { dirname } from 'path'
+
 import Database from 'better-sqlite3'
-import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import { eq, inArray, asc, desc } from 'drizzle-orm'
+import { asc, desc, eq, inArray } from 'drizzle-orm'
+import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { join, dirname } from 'path'
-import { mkdirSync, existsSync } from 'fs'
-import {
-  clips,
-  clipSubmitters,
-  settings,
-  type Clip,
-  type AppSettings,
-  ClipSchema,
-  AppSettingsSchema,
-  DEFAULT_SETTINGS
-} from './schema.js'
+
+import type { AppSettings, Clip } from './schema.js'
 import { resolveFromRoot } from './paths.js'
+import {
+  AppSettingsSchema,
+  clips,
+  ClipSchema,
+  clipSubmitters,
+  DEFAULT_SETTINGS,
+  settings
+} from './schema.js'
 
 export type DbClient = BetterSQLite3Database<{
   clips: typeof clips
@@ -127,9 +128,9 @@ export function initSettings(db: DbClient): AppSettings {
     .values({
       id: 1,
       version: 1,
-      commands: DEFAULT_SETTINGS.commands as any,
-      queue: DEFAULT_SETTINGS.queue as any,
-      logger: DEFAULT_SETTINGS.logger as any
+      commands: DEFAULT_SETTINGS.commands as unknown,
+      queue: DEFAULT_SETTINGS.queue as unknown,
+      logger: DEFAULT_SETTINGS.logger as unknown
     })
     .run()
 
@@ -146,9 +147,9 @@ export function updateSettings(db: DbClient, newSettings: AppSettings): void {
 
   db.update(settings)
     .set({
-      commands: validated.commands as any,
-      queue: validated.queue as any,
-      logger: validated.logger as any,
+      commands: validated.commands as unknown,
+      queue: validated.queue as unknown,
+      logger: validated.logger as unknown,
       updatedAt: new Date()
     })
     .where(eq(settings.id, 1))
@@ -323,9 +324,9 @@ export function getClipsByStatus(
   let query = db.select().from(clips).where(eq(clips.status, status))
 
   if (status === 'approved') {
-    query = query.orderBy(asc(clips.submittedAt)) as any
+    query = query.orderBy(asc(clips.submittedAt)) as unknown as typeof query
   } else if (status === 'played') {
-    query = query.orderBy(desc(clips.playedAt)).limit(limit ?? 50) as any
+    query = query.orderBy(desc(clips.playedAt)).limit(limit ?? 50) as unknown as typeof query
   }
 
   const rows = query.all()
@@ -408,7 +409,6 @@ export function deleteClipsByStatus(
     throw error
   }
 }
-
 
 /**
  * Delete clip by ID

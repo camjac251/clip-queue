@@ -1,3 +1,14 @@
+import type { Request, Response } from 'express'
+import type { Store } from 'express-session'
+import SQLiteStoreFactory from 'connect-sqlite3'
+import express from 'express'
+import session from 'express-session'
+import pkceChallenge from 'pkce-challenge'
+
+import { TwitchTokenResponseSchema } from '@cq/schemas'
+
+import { resolveFromRoot } from './paths.js'
+
 /**
  * OAuth 2.0 Authorization Code Flow with PKCE
  *
@@ -11,14 +22,6 @@
  * 3. POST /api/oauth/refresh  - Refresh expired access token
  * 4. POST /api/oauth/logout   - Clear authentication cookies
  */
-
-import express, { type Request, type Response } from 'express'
-import session from 'express-session'
-import type { Store } from 'express-session'
-import SQLiteStoreFactory from 'connect-sqlite3'
-import pkceChallenge from 'pkce-challenge'
-import { TwitchTokenResponseSchema } from '@cq/schemas'
-import { resolveFromRoot } from './paths.js'
 
 const router = express.Router()
 
@@ -46,6 +49,8 @@ interface OAuthSession {
 }
 
 declare module 'express-session' {
+  // Extend SessionData to include OAuth fields (declaration merging)
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface SessionData extends OAuthSession {}
 }
 

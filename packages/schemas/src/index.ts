@@ -16,11 +16,7 @@ export {
 } from './settings.js'
 
 // Auth
-export {
-  UserRoleSchema,
-  type UserRole,
-  type AuthenticatedUser
-} from './auth.js'
+export { UserRoleSchema, type UserRole, type AuthenticatedUser } from './auth.js'
 
 // Twitch
 export {
@@ -35,8 +31,4 @@ export {
 } from './twitch.js'
 
 // Clip
-export {
-  Platform,
-  ClipSchema,
-  type Clip
-} from './clip.js'
+export { Platform, ClipSchema, type Clip } from './clip.js'

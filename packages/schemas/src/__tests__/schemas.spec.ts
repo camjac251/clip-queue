@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
+
 import { UserRoleSchema } from '../auth'
 import {
+  TwitchModeratorsResponseSchema,
   TwitchTokenResponseSchema,
-  TwitchValidateResponseSchema,
   TwitchUsersResponseSchema,
-  TwitchModeratorsResponseSchema
+  TwitchValidateResponseSchema
 } from '../twitch'
 
 describe('schemas', () => {

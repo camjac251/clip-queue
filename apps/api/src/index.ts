@@ -7,98 +7,88 @@
  * NOTE: This file is imported by server.ts, which loads .env and validates env vars first.
  */
 
-import express from "express";
-import { createServer } from "http";
-import cors from "cors";
-import helmet from "helmet";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
-import cookieParser from "cookie-parser";
-import { createHash } from "crypto";
-import { z } from "zod";
+import { createHash } from 'crypto'
+import { createServer } from 'http'
+
+import cookieParser from 'cookie-parser'
+import cors from 'cors'
+import { eq } from 'drizzle-orm'
+import express from 'express'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
+import helmet from 'helmet'
+import { z } from 'zod'
+
+import { ClipList, KickPlatform, toClipUUID, TwitchPlatform } from '@cq/platforms'
+import { advanceQueue, clearQueue, playClip, previousClip } from '@cq/queue-ops'
+import kick from '@cq/services/kick'
+import twitch from '@cq/services/twitch'
+import { TTLCache } from '@cq/utils'
+
+import type { AuthenticatedRequest } from './auth.js'
+import type { AppSettings, Clip } from './db.js'
 import {
-  ClipList,
-  toClipUUID,
-  TwitchPlatform,
-  KickPlatform,
-} from "@cq/platforms";
+  authenticate,
+  clearAllCaches,
+  getCacheStats,
+  invalidateRoleCache,
+  invalidateTokenCache,
+  requireBroadcaster,
+  requireModerator
+} from './auth.js'
 import {
-  advanceQueue,
-  previousClip,
-  clearQueue,
-  playClip,
-} from "@cq/queue-ops";
-import { TTLCache } from "@cq/utils";
-import twitch from "@cq/services/twitch";
-import kick from "@cq/services/kick";
+  clips,
+  closeDatabase,
+  deleteClipsByStatus,
+  getClip,
+  getClipsByStatus,
+  initDatabase,
+  initSettings,
+  updateClipStatus,
+  updateSettings,
+  upsertClip
+} from './db.js'
+import { TwitchEventSubClient } from './eventsub.js'
+import oauthRouter from './oauth.js'
 
 /**
  * Simple async mutex for preventing race conditions
  */
 class Mutex {
-  private queue: (() => void)[] = [];
-  private locked = false;
+  private queue: (() => void)[] = []
+  private locked = false
 
   async acquire(): Promise<() => void> {
     return new Promise((resolve) => {
       if (!this.locked) {
-        this.locked = true;
-        resolve(() => this.release());
+        this.locked = true
+        resolve(() => this.release())
       } else {
-        this.queue.push(() => resolve(() => this.release()));
+        this.queue.push(() => resolve(() => this.release()))
       }
-    });
+    })
   }
 
   private release(): void {
-    const next = this.queue.shift();
+    const next = this.queue.shift()
     if (next) {
-      next();
+      next()
     } else {
-      this.locked = false;
+      this.locked = false
     }
   }
 }
 
 // Mutexes for preventing race conditions
-const clipSubmissionMutex = new Mutex();
-const queueOperationMutex = new Mutex();
-import {
-  initDatabase,
-  closeDatabase,
-  initSettings,
-  updateSettings,
-  upsertClip,
-  getClip,
-  getClipsByStatus,
-  updateClipStatus,
-  deleteClipsByStatus,
-  clips,
-  type Clip,
-  type AppSettings,
-} from "./db.js";
-import { eq } from "drizzle-orm";
-import { TwitchEventSubClient } from "./eventsub.js";
-import {
-  authenticate,
-  requireBroadcaster,
-  requireModerator,
-  validateTwitchToken,
-  checkChannelRole,
-  invalidateTokenCache,
-  invalidateRoleCache,
-  clearAllCaches,
-  getCacheStats,
-  type AuthenticatedRequest,
-} from "./auth.js";
-import oauthRouter from "./oauth.js";
+const clipSubmissionMutex = new Mutex()
+const queueOperationMutex = new Mutex()
 
 /**
  * Async route wrapper to catch errors and pass to Express error middleware
  */
 function asyncHandler(fn: express.RequestHandler): express.RequestHandler {
   return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
+    Promise.resolve(fn(req, res, next)).catch(next)
+  }
 }
 
 /**
@@ -106,23 +96,23 @@ function asyncHandler(fn: express.RequestHandler): express.RequestHandler {
  */
 const SubmitClipSchema = z.object({
   url: z.string().url().min(1).max(500),
-  submitter: z.string().min(1).max(100),
-});
+  submitter: z.string().min(1).max(100)
+})
 
 const ClipIdSchema = z.object({
-  clipId: z.string().min(1).max(200),
-});
+  clipId: z.string().min(1).max(200)
+})
 
 const BatchClipIdsSchema = z.object({
-  clipIds: z.array(z.string().min(1).max(200)).min(1).max(100),
-});
+  clipIds: z.array(z.string().min(1).max(200)).min(1).max(100)
+})
 
-const app = express();
-const server = createServer(app);
+const app = express()
+const server = createServer(app)
 
 // CORS configuration - Allow multiple origins for development
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-const isDevelopment = process.env.NODE_ENV !== "production";
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const isDevelopment = process.env.NODE_ENV !== 'production'
 
 // In development, allow localhost on any port + LAN IPs for mobile testing
 const corsOrigin = isDevelopment
@@ -132,9 +122,9 @@ const corsOrigin = isDevelopment
       /^http:\/\/127\.0\.0\.1:\d+$/,
       /^http:\/\/192\.168\.\d+\.\d+:\d+$/,
       /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/,
-      /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+:\d+$/,
+      /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+:\d+$/
     ]
-  : FRONTEND_URL;
+  : FRONTEND_URL
 
 // Security headers with helmet
 app.use(
@@ -144,21 +134,21 @@ app.use(
         defaultSrc: ["'self'"],
         connectSrc: ["'self'", FRONTEND_URL],
         frameSrc: ["'none'"],
-        objectSrc: ["'none'"],
-      },
+        objectSrc: ["'none'"]
+      }
     },
     hsts: {
       maxAge: 31536000, // 1 year
       includeSubDomains: true,
-      preload: true,
+      preload: true
     },
-    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-  }),
-);
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+  })
+)
 
-app.use(cors({ origin: corsOrigin, credentials: true }));
-app.use(express.json({ limit: "1mb" })); // Add size limit to prevent DoS
-app.use(cookieParser()); // Parse cookies for OAuth token
+app.use(cors({ origin: corsOrigin, credentials: true }))
+app.use(express.json({ limit: '1mb' })) // Add size limit to prevent DoS
+app.use(cookieParser()) // Parse cookies for OAuth token
 
 // Rate limiting - separate limiters by route type
 const publicReadLimiter = rateLimit({
@@ -166,8 +156,8 @@ const publicReadLimiter = rateLimit({
   max: 500, // Higher limit for read-only endpoints
   standardHeaders: true,
   legacyHeaders: false,
-  message: "Too many requests. Check RateLimit-Reset header for retry time.",
-});
+  message: 'Too many requests. Check RateLimit-Reset header for retry time.'
+})
 
 const authenticatedLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -177,14 +167,14 @@ const authenticatedLimiter = rateLimit({
   keyGenerator: (req: AuthenticatedRequest) => {
     // Use userId if authenticated, fallback to IP with proper IPv6 handling
     if (req.user?.userId) {
-      return req.user.userId;
+      return req.user.userId
     }
     // Use built-in IPv6-safe IP key generator
-    // TypeScript doesn't know AuthenticatedRequest is compatible with Express Request
-    return ipKeyGenerator(req as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return ipKeyGenerator(req as any)
   },
-  skipSuccessfulRequests: false,
-});
+  skipSuccessfulRequests: false
+})
 
 const authFailureLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -192,39 +182,35 @@ const authFailureLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Only count failures
-  message: "Too many failed authentication attempts. Please try again later.",
-});
+  message: 'Too many failed authentication attempts. Please try again later.'
+})
 
 // Initialize database
-const db = initDatabase(process.env.DB_PATH);
+const db = initDatabase(process.env.DB_PATH)
 
 // Initialize settings from database
-let settings: AppSettings = initSettings(db);
-console.log("[Settings] Loaded from database:", settings);
+let settings: AppSettings = initSettings(db)
+console.log('[Settings] Loaded from database:', settings)
 
 // Initialize queue and platform
-const queue = new ClipList();
-const history = new ClipList();
-let currentClip: Clip | null = null;
-let isQueueOpen = true;
+const queue = new ClipList()
+const history = new ClipList()
+let currentClip: Clip | null = null
+let isQueueOpen = true
 
 // Load approved clips from database on startup (bulk add for O(n log n) performance)
-const approvedClips = getClipsByStatus(db, "approved");
+const approvedClips = getClipsByStatus(db, 'approved')
 if (approvedClips.length > 0) {
-  queue.add(...approvedClips);
+  queue.add(...approvedClips)
 }
-console.log(
-  `[Queue] Loaded ${approvedClips.length} approved clips from database`,
-);
+console.log(`[Queue] Loaded ${approvedClips.length} approved clips from database`)
 
 // Load played clips into history on startup (load all for long-term history preservation)
-const playedClips = getClipsByStatus(db, "played");
+const playedClips = getClipsByStatus(db, 'played')
 if (playedClips.length > 0) {
-  history.add(...playedClips);
+  history.add(...playedClips)
 }
-console.log(
-  `[Queue] Loaded ${playedClips.length} played clips into history from database`,
-);
+console.log(`[Queue] Loaded ${playedClips.length} played clips into history from database`)
 
 /**
  * Generate ETag hash from queue state
@@ -232,35 +218,31 @@ console.log(
  * Includes clip IDs, submitter counts, queue status, and settings for accurate change detection
  */
 // Cached ETag for state hash optimization
-let cachedETag: string | null = null;
+let cachedETag: string | null = null
 
 /**
  * Invalidate cached ETag when state changes
  * Must be called after any state mutation
  */
 function invalidateETag() {
-  cachedETag = null;
+  cachedETag = null
 }
 
 function generateStateHash(): string {
   // Return cached ETag if available
-  if (cachedETag) return cachedETag;
+  if (cachedETag) return cachedETag
 
   const state = {
     current: currentClip?.id || null,
     currentSubmitters: currentClip?.submitters.length || 0,
-    upcoming: queue
-      .toArray()
-      .map((c) => ({ id: c.id, submitters: c.submitters.length })),
-    history: history
-      .toArray()
-      .map((c) => ({ id: c.id, submitters: c.submitters.length })),
+    upcoming: queue.toArray().map((c) => ({ id: c.id, submitters: c.submitters.length })),
+    history: history.toArray().map((c) => ({ id: c.id, submitters: c.submitters.length })),
     isOpen: isQueueOpen,
-    settings: settings, // Include settings in hash for change detection
-  };
+    settings: settings // Include settings in hash for change detection
+  }
   // Use full SHA256 hash (64 hex chars) to minimize collision risk
-  cachedETag = createHash("sha256").update(JSON.stringify(state)).digest("hex");
-  return cachedETag;
+  cachedETag = createHash('sha256').update(JSON.stringify(state)).digest('hex')
+  return cachedETag
 }
 
 /**
@@ -273,386 +255,351 @@ function getQueueState() {
     upcoming: queue.toArray(),
     history: history.toArray(),
     isOpen: isQueueOpen,
-    settings: settings, // Include settings for client synchronization
-  };
+    settings: settings // Include settings for client synchronization
+  }
 }
 
 const platforms = {
   twitch: new TwitchPlatform(() => ({
     id: process.env.TWITCH_CLIENT_ID!,
-    token: process.env.TWITCH_BOT_TOKEN,
+    token: process.env.TWITCH_BOT_TOKEN
   })),
-  kick: new KickPlatform(),
-};
+  kick: new KickPlatform()
+}
 
 // Per-user rate limiting cache (tracks last submission time per user)
-const userSubmissionCache = new TTLCache<string, number>(60000); // 1 minute TTL
+const userSubmissionCache = new TTLCache<string, number>(60000) // 1 minute TTL
 
 // Restore queue and history from database
 function restoreQueueFromDatabase() {
-  const approvedClips = getClipsByStatus(db, "approved");
-  const playedClips = getClipsByStatus(db, "played", 50);
+  const approvedClips = getClipsByStatus(db, 'approved')
+  const playedClips = getClipsByStatus(db, 'played', 50)
 
   for (const clip of approvedClips) {
-    queue.add(clip);
+    queue.add(clip)
   }
 
   for (const clip of playedClips.reverse()) {
-    history.add(clip);
+    history.add(clip)
   }
 
-  console.log(`[Queue] Restored ${approvedClips.length} clips from database`);
-  console.log(`[History] Restored ${playedClips.length} clips from database`);
+  console.log(`[Queue] Restored ${approvedClips.length} clips from database`)
+  console.log(`[History] Restored ${playedClips.length} clips from database`)
 
   // Invalidate ETag after restoring state
-  invalidateETag();
+  invalidateETag()
 }
 
-restoreQueueFromDatabase();
+restoreQueueFromDatabase()
 
 // Initialize Twitch EventSub chat monitoring
-let eventSubClient: TwitchEventSubClient | null = null;
+let eventSubClient: TwitchEventSubClient | null = null
 
-let reconnectAttempts = 0;
-const MAX_BACKOFF_MS = 5 * 60 * 1000;
-const BASE_BACKOFF_MS = 1000;
+let reconnectAttempts = 0
+const MAX_BACKOFF_MS = 5 * 60 * 1000
+const BASE_BACKOFF_MS = 1000
 
 function calculateBackoff(attempts: number, isRateLimit = false): number {
-  const base = isRateLimit ? 60000 : BASE_BACKOFF_MS;
-  const exponential = Math.min(base * Math.pow(2, attempts), MAX_BACKOFF_MS);
-  const jitter = exponential * 0.25 * (Math.random() * 2 - 1);
-  return Math.floor(exponential + jitter);
+  const base = isRateLimit ? 60000 : BASE_BACKOFF_MS
+  const exponential = Math.min(base * Math.pow(2, attempts), MAX_BACKOFF_MS)
+  const jitter = exponential * 0.25 * (Math.random() * 2 - 1)
+  return Math.floor(exponential + jitter)
 }
 
 async function connectToChat() {
-  const channelName = process.env.TWITCH_CHANNEL_NAME!;
-  const clientId = process.env.TWITCH_CLIENT_ID!;
-  const botToken = process.env.TWITCH_BOT_TOKEN!;
+  const channelName = process.env.TWITCH_CHANNEL_NAME!
+  const clientId = process.env.TWITCH_CLIENT_ID!
+  const botToken = process.env.TWITCH_BOT_TOKEN!
 
   try {
-    console.log(`[Chat] Connecting to EventSub for channel: ${channelName}`);
+    console.log(`[Chat] Connecting to EventSub for channel: ${channelName}`)
 
-    eventSubClient = new TwitchEventSubClient(clientId, botToken);
+    eventSubClient = new TwitchEventSubClient(clientId, botToken)
 
     // Handle disconnection (unexpected only - Twitch reconnects handled in EventSub)
     eventSubClient.onDisconnect(() => {
-      console.log("[Chat] EventSub disconnected unexpectedly");
-      eventSubClient = null;
+      console.log('[Chat] EventSub disconnected unexpectedly')
+      eventSubClient = null
 
       // Don't reconnect here - EventSub client handles graceful reconnects
       // For unexpected disconnects, outer error handler will retry with backoff
-    });
+    })
 
     // Listen for chat messages
     eventSubClient.onMessage(async (message) => {
       try {
-        console.log(`[Chat] ${message.username}: ${message.text}`);
+        console.log(`[Chat] ${message.username}: ${message.text}`)
 
         // Check if message is a command
         if (message.text.startsWith(settings.commands.prefix)) {
           // Only mods and broadcasters can use commands
           if (message.isModerator || message.isBroadcaster) {
-            await handleChatCommand(message);
+            await handleChatCommand(message)
           } else {
-            console.log(
-              `[Chat] User ${message.username} is not allowed to use commands`,
-            );
+            console.log(`[Chat] User ${message.username} is not allowed to use commands`)
           }
-          return;
+          return
         }
 
         // Extract URLs from message text
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const urls = message.text.match(urlRegex) || [];
+        const urlRegex = /(https?:\/\/[^\s]+)/g
+        const urls = message.text.match(urlRegex) || []
 
         // Check if user can auto-approve (moderator or broadcaster)
-        const canAutoApprove = message.isModerator || message.isBroadcaster;
+        const canAutoApprove = message.isModerator || message.isBroadcaster
 
         // Submit each URL
         for (const url of urls) {
           // Check if it's a Twitch clip URL (use proper parser)
           if (twitch.getClipIdFromUrl(url)) {
-            await handleClipSubmission(url, message.username, canAutoApprove);
+            await handleClipSubmission(url, message.username, canAutoApprove)
           }
           // Check if it's a Kick clip URL (use proper parser)
           else if (kick.getClipIdFromUrl(url)) {
-            await handleClipSubmission(url, message.username, canAutoApprove);
+            await handleClipSubmission(url, message.username, canAutoApprove)
           }
         }
       } catch (error) {
-        console.error(
-          `[EventSub] Error processing message from ${message.username}:`,
-          error,
-        );
+        console.error(`[EventSub] Error processing message from ${message.username}:`, error)
       }
-    });
+    })
 
     // Connect and subscribe to channel
-    await eventSubClient.connect();
-    await eventSubClient.subscribeToChannel(channelName);
+    await eventSubClient.connect()
+    await eventSubClient.subscribeToChannel(channelName)
 
-    console.log(`[Chat] Connected to EventSub for channel: ${channelName}`);
-    reconnectAttempts = 0; // Reset on success
+    console.log(`[Chat] Connected to EventSub for channel: ${channelName}`)
+    reconnectAttempts = 0 // Reset on success
   } catch (error) {
-    console.error("[Chat] Failed to connect to EventSub:", error);
-    eventSubClient = null;
+    console.error('[Chat] Failed to connect to EventSub:', error)
+    eventSubClient = null
 
-    const isRateLimit = error instanceof Error && error.message.includes("429");
-    const backoffMs = calculateBackoff(reconnectAttempts, isRateLimit);
-    reconnectAttempts++;
+    const isRateLimit = error instanceof Error && error.message.includes('429')
+    const backoffMs = calculateBackoff(reconnectAttempts, isRateLimit)
+    reconnectAttempts++
 
     console.log(
-      `[Chat] Retrying in ${(backoffMs / 1000).toFixed(1)}s (attempt ${reconnectAttempts})${isRateLimit ? " [RATE LIMITED]" : ""}`,
-    );
+      `[Chat] Retrying in ${(backoffMs / 1000).toFixed(1)}s (attempt ${reconnectAttempts})${isRateLimit ? ' [RATE LIMITED]' : ''}`
+    )
 
-    setTimeout(connectToChat, backoffMs);
+    setTimeout(connectToChat, backoffMs)
   }
 }
 
 /**
  * Handle chat command
  */
-async function handleChatCommand(message: {
-  username: string;
-  text: string;
-}): Promise<void> {
-  const commandText = message.text
-    .substring(settings.commands.prefix.length)
-    .trim();
-  const [command, ...args] = commandText.split(/\s+/);
+async function handleChatCommand(message: { username: string; text: string }): Promise<void> {
+  const commandText = message.text.substring(settings.commands.prefix.length).trim()
+  const [command, ...args] = commandText.split(/\s+/)
 
   if (!command) {
-    return;
+    return
   }
 
-  console.log(
-    `[Command] ${message.username} executed: ${command} ${args.join(" ")}`,
-  );
+  console.log(`[Command] ${message.username} executed: ${command} ${args.join(' ')}`)
 
   switch (command.toLowerCase()) {
-    case "open":
-      isQueueOpen = true;
-      console.log(`[Command] Queue opened by ${message.username}`);
-      break;
+    case 'open':
+      isQueueOpen = true
+      console.log(`[Command] Queue opened by ${message.username}`)
+      break
 
-    case "close":
-      isQueueOpen = false;
-      console.log(`[Command] Queue closed by ${message.username}`);
-      break;
+    case 'close':
+      isQueueOpen = false
+      console.log(`[Command] Queue closed by ${message.username}`)
+      break
 
-    case "clear": {
+    case 'clear': {
       try {
         await clearQueue(
           { current: currentClip, queue, history },
           {
-            updateClipStatus: (clipId, status) =>
-              updateClipStatus(db, clipId, status),
-            deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
-          },
-        );
-        console.log(`[Command] Queue cleared by ${message.username}`);
-        invalidateETag();
+            updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
+            deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
+          }
+        )
+        console.log(`[Command] Queue cleared by ${message.username}`)
+        invalidateETag()
       } catch (error) {
-        console.error(`[Command] Failed to clear queue: ${error}`);
+        console.error(`[Command] Failed to clear queue: ${error}`)
       }
-      break;
+      break
     }
 
-    case "setlimit": {
+    case 'setlimit': {
       if (!args[0]) {
-        console.log(`[Command] No limit specified`);
-        break;
+        console.log(`[Command] No limit specified`)
+        break
       }
-      const limit = parseInt(args[0], 10);
+      const limit = parseInt(args[0], 10)
       if (isNaN(limit) || limit < 1) {
-        console.log(`[Command] Invalid limit: ${args[0]}`);
-        break;
+        console.log(`[Command] Invalid limit: ${args[0]}`)
+        break
       }
-      settings.queue.limit = limit;
-      updateSettings(db, settings);
-      console.log(
-        `[Command] Queue limit set to ${limit} by ${message.username}`,
-      );
-      invalidateETag();
-      break;
+      settings.queue.limit = limit
+      updateSettings(db, settings)
+      console.log(`[Command] Queue limit set to ${limit} by ${message.username}`)
+      invalidateETag()
+      break
     }
 
-    case "removelimit":
-      settings.queue.limit = null;
-      updateSettings(db, settings);
-      console.log(`[Command] Queue limit removed by ${message.username}`);
-      invalidateETag();
-      break;
+    case 'removelimit':
+      settings.queue.limit = null
+      updateSettings(db, settings)
+      console.log(`[Command] Queue limit removed by ${message.username}`)
+      invalidateETag()
+      break
 
-    case "next": {
+    case 'next': {
       try {
-        const state = { current: currentClip, queue, history };
+        const state = { current: currentClip, queue, history }
         await advanceQueue(
           state,
           {
-            updateClipStatus: (clipId, status) =>
-              updateClipStatus(db, clipId, status),
-            deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
+            updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
+            deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
           },
-          toClipUUID,
-        );
-        currentClip = state.current;
+          toClipUUID
+        )
+        currentClip = state.current
 
         // Broadcast change
-        console.log(`[Command] Advanced to next clip by ${message.username}`);
-        invalidateETag();
+        console.log(`[Command] Advanced to next clip by ${message.username}`)
+        invalidateETag()
       } catch (error) {
-        console.error(`[Command] Failed to advance to next clip: ${error}`);
+        console.error(`[Command] Failed to advance to next clip: ${error}`)
       }
-      break;
+      break
     }
 
-    case "prev":
-    case "previous": {
-      const state = { current: currentClip, queue, history };
-      await previousClip(state);
-      currentClip = state.current;
+    case 'prev':
+    case 'previous': {
+      const state = { current: currentClip, queue, history }
+      await previousClip(state)
+      currentClip = state.current
 
       // Broadcast change
-      console.log(`[Command] Went to previous clip by ${message.username}`);
-      invalidateETag();
-      break;
+      console.log(`[Command] Went to previous clip by ${message.username}`)
+      invalidateETag()
+      break
     }
 
-    case "removebysubmitter": {
-      const submitter = args[0]?.toLowerCase();
+    case 'removebysubmitter': {
+      const submitter = args[0]?.toLowerCase()
       if (!submitter) {
-        console.log(`[Command] No submitter specified`);
-        break;
+        console.log(`[Command] No submitter specified`)
+        break
       }
 
-      const clips = queue.toArray();
-      let removedCount = 0;
+      const clips = queue.toArray()
+      let removedCount = 0
 
       for (const clip of clips) {
         if (clip.submitters.some((s) => s.toLowerCase() === submitter)) {
-          queue.remove(clip);
-          updateClipStatus(db, toClipUUID(clip), "rejected");
-          removedCount++;
+          queue.remove(clip)
+          updateClipStatus(db, toClipUUID(clip), 'rejected')
+          removedCount++
         }
       }
 
       console.log(
-        `[Command] Removed ${removedCount} clips by ${submitter} (requested by ${message.username})`,
-      );
-      if (removedCount > 0) invalidateETag();
-      break;
+        `[Command] Removed ${removedCount} clips by ${submitter} (requested by ${message.username})`
+      )
+      if (removedCount > 0) invalidateETag()
+      break
     }
 
-    case "removebyplatform": {
-      const platformArg = args[0]?.toLowerCase();
-      if (
-        !platformArg ||
-        (platformArg !== "twitch" && platformArg !== "kick")
-      ) {
-        console.log(`[Command] Invalid platform: ${args[0]}`);
-        break;
+    case 'removebyplatform': {
+      const platformArg = args[0]?.toLowerCase()
+      if (!platformArg || (platformArg !== 'twitch' && platformArg !== 'kick')) {
+        console.log(`[Command] Invalid platform: ${args[0]}`)
+        break
       }
 
-      const clips = queue.toArray();
-      let removedCount = 0;
+      const clips = queue.toArray()
+      let removedCount = 0
 
       for (const clip of clips) {
         if (clip.platform.toLowerCase() === platformArg) {
-          queue.remove(clip);
-          updateClipStatus(db, toClipUUID(clip), "rejected");
-          removedCount++;
+          queue.remove(clip)
+          updateClipStatus(db, toClipUUID(clip), 'rejected')
+          removedCount++
         }
       }
 
       console.log(
-        `[Command] Removed ${removedCount} ${platformArg} clips (requested by ${message.username})`,
-      );
-      if (removedCount > 0) invalidateETag();
-      break;
+        `[Command] Removed ${removedCount} ${platformArg} clips (requested by ${message.username})`
+      )
+      if (removedCount > 0) invalidateETag()
+      break
     }
 
-    case "enableplatform": {
-      const platformArg = args[0]?.toLowerCase();
-      if (
-        !platformArg ||
-        (platformArg !== "twitch" && platformArg !== "kick")
-      ) {
-        console.log(`[Command] Invalid platform: ${args[0]}`);
-        break;
+    case 'enableplatform': {
+      const platformArg = args[0]?.toLowerCase()
+      if (!platformArg || (platformArg !== 'twitch' && platformArg !== 'kick')) {
+        console.log(`[Command] Invalid platform: ${args[0]}`)
+        break
       }
 
-      if (
-        !settings.queue.platforms.includes(platformArg as "twitch" | "kick")
-      ) {
-        settings.queue.platforms.push(platformArg as "twitch" | "kick");
-        updateSettings(db, settings);
-        console.log(
-          `[Command] Enabled ${platformArg} platform (requested by ${message.username})`,
-        );
-        invalidateETag();
+      if (!settings.queue.platforms.includes(platformArg as 'twitch' | 'kick')) {
+        settings.queue.platforms.push(platformArg as 'twitch' | 'kick')
+        updateSettings(db, settings)
+        console.log(`[Command] Enabled ${platformArg} platform (requested by ${message.username})`)
+        invalidateETag()
       } else {
-        console.log(`[Command] ${platformArg} platform already enabled`);
+        console.log(`[Command] ${platformArg} platform already enabled`)
       }
-      break;
+      break
     }
 
-    case "disableplatform": {
-      const platformArg = args[0]?.toLowerCase();
-      if (
-        !platformArg ||
-        (platformArg !== "twitch" && platformArg !== "kick")
-      ) {
-        console.log(`[Command] Invalid platform: ${args[0]}`);
-        break;
+    case 'disableplatform': {
+      const platformArg = args[0]?.toLowerCase()
+      if (!platformArg || (platformArg !== 'twitch' && platformArg !== 'kick')) {
+        console.log(`[Command] Invalid platform: ${args[0]}`)
+        break
       }
 
-      const index = settings.queue.platforms.indexOf(
-        platformArg as "twitch" | "kick",
-      );
+      const index = settings.queue.platforms.indexOf(platformArg as 'twitch' | 'kick')
       if (index !== -1) {
-        settings.queue.platforms.splice(index, 1);
-        updateSettings(db, settings);
-        console.log(
-          `[Command] Disabled ${platformArg} platform (requested by ${message.username})`,
-        );
-        invalidateETag();
+        settings.queue.platforms.splice(index, 1)
+        updateSettings(db, settings)
+        console.log(`[Command] Disabled ${platformArg} platform (requested by ${message.username})`)
+        invalidateETag()
       } else {
-        console.log(`[Command] ${platformArg} platform already disabled`);
+        console.log(`[Command] ${platformArg} platform already disabled`)
       }
-      break;
+      break
     }
 
-    case "enableautomod":
-      settings.queue.hasAutoModerationEnabled = true;
-      updateSettings(db, settings);
-      console.log(`[Command] Auto-moderation enabled by ${message.username}`);
-      invalidateETag();
-      break;
+    case 'enableautomod':
+      settings.queue.hasAutoModerationEnabled = true
+      updateSettings(db, settings)
+      console.log(`[Command] Auto-moderation enabled by ${message.username}`)
+      invalidateETag()
+      break
 
-    case "disableautomod":
-      settings.queue.hasAutoModerationEnabled = false;
-      updateSettings(db, settings);
-      console.log(`[Command] Auto-moderation disabled by ${message.username}`);
-      invalidateETag();
-      break;
+    case 'disableautomod':
+      settings.queue.hasAutoModerationEnabled = false
+      updateSettings(db, settings)
+      console.log(`[Command] Auto-moderation disabled by ${message.username}`)
+      invalidateETag()
+      break
 
-    case "purgecache":
-      clearAllCaches();
-      console.log(
-        `[Command] Authentication caches purged by ${message.username}`,
-      );
-      break;
+    case 'purgecache':
+      clearAllCaches()
+      console.log(`[Command] Authentication caches purged by ${message.username}`)
+      break
 
-    case "purgehistory":
-      history.clear();
-      deleteClipsByStatus(db, "played");
-      console.log(`[Command] History purged by ${message.username}`);
-      break;
+    case 'purgehistory':
+      history.clear()
+      deleteClipsByStatus(db, 'played')
+      console.log(`[Command] History purged by ${message.username}`)
+      break
 
     default:
-      console.log(`[Command] Unknown command: ${command}`);
-      break;
+      console.log(`[Command] Unknown command: ${command}`)
+      break
   }
 }
 
@@ -663,902 +610,867 @@ async function handleChatCommand(message: {
 async function handleClipSubmission(
   url: string,
   submitter: string,
-  autoApprove = false,
+  autoApprove = false
 ): Promise<void> {
-  const release = await clipSubmissionMutex.acquire();
+  const release = await clipSubmissionMutex.acquire()
   try {
     // Per-user rate limiting (prevent spam)
-    const lastSubmission = userSubmissionCache.get(submitter);
+    const lastSubmission = userSubmissionCache.get(submitter)
     if (lastSubmission && Date.now() - lastSubmission < 10000) {
-      console.log(`[Queue] Rate limit: ${submitter} submitted too recently`);
-      return;
+      console.log(`[Queue] Rate limit: ${submitter} submitted too recently`)
+      return
     }
-    userSubmissionCache.set(submitter, Date.now());
+    userSubmissionCache.set(submitter, Date.now())
 
     // Check if queue is open
     if (!isQueueOpen && !autoApprove) {
-      console.log(`[Queue] Queue closed, ignoring clip from ${submitter}`);
-      return;
+      console.log(`[Queue] Queue closed, ignoring clip from ${submitter}`)
+      return
     }
 
     // Detect platform and fetch clip data with timeout
-    const platformInstance = url.includes("kick.com")
-      ? platforms.kick
-      : platforms.twitch;
-    const PLATFORM_API_TIMEOUT = 10000; // 10 seconds
+    const platformInstance = url.includes('kick.com') ? platforms.kick : platforms.twitch
+    const PLATFORM_API_TIMEOUT = 10000 // 10 seconds
 
-    let clip;
+    let clip
     try {
       clip = await Promise.race([
         platformInstance.getClip(url),
         new Promise<null>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Platform API timeout")),
-            PLATFORM_API_TIMEOUT,
-          ),
-        ),
-      ]);
+          setTimeout(() => reject(new Error('Platform API timeout')), PLATFORM_API_TIMEOUT)
+        )
+      ])
     } catch (error) {
       console.log(
-        `[Queue] Failed to fetch clip (${error instanceof Error ? error.message : "timeout"}): ${url}`,
-      );
-      return;
+        `[Queue] Failed to fetch clip (${error instanceof Error ? error.message : 'timeout'}): ${url}`
+      )
+      return
     }
 
     if (!clip) {
-      console.log(`[Queue] Failed to fetch clip: ${url}`);
-      return;
+      console.log(`[Queue] Failed to fetch clip: ${url}`)
+      return
     }
 
     // Check if platform is enabled in settings
     if (!settings.queue.platforms.includes(clip.platform)) {
-      console.log(
-        `[Queue] Platform ${clip.platform} is disabled, ignoring clip from ${submitter}`,
-      );
-      return;
+      console.log(`[Queue] Platform ${clip.platform} is disabled, ignoring clip from ${submitter}`)
+      return
     }
 
     // Check queue size limit
     if (settings.queue.limit !== null && queue.size() >= settings.queue.limit) {
       console.log(
-        `[Queue] Queue is full (limit: ${settings.queue.limit}), ignoring clip from ${submitter}`,
-      );
-      return;
+        `[Queue] Queue is full (limit: ${settings.queue.limit}), ignoring clip from ${submitter}`
+      )
+      return
     }
 
-    const clipId = toClipUUID(clip);
+    const clipId = toClipUUID(clip)
 
     // Check if clip already exists in queue (now protected by mutex)
     if (queue.includes(clip)) {
       // Add submitter to existing clip using transaction-safe upsert
-      const updatedClip = upsertClip(
-        db,
-        clipId,
-        { ...clip, submitters: [submitter] },
-        "approved",
-      );
+      const updatedClip = upsertClip(db, clipId, { ...clip, submitters: [submitter] }, 'approved')
 
       // Update in-memory queue
-      queue.add(updatedClip);
+      queue.add(updatedClip)
 
       // Broadcast update
-      console.log(
-        `[Queue] Added submitter to existing clip: ${clip.title} (${submitter})`,
-      );
-      invalidateETag();
-      return;
+      console.log(`[Queue] Added submitter to existing clip: ${clip.title} (${submitter})`)
+      invalidateETag()
+      return
     }
 
     // Determine approval status based on auto-moderation setting and user role
     // Auto-approve if:
     // 1. Auto-moderation is disabled (all clips auto-approve), OR
     // 2. Submitter is mod/broadcaster (bypass moderation)
-    const shouldAutoApprove =
-      !settings.queue.hasAutoModerationEnabled || autoApprove;
-    const status = shouldAutoApprove ? "approved" : "pending";
+    const shouldAutoApprove = !settings.queue.hasAutoModerationEnabled || autoApprove
+    const status = shouldAutoApprove ? 'approved' : 'pending'
 
     // Add clip to queue with transaction
-    const clipWithSubmitter = { ...clip, submitters: [submitter] };
-    const savedClip = upsertClip(db, clipId, clipWithSubmitter, status);
+    const clipWithSubmitter = { ...clip, submitters: [submitter] }
+    const savedClip = upsertClip(db, clipId, clipWithSubmitter, status)
 
     // Add to in-memory queue only if approved
-    if (status === "approved") {
-      queue.add(savedClip);
-      console.log(
-        `[Queue] Added clip: ${clip.title} (submitted by ${submitter})`,
-      );
-      invalidateETag();
+    if (status === 'approved') {
+      queue.add(savedClip)
+      console.log(`[Queue] Added clip: ${clip.title} (submitted by ${submitter})`)
+      invalidateETag()
     } else {
-      console.log(
-        `[Queue] Clip pending moderation: ${clip.title} (submitted by ${submitter})`,
-      );
+      console.log(`[Queue] Clip pending moderation: ${clip.title} (submitted by ${submitter})`)
     }
   } catch (error) {
-    console.error("[Queue] Failed to submit clip:", error);
+    console.error('[Queue] Failed to submit clip:', error)
   } finally {
-    release();
+    release()
   }
 }
 
 // Connect to chat on startup
-connectToChat();
+connectToChat()
 
 // OAuth routes (must come before other API routes)
-app.use("/api/oauth", oauthRouter);
+app.use('/api/oauth', oauthRouter)
 
 // REST API endpoints
-app.get("/api/health", publicReadLimiter, (req, res) => {
+app.get('/api/health', publicReadLimiter, (req, res) => {
   res.json({
-    status: "ok",
+    status: 'ok',
     chatConnected: eventSubClient?.isConnected() || false,
-    queueSize: queue.toArray().length,
-  });
-});
+    queueSize: queue.toArray().length
+  })
+})
 
-app.get("/api/queue", publicReadLimiter, (req, res) => {
+app.get('/api/queue', publicReadLimiter, (req, res) => {
   // Generate ETag from current state
-  const etag = generateStateHash();
+  const etag = generateStateHash()
 
   // Check if client has cached version
-  const clientETag = req.headers["if-none-match"];
+  const clientETag = req.headers['if-none-match']
   if (clientETag === etag) {
     // State hasn't changed, return 304 Not Modified
-    return res.status(304).end();
+    return res.status(304).end()
   }
 
   // State changed, return full response with ETag
-  res.setHeader("ETag", etag);
-  res.setHeader("Cache-Control", "no-cache"); // Must revalidate with ETag
-  res.json(getQueueState());
-});
+  res.setHeader('ETag', etag)
+  res.setHeader('Cache-Control', 'no-cache') // Must revalidate with ETag
+  res.json(getQueueState())
+})
 
 // Manual clip submission (moderators only)
 app.post(
-  "/api/queue/submit",
+  '/api/queue/submit',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = SubmitClipSchema.safeParse(req.body);
+    const parseResult = SubmitClipSchema.safeParse(req.body)
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { url, submitter } = parseResult.data;
-    await handleClipSubmission(url, submitter, false);
-    res.json({ success: true, state: getQueueState() });
-  }),
-);
+    const { url, submitter } = parseResult.data
+    await handleClipSubmission(url, submitter, false)
+    res.json({ success: true, state: getQueueState() })
+  })
+)
 
 // Queue navigation (moderators only)
 app.post(
-  "/api/queue/advance",
+  '/api/queue/advance',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
-    const release = await queueOperationMutex.acquire();
+    const release = await queueOperationMutex.acquire()
     try {
-      const state = { current: currentClip, queue, history };
+      const state = { current: currentClip, queue, history }
       await advanceQueue(
         state,
         {
-          updateClipStatus: (clipId, status) =>
-            updateClipStatus(db, clipId, status),
-          deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
+          updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
+          deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
         },
-        toClipUUID,
-      );
-      currentClip = state.current;
+        toClipUUID
+      )
+      currentClip = state.current
 
       // Broadcast change
-      invalidateETag();
+      invalidateETag()
 
-      console.log(
-        `[Queue] Advanced to next clip: ${currentClip?.title || "none"}`,
-      );
-      res.json({ success: true, state: getQueueState() });
+      console.log(`[Queue] Advanced to next clip: ${currentClip?.title || 'none'}`)
+      res.json({ success: true, state: getQueueState() })
     } finally {
-      release();
+      release()
     }
-  }),
-);
+  })
+)
 
 app.post(
-  "/api/queue/previous",
+  '/api/queue/previous',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
-    const release = await queueOperationMutex.acquire();
+    const release = await queueOperationMutex.acquire()
     try {
-      const state = { current: currentClip, queue, history };
-      await previousClip(state);
-      currentClip = state.current;
+      const state = { current: currentClip, queue, history }
+      await previousClip(state)
+      currentClip = state.current
 
       // Broadcast change
-      invalidateETag();
+      invalidateETag()
 
-      console.log(
-        `[Queue] Went to previous clip: ${currentClip?.title || "none"}`,
-      );
-      res.json({ success: true, state: getQueueState() });
+      console.log(`[Queue] Went to previous clip: ${currentClip?.title || 'none'}`)
+      res.json({ success: true, state: getQueueState() })
     } finally {
-      release();
+      release()
     }
-  }),
-);
+  })
+)
 
 // Clear queue (broadcaster only)
 app.delete(
-  "/api/queue",
+  '/api/queue',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireBroadcaster,
   asyncHandler(async (req, res) => {
-    try {
-      await clearQueue(
-        { current: currentClip, queue, history },
-        {
-          updateClipStatus: (clipId, status) =>
-            updateClipStatus(db, clipId, status),
-          deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
-        },
-      );
+    await clearQueue(
+      { current: currentClip, queue, history },
+      {
+        updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
+        deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
+      }
+    )
 
-      console.log("[Queue] Cleared queue");
-      invalidateETag();
-      res.json({ success: true, state: getQueueState() });
-    } catch (error) {
-      throw error; // Let asyncHandler catch and respond with error
-    }
-  }),
-);
+    console.log('[Queue] Cleared queue')
+    invalidateETag()
+    res.json({ success: true, state: getQueueState() })
+  })
+)
 
 // Clear history (broadcaster only)
 app.delete(
-  "/api/queue/history",
+  '/api/queue/history',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireBroadcaster,
   asyncHandler(async (req, res) => {
-    const previousHistory = history.toArray();
+    const previousHistory = history.toArray()
     try {
-      history.clear();
-      deleteClipsByStatus(db, "played");
+      history.clear()
+      deleteClipsByStatus(db, 'played')
 
       // Broadcast history cleared event
-      invalidateETag();
+      invalidateETag()
 
-      console.log("[Queue] Cleared history");
-      res.json({ success: true, state: getQueueState() });
+      console.log('[Queue] Cleared history')
+      res.json({ success: true, state: getQueueState() })
     } catch (error) {
       // Roll back in-memory changes on database failure
-      previousHistory.forEach((clip: Clip) => history.add(clip));
-      throw error; // Let asyncHandler catch and respond with error
+      previousHistory.forEach((clip: Clip) => history.add(clip))
+      throw error // Let asyncHandler catch and respond with error
     }
-  }),
-);
+  })
+)
 
 // DELETE /api/queue/history/:clipId - Remove individual clip from history (moderator only)
 app.delete(
-  "/api/queue/history/:clipId",
+  '/api/queue/history/:clipId',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
-    const { clipId } = req.params;
+    const { clipId } = req.params
 
     // Validate clipId format
     if (!clipId || clipId.length === 0 || clipId.length > 200) {
       return res.status(400).json({
-        error: "INVALID_CLIP_ID",
-        message: "Clip ID must be between 1 and 200 characters",
-      });
+        error: 'INVALID_CLIP_ID',
+        message: 'Clip ID must be between 1 and 200 characters'
+      })
     }
 
     // Find clip in history
-    const historyClips = history.toArray();
-    const clip = historyClips.find((c) => toClipUUID(c) === clipId);
+    const historyClips = history.toArray()
+    const clip = historyClips.find((c) => toClipUUID(c) === clipId)
 
     if (!clip) {
       return res.status(404).json({
-        error: "CLIP_NOT_FOUND",
-        message: "Clip not found in history",
-        clipId,
-      });
+        error: 'CLIP_NOT_FOUND',
+        message: 'Clip not found in history',
+        clipId
+      })
     }
 
     try {
       // Remove from in-memory history
-      history.remove(clip);
+      history.remove(clip)
 
       // Delete from database
-      db.delete(clips).where(eq(clips.id, clipId)).run();
+      db.delete(clips).where(eq(clips.id, clipId)).run()
 
       // Invalidate ETag
-      invalidateETag();
+      invalidateETag()
 
-      console.log(`[Queue] Removed clip from history: ${clip.title}`);
-      res.json({ success: true, state: getQueueState() });
+      console.log(`[Queue] Removed clip from history: ${clip.title}`)
+      res.json({ success: true, state: getQueueState() })
     } catch (error) {
       // Roll back in-memory changes on database failure
-      history.add(clip);
-      throw error; // Let asyncHandler catch and respond with error
+      history.add(clip)
+      throw error // Let asyncHandler catch and respond with error
     }
-  }),
-);
+  })
+)
 
 // Queue control (broadcaster only)
 app.post(
-  "/api/queue/open",
+  '/api/queue/open',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireBroadcaster,
   (req, res) => {
-    isQueueOpen = true;
-    console.log("[Queue] Queue opened");
-    invalidateETag();
-    res.json({ success: true, state: getQueueState() });
-  },
-);
+    isQueueOpen = true
+    console.log('[Queue] Queue opened')
+    invalidateETag()
+    res.json({ success: true, state: getQueueState() })
+  }
+)
 
 app.post(
-  "/api/queue/close",
+  '/api/queue/close',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireBroadcaster,
   (req, res) => {
-    isQueueOpen = false;
-    console.log("[Queue] Queue closed");
-    invalidateETag();
-    res.json({ success: true, state: getQueueState() });
-  },
-);
+    isQueueOpen = false
+    console.log('[Queue] Queue closed')
+    invalidateETag()
+    res.json({ success: true, state: getQueueState() })
+  }
+)
 
 // Clip management (moderators only)
 app.post(
-  "/api/queue/remove",
+  '/api/queue/remove',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = ClipIdSchema.safeParse(req.body);
+    const parseResult = ClipIdSchema.safeParse(req.body)
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { clipId } = parseResult.data;
+    const { clipId } = parseResult.data
 
     // Find and remove clip
-    const clips = queue.toArray();
-    const clip = clips.find((c) => toClipUUID(c) === clipId);
+    const clips = queue.toArray()
+    const clip = clips.find((c) => toClipUUID(c) === clipId)
 
     if (clip) {
       try {
-        queue.remove(clip);
-        updateClipStatus(db, clipId, "rejected");
+        queue.remove(clip)
+        updateClipStatus(db, clipId, 'rejected')
 
         // Broadcast removal
-        invalidateETag();
+        invalidateETag()
 
-        console.log(`[Queue] Removed clip: ${clip.title}`);
-        res.json({ success: true, state: getQueueState() });
+        console.log(`[Queue] Removed clip: ${clip.title}`)
+        res.json({ success: true, state: getQueueState() })
       } catch (error) {
         // Roll back in-memory changes on database failure
-        queue.add(clip);
-        throw error; // Let asyncHandler catch and respond with error
+        queue.add(clip)
+        throw error // Let asyncHandler catch and respond with error
       }
     } else {
       res.status(404).json({
-        error: "CLIP_NOT_FOUND",
-        message: "Clip not found in queue",
-        clipId,
-      });
+        error: 'CLIP_NOT_FOUND',
+        message: 'Clip not found in queue',
+        clipId
+      })
     }
-  }),
-);
+  })
+)
 
 // GET /api/queue/pending - List pending clips awaiting approval (broadcaster/moderator only)
 app.get(
-  "/api/queue/pending",
+  '/api/queue/pending',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   (req, res) => {
-    const pendingClips = getClipsByStatus(db, "pending");
-    res.json({ clips: pendingClips });
-  },
-);
+    const pendingClips = getClipsByStatus(db, 'pending')
+    res.json({ clips: pendingClips })
+  }
+)
 
 // POST /api/queue/approve - Approve a pending clip (broadcaster/moderator only)
 app.post(
-  "/api/queue/approve",
+  '/api/queue/approve',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = ClipIdSchema.safeParse(req.body);
+    const parseResult = ClipIdSchema.safeParse(req.body)
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { clipId } = parseResult.data;
+    const { clipId } = parseResult.data
 
     // Get clip from database
-    const clip = getClip(db, clipId);
+    const clip = getClip(db, clipId)
     if (!clip) {
       return res.status(404).json({
-        error: "PENDING_CLIP_NOT_FOUND",
-        message:
-          "Pending clip not found. It may have been already approved or rejected.",
-        clipId,
-      });
+        error: 'PENDING_CLIP_NOT_FOUND',
+        message: 'Pending clip not found. It may have been already approved or rejected.',
+        clipId
+      })
     }
 
     // Update status in database
-    updateClipStatus(db, clipId, "approved");
+    updateClipStatus(db, clipId, 'approved')
 
     // Add to in-memory queue
-    queue.add(clip);
+    queue.add(clip)
 
-    console.log(`[Queue] Approved pending clip: ${clip.title}`);
-    invalidateETag();
-    res.json({ success: true, state: getQueueState() });
-  }),
-);
+    console.log(`[Queue] Approved pending clip: ${clip.title}`)
+    invalidateETag()
+    res.json({ success: true, state: getQueueState() })
+  })
+)
 
 // POST /api/queue/reject - Reject a pending clip (broadcaster/moderator only)
 app.post(
-  "/api/queue/reject",
+  '/api/queue/reject',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = ClipIdSchema.safeParse(req.body);
+    const parseResult = ClipIdSchema.safeParse(req.body)
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { clipId } = parseResult.data;
+    const { clipId } = parseResult.data
 
     // Get clip from database
-    const clip = getClip(db, clipId);
+    const clip = getClip(db, clipId)
     if (!clip) {
       return res.status(404).json({
-        error: "PENDING_CLIP_NOT_FOUND",
-        message:
-          "Pending clip not found. It may have been already approved or rejected.",
-        clipId,
-      });
+        error: 'PENDING_CLIP_NOT_FOUND',
+        message: 'Pending clip not found. It may have been already approved or rejected.',
+        clipId
+      })
     }
 
     // Update status to rejected
-    updateClipStatus(db, clipId, "rejected");
+    updateClipStatus(db, clipId, 'rejected')
 
-    console.log(`[Queue] Rejected pending clip: ${clip.title}`);
-    res.json({ success: true, state: getQueueState() });
-  }),
-);
+    console.log(`[Queue] Rejected pending clip: ${clip.title}`)
+    res.json({ success: true, state: getQueueState() })
+  })
+)
 
 // GET /api/queue/rejected - List rejected clips (broadcaster/moderator only)
 app.get(
-  "/api/queue/rejected",
+  '/api/queue/rejected',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   (req, res) => {
-    const rejectedClips = getClipsByStatus(db, "rejected");
-    res.json({ clips: rejectedClips });
-  },
-);
+    const rejectedClips = getClipsByStatus(db, 'rejected')
+    res.json({ clips: rejectedClips })
+  }
+)
 
 // POST /api/queue/rejected/:clipId/restore - Restore a rejected clip to approved status (broadcaster/moderator only)
 app.post(
-  "/api/queue/rejected/:clipId/restore",
+  '/api/queue/rejected/:clipId/restore',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = ClipIdSchema.safeParse({ clipId: req.params.clipId });
+    const parseResult = ClipIdSchema.safeParse({ clipId: req.params.clipId })
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { clipId } = parseResult.data;
+    const { clipId } = parseResult.data
 
     // Get clip from database
-    const clip = getClip(db, clipId);
+    const clip = getClip(db, clipId)
     if (!clip) {
       return res.status(404).json({
-        error: "REJECTED_CLIP_NOT_FOUND",
-        message: "Rejected clip not found. It may have been deleted.",
-        clipId,
-      });
+        error: 'REJECTED_CLIP_NOT_FOUND',
+        message: 'Rejected clip not found. It may have been deleted.',
+        clipId
+      })
     }
 
     // Verify clip is actually rejected
-    const dbClip = db.select().from(clips).where(eq(clips.id, clipId)).get();
-    if (!dbClip || dbClip.status !== "rejected") {
+    const dbClip = db.select().from(clips).where(eq(clips.id, clipId)).get()
+    if (!dbClip || dbClip.status !== 'rejected') {
       return res.status(404).json({
-        error: "CLIP_NOT_REJECTED",
-        message:
-          "Clip is not in rejected status. Only rejected clips can be restored.",
+        error: 'CLIP_NOT_REJECTED',
+        message: 'Clip is not in rejected status. Only rejected clips can be restored.',
         clipId,
-        currentStatus: dbClip?.status || "unknown",
-      });
+        currentStatus: dbClip?.status || 'unknown'
+      })
     }
 
     try {
       // Update status to approved in database
-      updateClipStatus(db, clipId, "approved");
+      updateClipStatus(db, clipId, 'approved')
 
       // Add to in-memory queue
-      queue.add(clip);
+      queue.add(clip)
 
-      console.log(`[Queue] Restored rejected clip: ${clip.title}`);
-      invalidateETag();
-      res.json({ success: true, state: getQueueState() });
+      console.log(`[Queue] Restored rejected clip: ${clip.title}`)
+      invalidateETag()
+      res.json({ success: true, state: getQueueState() })
     } catch (error) {
       // Roll back in-memory changes on database failure
-      queue.remove(clip);
-      throw error; // Let asyncHandler catch and respond with error
+      queue.remove(clip)
+      throw error // Let asyncHandler catch and respond with error
     }
-  }),
-);
+  })
+)
 
 app.post(
-  "/api/queue/play",
+  '/api/queue/play',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = ClipIdSchema.safeParse(req.body);
+    const parseResult = ClipIdSchema.safeParse(req.body)
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { clipId } = parseResult.data;
+    const { clipId } = parseResult.data
 
-    const release = await queueOperationMutex.acquire();
+    const release = await queueOperationMutex.acquire()
     try {
       // Find clip in queue
-      const clips = queue.toArray();
-      const clip = clips.find((c) => toClipUUID(c) === clipId);
+      const clips = queue.toArray()
+      const clip = clips.find((c) => toClipUUID(c) === clipId)
 
       if (!clip) {
-        release();
+        release()
         return res.status(404).json({
-          error: "CLIP_NOT_IN_QUEUE",
-          message:
-            "Clip not found in queue. It may have already been played or removed.",
-          clipId,
-        });
+          error: 'CLIP_NOT_IN_QUEUE',
+          message: 'Clip not found in queue. It may have already been played or removed.',
+          clipId
+        })
       }
 
-      const state = { current: currentClip, queue, history };
+      const state = { current: currentClip, queue, history }
       await playClip(
         state,
         {
-          updateClipStatus: (clipId, status) =>
-            updateClipStatus(db, clipId, status),
-          deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
+          updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
+          deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
         },
         clip,
-        toClipUUID,
-      );
-      currentClip = state.current;
+        toClipUUID
+      )
+      currentClip = state.current
 
       // Broadcast change
-      invalidateETag();
+      invalidateETag()
 
-      console.log(`[Queue] Playing clip: ${currentClip?.title}`);
-      res.json({ success: true, state: getQueueState() });
+      console.log(`[Queue] Playing clip: ${currentClip?.title}`)
+      res.json({ success: true, state: getQueueState() })
     } finally {
-      release();
+      release()
     }
-  }),
-);
+  })
+)
 
 // Replay clip from history (moderators only)
 app.post(
-  "/api/queue/history/:clipId/replay",
+  '/api/queue/history/:clipId/replay',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = ClipIdSchema.safeParse({ clipId: req.params.clipId });
+    const parseResult = ClipIdSchema.safeParse({ clipId: req.params.clipId })
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { clipId } = parseResult.data;
+    const { clipId } = parseResult.data
 
-    const release = await queueOperationMutex.acquire();
+    const release = await queueOperationMutex.acquire()
     try {
       // Find clip in history
-      const historyClips = history.toArray();
-      const clip = historyClips.find((c) => toClipUUID(c) === clipId);
+      const historyClips = history.toArray()
+      const clip = historyClips.find((c) => toClipUUID(c) === clipId)
 
       if (!clip) {
-        release();
+        release()
         return res.status(404).json({
-          error: "CLIP_NOT_IN_HISTORY",
-          message:
-            "Clip not found in history. It may have been cleared or never played.",
-          clipId,
-        });
+          error: 'CLIP_NOT_IN_HISTORY',
+          message: 'Clip not found in history. It may have been cleared or never played.',
+          clipId
+        })
       }
 
       // Remove from history
-      history.remove(clip);
+      history.remove(clip)
 
       // Add to queue
-      queue.add(clip);
+      queue.add(clip)
 
       // Update database status from 'played' to 'approved'
       try {
-        updateClipStatus(db, clipId, "approved");
+        updateClipStatus(db, clipId, 'approved')
       } catch (error) {
         // Rollback: remove from queue and re-add to history
-        queue.remove(clip);
-        history.add(clip);
-        throw error;
+        queue.remove(clip)
+        history.add(clip)
+        throw error
       }
 
       // Broadcast change
-      invalidateETag();
+      invalidateETag()
 
-      console.log(`[Queue] Replayed clip from history: ${clip.title}`);
-      res.json({ success: true, state: getQueueState() });
+      console.log(`[Queue] Replayed clip from history: ${clip.title}`)
+      res.json({ success: true, state: getQueueState() })
     } finally {
-      release();
+      release()
     }
-  }),
-);
+  })
+)
 
 // Batch clip operations (moderators only)
 app.post(
-  "/api/queue/batch/remove",
+  '/api/queue/batch/remove',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = BatchClipIdsSchema.safeParse(req.body);
+    const parseResult = BatchClipIdsSchema.safeParse(req.body)
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { clipIds } = parseResult.data;
-    const queueClips = queue.toArray();
+    const { clipIds } = parseResult.data
+    const queueClips = queue.toArray()
     const results = {
       removed: 0,
       failed: [] as string[],
-      notFound: [] as string[],
-    };
+      notFound: [] as string[]
+    }
 
     // Process each clip - use partial success pattern
     for (const clipId of clipIds) {
-      const clip = queueClips.find((c) => toClipUUID(c) === clipId);
+      const clip = queueClips.find((c) => toClipUUID(c) === clipId)
 
       if (!clip) {
-        results.notFound.push(clipId);
-        continue;
+        results.notFound.push(clipId)
+        continue
       }
 
       try {
-        queue.remove(clip);
-        updateClipStatus(db, clipId, "rejected");
-        results.removed++;
+        queue.remove(clip)
+        updateClipStatus(db, clipId, 'rejected')
+        results.removed++
       } catch (error) {
         // Roll back in-memory change on database failure
-        queue.add(clip);
-        results.failed.push(clipId);
-        console.error(`[Queue] Failed to remove clip ${clipId}:`, error);
+        queue.add(clip)
+        results.failed.push(clipId)
+        console.error(`[Queue] Failed to remove clip ${clipId}:`, error)
       }
     }
 
     // Invalidate ETag only if at least one clip was removed
     if (results.removed > 0) {
-      invalidateETag();
+      invalidateETag()
     }
 
     console.log(
-      `[Queue] Batch remove: ${results.removed} removed, ${results.failed.length} failed, ${results.notFound.length} not found`,
-    );
+      `[Queue] Batch remove: ${results.removed} removed, ${results.failed.length} failed, ${results.notFound.length} not found`
+    )
 
     res.json({
       success: true,
       removed: results.removed,
       failed: results.failed,
       notFound: results.notFound,
-      state: getQueueState(),
-    });
-  }),
-);
+      state: getQueueState()
+    })
+  })
+)
 
 app.post(
-  "/api/queue/batch/approve",
+  '/api/queue/batch/approve',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = BatchClipIdsSchema.safeParse(req.body);
+    const parseResult = BatchClipIdsSchema.safeParse(req.body)
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { clipIds } = parseResult.data;
+    const { clipIds } = parseResult.data
     const results = {
       approved: 0,
       failed: [] as string[],
-      notFound: [] as string[],
-    };
+      notFound: [] as string[]
+    }
 
     // Process each clip - use partial success pattern
     for (const clipId of clipIds) {
-      const clip = getClip(db, clipId);
+      const clip = getClip(db, clipId)
 
       if (!clip) {
-        results.notFound.push(clipId);
-        continue;
+        results.notFound.push(clipId)
+        continue
       }
 
       try {
         // Update status in database
-        updateClipStatus(db, clipId, "approved");
+        updateClipStatus(db, clipId, 'approved')
 
         // Add to in-memory queue
-        queue.add(clip);
+        queue.add(clip)
 
-        results.approved++;
+        results.approved++
       } catch (error) {
-        results.failed.push(clipId);
-        console.error(`[Queue] Failed to approve clip ${clipId}:`, error);
+        results.failed.push(clipId)
+        console.error(`[Queue] Failed to approve clip ${clipId}:`, error)
       }
     }
 
     // Invalidate ETag only if at least one clip was approved
     if (results.approved > 0) {
-      invalidateETag();
+      invalidateETag()
     }
 
     console.log(
-      `[Queue] Batch approve: ${results.approved} approved, ${results.failed.length} failed, ${results.notFound.length} not found`,
-    );
+      `[Queue] Batch approve: ${results.approved} approved, ${results.failed.length} failed, ${results.notFound.length} not found`
+    )
 
     res.json({
       success: true,
       approved: results.approved,
       failed: results.failed,
       notFound: results.notFound,
-      state: getQueueState(),
-    });
-  }),
-);
+      state: getQueueState()
+    })
+  })
+)
 
 app.post(
-  "/api/queue/batch/reject",
+  '/api/queue/batch/reject',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireModerator,
   asyncHandler(async (req, res) => {
     // Validate input
-    const parseResult = BatchClipIdsSchema.safeParse(req.body);
+    const parseResult = BatchClipIdsSchema.safeParse(req.body)
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Invalid input",
-        details: parseResult.error.issues,
-      });
+        error: 'Invalid input',
+        details: parseResult.error.issues
+      })
     }
 
-    const { clipIds } = parseResult.data;
+    const { clipIds } = parseResult.data
     const results = {
       rejected: 0,
       failed: [] as string[],
-      notFound: [] as string[],
-    };
+      notFound: [] as string[]
+    }
 
     // Process each clip - use partial success pattern
     for (const clipId of clipIds) {
-      const clip = getClip(db, clipId);
+      const clip = getClip(db, clipId)
 
       if (!clip) {
-        results.notFound.push(clipId);
-        continue;
+        results.notFound.push(clipId)
+        continue
       }
 
       try {
         // Update status to rejected
-        updateClipStatus(db, clipId, "rejected");
-        results.rejected++;
+        updateClipStatus(db, clipId, 'rejected')
+        results.rejected++
       } catch (error) {
-        results.failed.push(clipId);
-        console.error(`[Queue] Failed to reject clip ${clipId}:`, error);
+        results.failed.push(clipId)
+        console.error(`[Queue] Failed to reject clip ${clipId}:`, error)
       }
     }
 
     console.log(
-      `[Queue] Batch reject: ${results.rejected} rejected, ${results.failed.length} failed, ${results.notFound.length} not found`,
-    );
+      `[Queue] Batch reject: ${results.rejected} rejected, ${results.failed.length} failed, ${results.notFound.length} not found`
+    )
 
     res.json({
       success: true,
       rejected: results.rejected,
       failed: results.failed,
       notFound: results.notFound,
-      state: getQueueState(),
-    });
-  }),
-);
+      state: getQueueState()
+    })
+  })
+)
 
 // Auth API endpoints
 app.get(
-  "/api/auth/me",
+  '/api/auth/me',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   (req: AuthenticatedRequest, res) => {
     if (!req.user) {
       return res.status(401).json({
-        error: "NOT_AUTHENTICATED",
-        message: "Authentication required. Please log in with Twitch.",
-      });
+        error: 'NOT_AUTHENTICATED',
+        message: 'Authentication required. Please log in with Twitch.'
+      })
     }
 
     res.json({
@@ -1567,41 +1479,34 @@ app.get(
       displayName: req.user.displayName,
       profileImageUrl: req.user.profileImageUrl,
       isBroadcaster: req.user.isBroadcaster,
-      isModerator: req.user.isModerator,
-    });
-  },
-);
+      isModerator: req.user.isModerator
+    })
+  }
+)
 
-app.post(
-  "/api/auth/logout",
-  authenticate,
-  authFailureLimiter,
-  (req: AuthenticatedRequest, res) => {
-    const token = req.cookies?.auth_token;
-    const channelName = process.env.TWITCH_CHANNEL_NAME!;
+app.post('/api/auth/logout', authenticate, authFailureLimiter, (req: AuthenticatedRequest, res) => {
+  const token = req.cookies?.auth_token
+  const channelName = process.env.TWITCH_CHANNEL_NAME!
 
-    if (req.user && token) {
-      // Invalidate token and role caches
-      invalidateTokenCache(token);
-      invalidateRoleCache(req.user.userId, channelName);
+  if (req.user && token) {
+    // Invalidate token and role caches
+    invalidateTokenCache(token)
+    invalidateRoleCache(req.user.userId, channelName)
 
-      console.log(
-        `[Auth] User ${req.user.username} logged out, caches invalidated`,
-      );
-    }
+    console.log(`[Auth] User ${req.user.username} logged out, caches invalidated`)
+  }
 
-    // Note: Actual cookie clearing and token revocation handled by /api/oauth/logout
-    res.json({ success: true });
-  },
-);
+  // Note: Actual cookie clearing and token revocation handled by /api/oauth/logout
+  res.json({ success: true })
+})
 
 app.get(
-  "/api/auth/validate",
+  '/api/auth/validate',
   authenticate,
   authFailureLimiter,
   (req: AuthenticatedRequest, res) => {
     if (!req.user) {
-      return res.status(401).json({ error: "Not authenticated" });
+      return res.status(401).json({ error: 'Not authenticated' })
     }
 
     res.json({
@@ -1610,132 +1515,125 @@ app.get(
         userId: req.user.userId,
         username: req.user.username,
         isBroadcaster: req.user.isBroadcaster,
-        isModerator: req.user.isModerator,
-      },
-    });
-  },
-);
+        isModerator: req.user.isModerator
+      }
+    })
+  }
+)
 
 // Cache management endpoints (broadcaster only)
 app.get(
-  "/api/auth/cache/stats",
+  '/api/auth/cache/stats',
   authenticate,
   authFailureLimiter,
   requireBroadcaster,
   (req, res) => {
-    const stats = getCacheStats();
+    const stats = getCacheStats()
     res.json({
       ...stats,
-      tokenCacheTTL: "5 minutes",
-      roleCacheTTL: "2 minutes",
-    });
-  },
-);
+      tokenCacheTTL: '5 minutes',
+      roleCacheTTL: '2 minutes'
+    })
+  }
+)
 
 app.post(
-  "/api/auth/cache/clear",
+  '/api/auth/cache/clear',
   authenticate,
   authFailureLimiter,
   requireBroadcaster,
   (req, res) => {
-    clearAllCaches();
+    clearAllCaches()
     console.log(
-      `[Auth] All caches cleared by broadcaster: ${(req as AuthenticatedRequest).user?.username}`,
-    );
-    res.json({ success: true, message: "All authentication caches cleared" });
-  },
-);
+      `[Auth] All caches cleared by broadcaster: ${(req as AuthenticatedRequest).user?.username}`
+    )
+    res.json({ success: true, message: 'All authentication caches cleared' })
+  }
+)
 
 // Settings API endpoints
-app.get("/api/settings", publicReadLimiter, (req, res) => {
-  res.json(settings);
-});
+app.get('/api/settings', publicReadLimiter, (req, res) => {
+  res.json(settings)
+})
 
 app.put(
-  "/api/settings",
+  '/api/settings',
   authenticate,
   authFailureLimiter,
   authenticatedLimiter,
   requireBroadcaster,
   (req, res) => {
     try {
-      const newSettings = req.body as AppSettings;
+      const newSettings = req.body as AppSettings
 
       // Update in-memory settings (will validate via Zod)
-      updateSettings(db, newSettings);
-      settings = newSettings;
+      updateSettings(db, newSettings)
+      settings = newSettings
 
       // Broadcast to all connected clients
-      invalidateETag();
+      invalidateETag()
 
-      console.log("[Settings] Updated:", settings);
-      res.json({ success: true, settings });
+      console.log('[Settings] Updated:', settings)
+      res.json({ success: true, settings })
     } catch (error) {
-      console.error("[Settings] Validation failed:", error);
+      console.error('[Settings] Validation failed:', error)
       res.status(400).json({
-        error: "INVALID_SETTINGS",
-        message:
-          "Settings validation failed. Check the details for specific errors.",
-        details: error,
-      });
+        error: 'INVALID_SETTINGS',
+        message: 'Settings validation failed. Check the details for specific errors.',
+        details: error
+      })
     }
-  },
-);
+  }
+)
 
 // Global error handling middleware
-app.use(
-  (
-    err: Error,
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    console.error("[Express] Unhandled error:", err);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[Express] Unhandled error:', err)
 
-    // Send structured error response
-    const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
-    res.status(statusCode).json({
-      error: "INTERNAL_SERVER_ERROR",
-      message: err.message || "An unexpected error occurred on the server",
-      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
-    });
-  },
-);
+  // Send structured error response
+  const statusCode = res.statusCode !== 200 ? res.statusCode : 500
+  res.status(statusCode).json({
+    error: 'INTERNAL_SERVER_ERROR',
+    message: err.message || 'An unexpected error occurred on the server',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  })
+})
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000
 server.listen(PORT, () => {
-  console.log(`[Server] Running on port ${PORT}`);
-  console.log(`[Server] Frontend URL: ${FRONTEND_URL}`);
-});
+  console.log(`[Server] Running on port ${PORT}`)
+  console.log(`[Server] Frontend URL: ${FRONTEND_URL}`)
+})
 
 // Graceful shutdown
-process.on("SIGTERM", () => {
-  console.log("[Server] SIGTERM received, shutting down gracefully");
+process.on('SIGTERM', () => {
+  console.log('[Server] SIGTERM received, shutting down gracefully')
 
   if (eventSubClient) {
-    eventSubClient.disconnect();
+    eventSubClient.disconnect()
   }
 
-  closeDatabase();
+  closeDatabase()
 
   server.close(() => {
-    console.log("[Server] HTTP server closed");
-    process.exit(0);
-  });
-});
+    console.log('[Server] HTTP server closed')
+    process.exit(0)
+  })
+})
 
-process.on("SIGINT", () => {
-  console.log("[Server] SIGINT received, shutting down gracefully");
+process.on('SIGINT', () => {
+  console.log('[Server] SIGINT received, shutting down gracefully')
 
   if (eventSubClient) {
-    eventSubClient.disconnect();
+    eventSubClient.disconnect()
   }
 
-  closeDatabase();
+  closeDatabase()
 
   server.close(() => {
-    console.log("[Server] HTTP server closed");
-    process.exit(0);
-  });
-});
+    console.log('[Server] HTTP server closed')
+    process.exit(0)
+  })
+})

@@ -458,10 +458,7 @@ export class TwitchEventSubClient {
     }, this.keepaliveTimeoutMs + 1000)
   }
 
-  private async createSubscription(
-    type: string,
-    condition: Record<string, string>
-  ): Promise<void> {
+  private async createSubscription(type: string, condition: Record<string, string>): Promise<void> {
     const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
       method: 'POST',
       headers: {
@@ -499,7 +496,9 @@ export class TwitchEventSubClient {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error(`[EventSub] Failed to get user ${login}: ${response.status} ${response.statusText}`)
+      console.error(
+        `[EventSub] Failed to get user ${login}: ${response.status} ${response.statusText}`
+      )
       console.error(`[EventSub] Response: ${errorText}`)
       return null
     }

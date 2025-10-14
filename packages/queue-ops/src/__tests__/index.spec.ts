@@ -1,16 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ClipList } from '@cq/platforms'
+
 import type { Clip } from '@cq/platforms'
 import { Platform } from '@cq/constants'
-import {
-  advanceQueue,
-  previousClip,
-  clearQueue,
-  clearHistory,
-  playClip,
-  type QueueState,
-  type DatabaseOperations
-} from '../index'
+import { ClipList } from '@cq/platforms'
+
+import type { DatabaseOperations, QueueState } from '../index'
+import { advanceQueue, clearHistory, clearQueue, playClip, previousClip } from '../index'
 
 // Helper to create mock clip
 function createMockClip(id: string, title: string): Clip {

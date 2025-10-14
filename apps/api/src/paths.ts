@@ -4,9 +4,10 @@
  * Finds the workspace root using find-up to avoid hardcoded relative paths.
  */
 
-import { findUpSync } from 'find-up-simple'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
+
+import { findUpSync } from 'find-up-simple'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 

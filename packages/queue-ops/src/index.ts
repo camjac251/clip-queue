@@ -12,7 +12,10 @@ export interface QueueState {
 }
 
 export interface DatabaseOperations {
-  updateClipStatus: (clipId: string, status: 'played' | 'approved' | 'pending' | 'rejected') => void | Promise<void>
+  updateClipStatus: (
+    clipId: string,
+    status: 'played' | 'approved' | 'pending' | 'rejected'
+  ) => void | Promise<void>
   deleteClipsByStatus: (status: 'approved') => void | Promise<void>
 }
 
@@ -61,9 +64,7 @@ export async function advanceQueue(
  * Move to previous clip from history
  * Moves current back to queue and pops from history
  */
-export async function previousClip(
-  state: QueueState
-): Promise<void> {
+export async function previousClip(state: QueueState): Promise<void> {
   // Move current back to upcoming
   if (state.current) {
     state.queue.unshift(state.current)
@@ -83,10 +84,7 @@ export async function previousClip(
  * Clear the queue
  * Removes all approved clips from queue and database
  */
-export async function clearQueue(
-  state: QueueState,
-  db: DatabaseOperations
-): Promise<void> {
+export async function clearQueue(state: QueueState, db: DatabaseOperations): Promise<void> {
   const previousQueue = state.queue.toArray()
 
   try {
@@ -103,9 +101,7 @@ export async function clearQueue(
  * Clear history
  * Removes all clips from history
  */
-export async function clearHistory(
-  state: QueueState
-): Promise<void> {
+export async function clearHistory(state: QueueState): Promise<void> {
   state.history.clear()
 }
 

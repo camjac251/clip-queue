@@ -7,20 +7,19 @@
  * to avoid transitive ESM dependencies that break drizzle-kit's CommonJS loader.
  */
 
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { z } from 'zod'
+
+import type { Clip } from '@cq/schemas/clip'
+import type { AppSettings } from '@cq/schemas/settings'
+import { Platform } from '@cq/schemas/clip'
 import {
-  CommandSettingsSchema,
-  QueueSettingsSchema,
-  LoggerSettingsSchema,
   AppSettingsSchema,
-  type CommandSettings,
-  type QueueSettings,
-  type LoggerSettings,
-  type AppSettings
+  CommandSettingsSchema,
+  LoggerSettingsSchema,
+  QueueSettingsSchema
 } from '@cq/schemas/settings'
-import { Platform, type Clip } from '@cq/schemas/clip'
 
 export type {
   CommandSettings,
@@ -28,12 +27,7 @@ export type {
   LoggerSettings,
   AppSettings
 } from '@cq/schemas/settings'
-export {
-  CommandSettingsSchema,
-  QueueSettingsSchema,
-  LoggerSettingsSchema,
-  AppSettingsSchema
-}
+export { CommandSettingsSchema, QueueSettingsSchema, LoggerSettingsSchema, AppSettingsSchema }
 
 // Re-export clip types for convenience
 export { Platform, type Clip }

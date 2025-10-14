@@ -24,3 +24,6 @@ apps/web/src/paraglide
 *.db
 *.db-journal
 data/
+
+# Drizzle ORM (auto-generated migration files)
+drizzle/

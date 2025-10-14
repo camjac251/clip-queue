@@ -5,11 +5,13 @@
  * then opens your browser to authorize the app.
  */
 
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'fs'
+import { createServer } from 'http'
+
 import { config } from 'dotenv'
 import express from 'express'
-import { createServer } from 'http'
-import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'fs'
 import open from 'open'
+
 import { resolveFromRoot } from './paths.js'
 
 // Load .env from project root
@@ -62,7 +64,10 @@ function updateEnvFile(token: string): void {
       if (lines[i]?.includes('TWITCH_CLIENT_SECRET=')) {
         insertIndex = i + 1
         // Skip any blank lines or comments after CLIENT_SECRET
-        while (insertIndex < lines.length && (lines[insertIndex]?.trim() === '' || lines[insertIndex]?.trim().startsWith('#'))) {
+        while (
+          insertIndex < lines.length &&
+          (lines[insertIndex]?.trim() === '' || lines[insertIndex]?.trim().startsWith('#'))
+        ) {
           insertIndex++
         }
         break
@@ -180,7 +185,9 @@ app.get('/auth/callback', async (req, res) => {
 
     console.log('✅ Access token received!')
     console.log(`   Scopes: ${tokenData.scope.join(', ')}`)
-    console.log(`   Expires in: ${tokenData.expires_in} seconds (${Math.floor(tokenData.expires_in / 86400)} days)`)
+    console.log(
+      `   Expires in: ${tokenData.expires_in} seconds (${Math.floor(tokenData.expires_in / 86400)} days)`
+    )
 
     // Validate token
     const validateResponse = await fetch('https://id.twitch.tv/oauth2/validate', {
@@ -261,7 +268,7 @@ server.listen(SETUP_PORT, async () => {
 
   try {
     await open(authUrl.toString())
-  } catch (error) {
+  } catch {
     console.log('Could not open browser automatically.')
     console.log('Please open this URL manually:\n')
     console.log(authUrl.toString())
