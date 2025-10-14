@@ -1552,7 +1552,7 @@ app.post(
 )
 
 // Settings API endpoints
-app.get('/api/settings', publicReadLimiter, (req, res) => {
+app.get('/api/settings', authenticate, authFailureLimiter, requireBroadcaster, (req, res) => {
   res.json(settings)
 })
 

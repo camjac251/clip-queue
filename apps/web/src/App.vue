@@ -92,7 +92,7 @@ onMounted(async () => {
   // Initialize stores
   queueServer.initialize()
   settings.initialize()
-  await settings.loadSettings() // Public endpoint, no auth required
+  await settings.loadSettings() // Requires broadcaster authentication
 
   // Start polling for auth events every 100ms
   authEventInterval = window.setInterval(checkAuthEvents, 100)

@@ -106,11 +106,11 @@ export const useSettings = defineStore('settings', () => {
 
   /**
    * Load settings from backend
-   * Note: This is a public endpoint, no authentication required
+   * Note: Requires broadcaster authentication
    */
   async function loadSettings(): Promise<void> {
     try {
-      const response = await fetch(`${API_URL}/api/settings`)
+      const response = await fetchWithAuth(`${API_URL}/api/settings`)
       if (!response.ok) {
         throw new Error(`Failed to load settings: ${response.statusText}`)
       }

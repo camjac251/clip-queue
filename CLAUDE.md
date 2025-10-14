@@ -297,9 +297,9 @@ settings:                              // Single-row config
 
 **Protected Routes:**
 
-- **Public**: `/api/health`, `/api/queue` (GET), `/api/settings` (GET)
+- **Public**: `/api/health`, `/api/queue` (GET)
 - **Moderator**: Queue operations, approve/reject, batch operations
-- **Broadcaster**: Open/close queue, clear queue/history, update settings, cache management
+- **Broadcaster**: Open/close queue, clear queue/history, settings (read/write), cache management
 
 **Frontend** (`apps/web/src/stores/user.ts`):
 
@@ -533,7 +533,7 @@ import('./index.js') // Import LAST
 **Settings & Auth:**
 | Method | Endpoint | Role | Description |
 |--------|----------|------|-------------|
-| GET | `/api/settings` | Public | Get app settings |
+| GET | `/api/settings` | Broadcaster | Get app settings |
 | PUT | `/api/settings` | Broadcaster | Update settings |
 | GET | `/api/auth/me` | Auth | Get user info + roles |
 | POST | `/api/auth/logout` | Auth | Invalidate caches |
