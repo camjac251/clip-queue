@@ -166,9 +166,10 @@
                 {{ m.autoplay() }}
               </label>
             </div>
-            <div v-if="user.isBroadcaster" class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5">
               <Button
                 :variant="queue.isOpen ? 'destructive' : 'default'"
+                :disabled="!user.isBroadcaster"
                 size="sm"
                 class="h-8 gap-1.5 px-2.5 text-xs font-medium"
                 @click="queue.isOpen ? handleClose() : handleOpen()"
@@ -184,6 +185,7 @@
                 }}</span>
               </Button>
               <Button
+                v-if="user.isBroadcaster"
                 variant="outline"
                 size="sm"
                 class="h-8 w-8 shrink-0 p-0"
