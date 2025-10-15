@@ -196,13 +196,13 @@
             <UiChevronDown v-if="!isCollapsed" :size="14" class="shrink-0" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" :side="isCollapsed ? 'right' : 'top'">
-          <DropdownMenuItem disabled class="font-semibold">
-            {{ user.displayName }}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem @click="handleLogout">
-            <ActionLogOut :size="16" class="mr-2" />
+        <DropdownMenuContent
+          align="start"
+          side="right"
+          class="bg-background/95 border-violet-500/20 shadow-xl backdrop-blur-md dark:border-violet-500/30"
+        >
+          <DropdownMenuItem variant="destructive" class="cursor-pointer" @click="handleLogout">
+            <ActionLogOut :size="16" />
             {{ m.logout() }}
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -229,7 +229,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@cq/ui'
 
