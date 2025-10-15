@@ -65,7 +65,7 @@
     <div class="border-border bg-card border-b shadow-sm">
       <div class="mx-auto max-w-[1920px] px-4 py-2.5 sm:px-6 sm:py-3">
         <!-- Progress Bar -->
-        <div class="mb-3 flex flex-col gap-1">
+        <div class="mb-3 flex flex-col gap-1.5">
           <Slider
             :model-value="currentTime"
             :max="duration"
@@ -73,7 +73,7 @@
             class="w-full"
             @update:model-value="handleSeek"
           />
-          <div class="text-muted-foreground flex justify-between text-[10px] font-medium">
+          <div class="text-muted-foreground flex justify-between text-xs font-medium">
             <span>{{ formatTime(currentTime) }}</span>
             <span>{{ formatTime(duration) }}</span>
           </div>
@@ -121,7 +121,7 @@
           </div>
 
           <!-- Center: Volume Controls -->
-          <div class="flex items-center justify-center gap-2">
+          <div class="flex items-center justify-center gap-2.5">
             <Button
               variant="ghost"
               size="icon"
@@ -140,10 +140,10 @@
               :model-value="volume"
               :max="100"
               :step="1"
-              class="w-20 sm:w-24"
+              class="w-28 sm:w-32 md:w-36"
               @update:model-value="handleVolumeChange"
             />
-            <span class="text-muted-foreground min-w-[2.5ch] text-xs font-medium">{{
+            <span class="text-muted-foreground min-w-[3ch] text-sm font-semibold tabular-nums">{{
               volume
             }}</span>
           </div>
