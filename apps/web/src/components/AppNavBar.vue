@@ -57,31 +57,23 @@
         custom
       >
         <button
-          class="group relative flex w-full items-center gap-3 rounded-lg font-medium transition-all duration-300"
+          class="group relative flex w-full items-center gap-3 rounded-md font-medium transition-colors"
           :class="[
-            isCollapsed ? 'justify-center p-3' : 'px-3 py-2.5',
+            isCollapsed ? 'justify-center p-3' : 'px-3 py-2',
             isActive
-              ? 'bg-gradient-to-r from-violet-500/10 to-purple-500/10 text-violet-600 shadow-sm dark:from-violet-500/20 dark:to-purple-500/20 dark:text-violet-400'
-              : 'text-foreground hover:bg-secondary/60 hover:text-foreground'
+              ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+              : 'text-foreground hover:bg-muted/50'
           ]"
           @click="() => router.push({ name: route.name })"
         >
           <component
             :is="getRouteIcon(route.meta?.icon)"
-            :size="20"
-            class="shrink-0 transition-all duration-300 group-hover:scale-110"
+            :size="18"
+            class="shrink-0 transition-transform duration-200 group-hover:scale-110"
           />
-          <span v-if="!isCollapsed" class="text-sm transition-opacity duration-300">
+          <span v-if="!isCollapsed" class="text-sm">
             {{ routeTranslations[route.name as RouteNameConstants]() }}
           </span>
-          <div
-            v-if="isActive && !isCollapsed"
-            class="absolute top-1/2 right-0 h-8 w-1 -translate-y-1/2 rounded-l-full bg-gradient-to-b from-violet-500 to-purple-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]"
-          ></div>
-          <div
-            v-if="isActive && isCollapsed"
-            class="absolute inset-x-1 -bottom-0.5 h-0.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-500"
-          ></div>
         </button>
       </RouterLink>
     </nav>
