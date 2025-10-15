@@ -166,36 +166,17 @@
                 {{ m.autoplay() }}
               </label>
             </div>
-            <div class="flex items-center gap-1.5">
-              <Button
-                :variant="queue.isOpen ? 'destructive' : 'default'"
-                :disabled="!user.isBroadcaster"
-                size="sm"
-                class="h-8 gap-1.5 px-2.5 text-xs font-medium"
-                @click="queue.isOpen ? handleClose() : handleOpen()"
-              >
-                <template v-if="queue.isOpen">
-                  <StatusLock :size="14" />
-                </template>
-                <template v-else>
-                  <StatusLockOpen :size="14" />
-                </template>
-                <span class="inline-block min-w-[3.5rem]">{{
-                  queue.isOpen ? m.close() : m.open()
-                }}</span>
-              </Button>
-              <Button
-                v-if="user.isBroadcaster"
-                variant="outline"
-                size="sm"
-                class="h-8 w-8 shrink-0 p-0"
-                :disabled="queue.upcoming.size() === 0"
-                :aria-label="m.clear()"
-                @click="handleClear()"
-              >
-                <ActionTrash :size="14" />
-              </Button>
-            </div>
+            <Button
+              v-if="user.isBroadcaster"
+              variant="outline"
+              size="sm"
+              class="h-8 w-8 shrink-0 p-0"
+              :disabled="queue.upcoming.size() === 0"
+              :aria-label="m.clear()"
+              @click="handleClear()"
+            >
+              <ActionTrash :size="14" />
+            </Button>
           </div>
         </div>
       </div>
@@ -291,9 +272,7 @@ import {
   NavHistory,
   NavInfo,
   StatusAlertCircle,
-  StatusClock,
-  StatusLock,
-  StatusLockOpen
+  StatusClock
 } from '@/composables/icons'
 import { useKeydown } from '@/composables/keydown'
 import { usePlayerState } from '@/composables/player-state'
@@ -401,22 +380,6 @@ async function handleClear() {
     await queue.clear()
   } catch (error) {
     logger.error(`[Queue]: Failed to clear queue: ${error}`)
-  }
-}
-
-async function handleOpen() {
-  try {
-    await queue.open()
-  } catch (error) {
-    logger.error(`[Queue]: Failed to open queue: ${error}`)
-  }
-}
-
-async function handleClose() {
-  try {
-    await queue.close()
-  } catch (error) {
-    logger.error(`[Queue]: Failed to close queue: ${error}`)
   }
 }
 </script>

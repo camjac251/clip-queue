@@ -86,6 +86,46 @@
       </RouterLink>
     </nav>
 
+    <!-- Queue Status Toggle -->
+    <div class="px-3 pb-3">
+      <Button
+        variant="ghost"
+        class="group relative w-full overflow-hidden transition-all duration-300"
+        :class="isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'"
+        :disabled="!user.isBroadcaster"
+        @click="handleQueueToggle"
+      >
+        <!-- Status Gradient Background -->
+        <div
+          class="absolute inset-0 transition-all duration-500"
+          :class="
+            queue.isOpen
+              ? 'bg-gradient-to-r from-emerald-500/30 to-green-500/30'
+              : 'bg-gradient-to-r from-rose-500/30 to-red-500/30'
+          "
+        ></div>
+
+        <div class="relative flex items-center gap-2">
+          <component
+            :is="queue.isOpen ? StatusInboxOpen : StatusInboxClosed"
+            :size="20"
+            class="shrink-0 transition-colors"
+            :class="queue.isOpen ? 'text-emerald-500' : 'text-rose-500'"
+          />
+          <span v-if="!isCollapsed" class="text-muted-foreground text-xs font-medium">
+            {{ m.queue() }}
+          </span>
+        </div>
+        <span
+          v-if="!isCollapsed"
+          class="relative text-xs font-semibold transition-colors"
+          :class="queue.isOpen ? 'text-emerald-500' : 'text-rose-500'"
+        >
+          {{ queue.isOpen ? m.open() : m.closed() }}
+        </span>
+      </Button>
+    </div>
+
     <!-- Bottom Section: Theme + User -->
     <div
       class="border-border/50 relative mt-auto space-y-2 border-t bg-gradient-to-t from-violet-500/5 to-transparent p-3 dark:from-violet-500/10"
@@ -197,6 +237,8 @@ import {
   ActionLogOut,
   BrandTwitch,
   routeIcons,
+  StatusInboxClosed,
+  StatusInboxOpen,
   ThemeMoon,
   ThemeSun,
   UiChevronDown,
@@ -207,10 +249,12 @@ import { useSidebar } from '@/composables/sidebar'
 import * as m from '@/paraglide/messages'
 import { allowedRoutes, RouteNameConstants, routeTranslations } from '@/router'
 import { usePreferences } from '@/stores/preferences'
+import { useQueueServer as useQueue } from '@/stores/queue-server'
 import { useUser } from '@/stores/user'
 
 const preferences = usePreferences()
 const user = useUser()
+const queue = useQueue()
 const router = useRouter()
 
 const { isCollapsed, toggleCollapse } = useSidebar()
@@ -223,5 +267,17 @@ function getRouteIcon(iconKey?: string) {
 async function handleLogout() {
   await user.logout()
   await router.push({ name: RouteNameConstants.QUEUE })
+}
+
+async function handleQueueToggle() {
+  try {
+    if (queue.isOpen) {
+      await queue.close()
+    } else {
+      await queue.open()
+    }
+  } catch (error) {
+    console.error('[AppNavBar]: Failed to toggle queue:', error)
+  }
 }
 </script>

@@ -18,6 +18,8 @@ import IconChevronRight from '~icons/lucide/chevron-right'
 import IconChevronUp from '~icons/lucide/chevron-up'
 import IconChevronsUpDown from '~icons/lucide/chevrons-up-down'
 import IconCircle from '~icons/lucide/circle'
+import IconCircleCheck from '~icons/lucide/circle-check'
+import IconCircleX from '~icons/lucide/circle-x'
 import IconClock from '~icons/lucide/clock'
 import IconExternalLink from '~icons/lucide/external-link'
 import IconHistory from '~icons/lucide/history'
@@ -49,7 +51,11 @@ import IconTrash from '~icons/lucide/trash-2'
 import IconVolume from '~icons/lucide/volume-2'
 import IconVolumeMute from '~icons/lucide/volume-x'
 import IconX from '~icons/lucide/x'
+import IconToggleOff from '~icons/material-symbols/toggle-off'
+import IconToggleOn from '~icons/material-symbols/toggle-on'
 import IconKeyboardCommand from '~icons/mdi/apple-keyboard-command'
+import IconInboxArrowDown from '~icons/mdi/inbox-arrow-down'
+import IconInboxRemove from '~icons/mdi/inbox-remove'
 import IconKick from '~icons/simple-icons/kick'
 import IconTwitch from '~icons/simple-icons/twitch'
 
@@ -98,7 +104,13 @@ export const icons = {
     clock: IconClock,
     alertCircle: IconAlertCircle,
     alertTriangle: IconAlertTriangle,
-    check: IconCheck
+    check: IconCheck,
+    circleCheck: IconCircleCheck,
+    circleX: IconCircleX,
+    toggleOn: IconToggleOn,
+    toggleOff: IconToggleOff,
+    inboxOpen: IconInboxArrowDown,
+    inboxClosed: IconInboxRemove
   },
 
   // UI Controls
@@ -153,7 +165,13 @@ export const {
     clock: StatusClock,
     alertCircle: StatusAlertCircle,
     alertTriangle: StatusAlertTriangle,
-    check: StatusCheck
+    check: StatusCheck,
+    circleCheck: StatusCircleCheck,
+    circleX: StatusCircleX,
+    toggleOn: StatusToggleOn,
+    toggleOff: StatusToggleOff,
+    inboxOpen: StatusInboxOpen,
+    inboxClosed: StatusInboxClosed
   },
   ui: {
     chevronDown: UiChevronDown,
