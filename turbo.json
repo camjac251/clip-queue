@@ -1,80 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": [
-        "dist/**",
-        ".next/**",
-        "!.next/cache/**",
-        ".vite/**"
-      ],
-      "cache": true
-    },
-    "typecheck": {
-      "dependsOn": ["^build"],
-      "cache": true
-    },
-    "lint": {
-      "dependsOn": ["typecheck"],
-      "cache": true
-    },
-    "lint:fix": {
-      "dependsOn": ["typecheck"],
-      "cache": false
-    },
-    "format": {
-      "cache": false
-    },
-    "test": {
-      "dependsOn": ["^build"],
-      "outputs": ["coverage/**"],
-      "cache": true,
-      "env": ["CI"]
-    },
-    "test:coverage": {
-      "dependsOn": ["^build"],
-      "outputs": ["coverage/**"],
-      "cache": true
-    },
-    "dev": {
-      "dependsOn": ["^build"],
-      "persistent": true,
-      "cache": false
-    },
-    "setup": {
-      "cache": false
-    },
-    "db:generate": {
-      "cache": false
-    },
-    "db:migrate": {
-      "cache": false
-    },
-    "db:studio": {
-      "cache": false
-    },
-    "i18n:check": {
-      "inputs": ["messages/*.json", "project.inlang/**", "scripts/check-i18n.ts"],
-      "cache": false
-    },
-    "i18n:sync": {
-      "inputs": ["messages/en.json", "scripts/sync-i18n.ts"],
-      "outputs": ["messages/*.json"],
-      "cache": false
-    },
-    "i18n:translate": {
-      "inputs": ["messages/*.json", "project.inlang/**"],
-      "outputs": ["messages/*.json"],
-      "cache": false
-    }
-  },
-  "globalDependencies": [
-    "pnpm-workspace.yaml",
-    "turbo.json",
-    ".env",
-    "tsconfig.json"
-  ],
+  "globalDependencies": ["pnpm-workspace.yaml", "turbo.json", ".env", "tsconfig.json"],
   "globalEnv": [
     "NODE_ENV",
     "TWITCH_CLIENT_ID",
@@ -88,6 +14,71 @@
     "DB_PATH",
     "VITE_TWITCH_CLIENT_ID",
     "VITE_API_URL",
-    "VITE_TWITCH_REDIRECT_URI"
-  ]
+    "VITE_TWITCH_REDIRECT_URI",
+    "VITE_PORT"
+  ],
+  "tasks": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", ".vite/**"]
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false
+    },
+    "db:studio": {
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "dependsOn": ["^build"],
+      "persistent": true
+    },
+    "format": {
+      "cache": false
+    },
+    "i18n:check": {
+      "cache": false,
+      "inputs": ["messages/*.json", "project.inlang/**", "scripts/check-i18n.ts"]
+    },
+    "i18n:sync": {
+      "cache": false,
+      "inputs": ["messages/en.json", "scripts/sync-i18n.ts"],
+      "outputs": ["messages/*.json"]
+    },
+    "i18n:translate": {
+      "cache": false,
+      "inputs": ["messages/*.json", "project.inlang/**"],
+      "outputs": ["messages/*.json"]
+    },
+    "lint": {
+      "cache": true,
+      "dependsOn": ["typecheck"]
+    },
+    "lint:fix": {
+      "cache": false,
+      "dependsOn": ["typecheck"]
+    },
+    "setup": {
+      "cache": false
+    },
+    "test": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "env": ["CI"],
+      "outputs": ["coverage/**"]
+    },
+    "test:coverage": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "typecheck": {
+      "cache": true,
+      "dependsOn": ["^build"]
+    }
+  }
 }

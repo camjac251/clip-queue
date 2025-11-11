@@ -14,30 +14,36 @@ services:
       - TWITCH_BOT_TOKEN=${TWITCH_BOT_TOKEN}
       - TWITCH_CHANNEL_NAME=${TWITCH_CHANNEL_NAME}
       - FRONTEND_URL=${FRONTEND_URL:-https://yourdomain.com}
-      - PORT=3000
+      - PORT=${PORT:-3000}
       - DB_PATH=/app/data/clips.db
     volumes:
-      - ./data:/app/data  # Persist SQLite database
+      - ./data:/app/data # Persist SQLite database
     labels:
       # Traefik configuration
-      - "traefik.enable=true"
+      - 'traefik.enable=true'
 
       # HTTP router
-      - "traefik.http.routers.clip-queue-api.rule=Host(`api.yourdomain.com`)"
-      - "traefik.http.routers.clip-queue-api.entrypoints=websecure"
-      - "traefik.http.routers.clip-queue-api.tls.certresolver=letsencrypt"
+      - 'traefik.http.routers.clip-queue-api.rule=Host(`api.yourdomain.com`)'
+      - 'traefik.http.routers.clip-queue-api.entrypoints=websecure'
+      - 'traefik.http.routers.clip-queue-api.tls.certresolver=letsencrypt'
 
       # Service
-      - "traefik.http.services.clip-queue-api.loadbalancer.server.port=3000"
+      - 'traefik.http.services.clip-queue-api.loadbalancer.server.port=${PORT:-3000}'
 
       # WebSocket support
-      - "traefik.http.routers.clip-queue-api.middlewares=clip-queue-headers"
-      - "traefik.http.middlewares.clip-queue-headers.headers.customrequestheaders.Upgrade=websocket"
-      - "traefik.http.middlewares.clip-queue-headers.headers.customrequestheaders.Connection=Upgrade"
+      - 'traefik.http.routers.clip-queue-api.middlewares=clip-queue-headers'
+      - 'traefik.http.middlewares.clip-queue-headers.headers.customrequestheaders.Upgrade=websocket'
+      - 'traefik.http.middlewares.clip-queue-headers.headers.customrequestheaders.Connection=Upgrade'
     networks:
       - traefik
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test:
+        [
+          'CMD',
+          'sh',
+          '-c',
+          'wget --quiet --tries=1 --spider http://localhost:$${PORT:-3000}/api/health'
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -55,9 +61,9 @@ services:
     env_file:
       - apps/web/.env
     ports:
-      - 5173:5173
+      - ${VITE_PORT:-5173}:5173
     profiles:
-      - local  # Only run with 'docker-compose --profile local up'
+      - local # Only run with 'docker-compose --profile local up'
 
 networks:
   traefik:

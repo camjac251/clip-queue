@@ -56,9 +56,8 @@ DB_PATH=./data/clips.db               # SQLite location
 **Frontend** (`apps/web/.env`):
 
 ```env
-VITE_TWITCH_CLIENT_ID=your_client_id
 VITE_API_URL=http://localhost:3000
-VITE_TWITCH_REDIRECT_URI=http://localhost:5173
+VITE_PORT=5173                         # Dev server port (optional)
 ```
 
 ## Common Commands
