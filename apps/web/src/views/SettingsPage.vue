@@ -61,7 +61,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { useMagicKeys, whenever } from '@vueuse/core'
+import { ref } from 'vue'
 
 import { Button } from '@cq/ui'
 
@@ -86,19 +87,13 @@ function openSearch() {
 }
 
 // Keyboard shortcuts
-function handleKeydown(event: KeyboardEvent) {
-  // Cmd/Ctrl + K for search
-  if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
-    event.preventDefault()
-    openSearch()
-  }
-}
+const keys = useMagicKeys()
 
-onMounted(() => {
-  window.addEventListener('keydown', handleKeydown)
+whenever(keys['Ctrl+K']!, (value) => {
+  if (value) openSearch()
 })
 
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown)
+whenever(keys['Meta+K']!, (value) => {
+  if (value) openSearch()
 })
 </script>

@@ -19,6 +19,7 @@
 </template>
 
 <script setup lang="ts">
+import { useIntervalFn, useMagicKeys, whenever } from '@vueuse/core'
 import { onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -42,8 +43,6 @@ const settings = useSettings()
 const user = useUser()
 
 // Poll for auth events and display toast notifications
-let authEventInterval: number | undefined
-
 const checkAuthEvents = () => {
   const event = consumeAuthEvent()
   if (event) {
@@ -61,6 +60,8 @@ const checkAuthEvents = () => {
   }
 }
 
+const { pause: pauseAuthPolling } = useIntervalFn(checkAuthEvents, 100)
+
 // Listen for auth:failed events from login flow
 const handleAuthFailed = (event: Event) => {
   const customEvent = event as CustomEvent<{ message: string }>
@@ -77,13 +78,16 @@ const handleBeforeUnload = () => {
   queueServer.cleanup()
 }
 
-// Handle Ctrl+B keyboard shortcut for sidebar toggle
-const handleKeydown = (event: KeyboardEvent) => {
-  if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
-    event.preventDefault()
-    sidebar.toggleCollapse()
-  }
-}
+// Keyboard shortcuts
+const keys = useMagicKeys()
+
+whenever(keys['Ctrl+B']!, (value) => {
+  if (value) sidebar.toggleCollapse()
+})
+
+whenever(keys['Meta+B']!, (value) => {
+  if (value) sidebar.toggleCollapse()
+})
 
 onMounted(async () => {
   // Handle OAuth callback if present in URL
@@ -101,23 +105,14 @@ onMounted(async () => {
     await settings.loadSettings()
   }
 
-  // Start polling for auth events every 100ms
-  authEventInterval = window.setInterval(checkAuthEvents, 100)
-
   window.addEventListener('auth:failed', handleAuthFailed)
   window.addEventListener('beforeunload', handleBeforeUnload)
-  window.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
-  // Clear auth event polling interval
-  if (authEventInterval !== undefined) {
-    clearInterval(authEventInterval)
-  }
-
+  pauseAuthPolling()
   window.removeEventListener('auth:failed', handleAuthFailed)
   window.removeEventListener('beforeunload', handleBeforeUnload)
-  window.removeEventListener('keydown', handleKeydown)
   // Also cleanup on component unmount
   queueServer.cleanup()
 })
