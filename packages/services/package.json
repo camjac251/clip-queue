@@ -6,6 +6,7 @@
   "description": "Clients to interact with various external services.",
   "exports": {
     "./kick": "./src/kick/index.ts",
+    "./sora": "./src/sora/index.ts",
     "./twitch": "./src/twitch/index.ts"
   },
   "scripts": {

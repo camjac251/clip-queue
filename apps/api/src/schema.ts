@@ -41,15 +41,15 @@ export const clips = sqliteTable(
   'clips',
   {
     id: text('id').primaryKey(), // UUID format: "platform:contentType:clip_id"
-    platform: text('platform', { enum: ['twitch', 'kick'] }).notNull(),
+    platform: text('platform', { enum: ['twitch', 'kick', 'sora'] }).notNull(),
     contentType: text('content_type', { enum: ['clip', 'vod', 'highlight'] })
       .notNull()
       .default('clip'),
     clipId: text('clip_id').notNull(), // The actual clip ID from platform
     url: text('url').notNull(),
     embedUrl: text('embed_url').notNull(),
-    videoUrl: text('video_url'), // Direct video URL (Kick only - Twitch content fetches client-side)
-    thumbnailUrl: text('thumbnail_url').notNull(),
+    videoUrl: text('video_url'), // Direct video URL (Kick, Sora - Twitch content fetches client-side)
+    thumbnailUrl: text('thumbnail_url'),
     title: text('title').notNull(),
     channel: text('channel').notNull(),
     creator: text('creator').notNull(),

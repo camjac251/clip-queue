@@ -43,6 +43,13 @@
       "when": 1760480173110,
       "tag": "0005_fuzzy_liz_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1762846239877,
+      "tag": "0006_freezing_terrax",
+      "breakpoints": true
     }
   ]
 }

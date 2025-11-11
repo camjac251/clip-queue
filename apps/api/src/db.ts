@@ -366,23 +366,27 @@ export function getClipsByStatus(
   return rows
     .map((row) => {
       try {
-        return ClipSchema.parse({
+        const clipData: Record<string, unknown> = {
           platform: row.platform,
-          contentType: row.contentType || 'clip', // Fallback to 'clip' for old data
+          contentType: row.contentType || 'clip',
           id: row.clipId,
           url: row.url,
           embedUrl: row.embedUrl,
-          videoUrl: row.videoUrl ?? undefined,
-          thumbnailUrl: row.thumbnailUrl,
           title: row.title,
           channel: row.channel,
-          creator: row.creator ?? row.channel, // Fallback to channel if creator is missing
-          category: row.category || undefined, // Convert empty string to undefined
-          createdAt: row.createdAt ?? undefined,
-          duration: row.duration ?? undefined,
-          timestamp: row.timestamp ?? undefined,
+          creator: row.creator ?? row.channel,
           submitters: submittersByClip.get(row.id) || []
-        })
+        }
+
+        // Only include optional fields if they have values
+        if (row.videoUrl) clipData.videoUrl = row.videoUrl
+        if (row.thumbnailUrl) clipData.thumbnailUrl = row.thumbnailUrl
+        if (row.category) clipData.category = row.category
+        if (row.createdAt) clipData.createdAt = row.createdAt
+        if (row.duration != null) clipData.duration = row.duration
+        if (row.timestamp != null) clipData.timestamp = row.timestamp
+
+        return ClipSchema.parse(clipData) as Clip
       } catch (error) {
         console.error(`[Database] Invalid clip data for ${row.id}:`, error)
         return null

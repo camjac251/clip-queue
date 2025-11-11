@@ -18,9 +18,17 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import helmet from 'helmet'
 import { z } from 'zod'
 
-import { ClipList, KickPlatform, PlayHistory, toClipUUID, TwitchPlatform } from '@cq/platforms'
+import {
+  ClipList,
+  KickPlatform,
+  PlayHistory,
+  SoraPlatform,
+  toClipUUID,
+  TwitchPlatform
+} from '@cq/platforms'
 import { advanceQueue, clearQueue, jumpToHistoryClip, playClip, previousClip } from '@cq/queue-ops'
 import kick from '@cq/services/kick'
+import sora from '@cq/services/sora'
 import twitch from '@cq/services/twitch'
 import { TTLCache } from '@cq/utils'
 
@@ -282,7 +290,8 @@ const platforms = {
     id: process.env.TWITCH_CLIENT_ID!,
     token: process.env.TWITCH_BOT_TOKEN
   })),
-  kick: new KickPlatform()
+  kick: new KickPlatform(),
+  sora: new SoraPlatform()
 }
 
 // Per-user rate limiting cache (tracks last submission time per user)
@@ -591,13 +600,16 @@ async function handleChatCommand(message: { username: string; text: string }): P
 
     case 'enableplatform': {
       const platformArg = args[0]?.toLowerCase()
-      if (!platformArg || (platformArg !== 'twitch' && platformArg !== 'kick')) {
+      if (
+        !platformArg ||
+        (platformArg !== 'twitch' && platformArg !== 'kick' && platformArg !== 'sora')
+      ) {
         console.log(`[Command] Invalid platform: ${args[0]}`)
         break
       }
 
-      if (!settings.queue.platforms.includes(platformArg as 'twitch' | 'kick')) {
-        settings.queue.platforms.push(platformArg as 'twitch' | 'kick')
+      if (!settings.queue.platforms.includes(platformArg as 'twitch' | 'kick' | 'sora')) {
+        settings.queue.platforms.push(platformArg as 'twitch' | 'kick' | 'sora')
         updateSettings(db, settings)
         console.log(`[Command] Enabled ${platformArg} platform (requested by ${message.username})`)
         invalidateETag()
@@ -609,12 +621,15 @@ async function handleChatCommand(message: { username: string; text: string }): P
 
     case 'disableplatform': {
       const platformArg = args[0]?.toLowerCase()
-      if (!platformArg || (platformArg !== 'twitch' && platformArg !== 'kick')) {
+      if (
+        !platformArg ||
+        (platformArg !== 'twitch' && platformArg !== 'kick' && platformArg !== 'sora')
+      ) {
         console.log(`[Command] Invalid platform: ${args[0]}`)
         break
       }
 
-      const index = settings.queue.platforms.indexOf(platformArg as 'twitch' | 'kick')
+      const index = settings.queue.platforms.indexOf(platformArg as 'twitch' | 'kick' | 'sora')
       if (index !== -1) {
         settings.queue.platforms.splice(index, 1)
         updateSettings(db, settings)
@@ -683,8 +698,18 @@ async function handleClipSubmission(
       return
     }
 
-    // Detect platform and fetch clip data with timeout
-    const platformInstance = url.includes('kick.com') ? platforms.kick : platforms.twitch
+    // Detect platform and fetch clip data with timeout (use platform validators)
+    let platformInstance
+    if (kick.getClipIdFromUrl(url)) {
+      platformInstance = platforms.kick
+    } else if (sora.getPostIdFromUrl(url)) {
+      platformInstance = platforms.sora
+    } else if (twitch.getContentTypeFromUrl(url)) {
+      platformInstance = platforms.twitch
+    } else {
+      console.log(`[Queue] Invalid URL format: ${url}`)
+      return
+    }
     const PLATFORM_API_TIMEOUT = 10000 // 10 seconds
 
     let clip

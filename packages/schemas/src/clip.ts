@@ -13,6 +13,10 @@ export enum Platform {
    */
   KICK = 'kick',
   /**
+   * Sora.com videos (OpenAI).
+   */
+  SORA = 'sora',
+  /**
    * Twitch.tv clips.
    */
   TWITCH = 'twitch'
@@ -67,9 +71,9 @@ export interface Clip {
    */
   videoUrl?: string
   /**
-   * The thumbnail URL of the clip.
+   * The thumbnail URL of the clip (optional).
    */
-  thumbnailUrl: string
+  thumbnailUrl?: string
   /**
    * The title of the clip.
    */
@@ -114,7 +118,7 @@ export const ClipSchema = z.object({
   url: z.string().url(),
   embedUrl: z.string().url(),
   videoUrl: z.string().url().optional(),
-  thumbnailUrl: z.string().url(),
+  thumbnailUrl: z.string().url().optional(),
   title: z.string(),
   channel: z.string(),
   creator: z.string(),

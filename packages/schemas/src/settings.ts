@@ -40,7 +40,7 @@ export type CommandSettings = z.infer<typeof CommandSettingsSchema>
 export const QueueSettingsSchema = z.object({
   hasAutoModerationEnabled: z.boolean(),
   limit: z.number().int().positive().nullable(),
-  platforms: z.array(z.enum(['twitch', 'kick']))
+  platforms: z.array(z.enum(['twitch', 'kick', 'sora']))
 })
 
 export type QueueSettings = z.infer<typeof QueueSettingsSchema>
