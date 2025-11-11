@@ -296,6 +296,7 @@ const platforms = {
 
 // Per-user rate limiting cache (tracks last submission time per user)
 const userSubmissionCache = new TTLCache<string, number>(60000) // 1 minute TTL
+const urlSubmissionCache = new TTLCache<string, number>(5000) // 5 second TTL for duplicate URL prevention
 
 // Restore queue and play history from database
 function restoreQueueFromDatabase() {
@@ -321,6 +322,8 @@ restoreQueueFromDatabase()
 
 // Initialize Twitch EventSub chat monitoring
 let eventSubClient: TwitchEventSubClient | null = null
+let eventSubConnectedAt: Date | null = null
+let eventSubLastMessageAt: Date | null = null
 
 // Initialize bot token manager
 const clientId = process.env.TWITCH_CLIENT_ID!
@@ -377,6 +380,8 @@ async function connectToChat() {
     eventSubClient.onDisconnect(() => {
       console.log('[Chat] EventSub disconnected unexpectedly')
       eventSubClient = null
+      eventSubConnectedAt = null
+      eventSubLastMessageAt = null
 
       // Don't reconnect here - EventSub client handles graceful reconnects
       // For unexpected disconnects, outer error handler will retry with backoff
@@ -385,6 +390,7 @@ async function connectToChat() {
     // Listen for chat messages
     eventSubClient.onMessage(async (message) => {
       try {
+        eventSubLastMessageAt = new Date() // Track last message timestamp
         console.log(`[Chat] ${message.username}: ${message.text}`)
 
         // Check if message is a command
@@ -425,6 +431,7 @@ async function connectToChat() {
     await eventSubClient.connect()
     await eventSubClient.subscribeToChannel(channelName)
 
+    eventSubConnectedAt = new Date() // Track connection timestamp
     console.log(`[Chat] Connected to EventSub for channel: ${channelName}`)
     reconnectAttempts = 0 // Reset on success
   } catch (error) {
@@ -674,6 +681,52 @@ async function handleChatCommand(message: { username: string; text: string }): P
 }
 
 /**
+ * Fetch clip from platform with retry logic and exponential backoff
+ */
+async function fetchClipWithRetry(
+  platformInstance: { getClip: (url: string) => Promise<Clip> },
+  url: string,
+  maxRetries = 3
+): Promise<Clip | null> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const timeout = 10000 * (attempt + 1) // 10s, 20s, 30s
+    const backoffDelay = attempt > 0 ? 1000 * Math.pow(2, attempt - 1) : 0 // 0ms, 1s, 2s
+
+    // Wait before retry (except first attempt)
+    if (backoffDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, backoffDelay))
+    }
+
+    try {
+      const clip = await Promise.race([
+        platformInstance.getClip(url),
+        new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error('Platform API timeout')), timeout)
+        )
+      ])
+
+      if (clip) return clip
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries - 1
+      const errorMessage = error instanceof Error ? error.message : 'unknown error'
+
+      if (isLastAttempt) {
+        console.log(
+          `[Queue] Failed to fetch clip after ${maxRetries} attempts (${errorMessage}): ${url}`
+        )
+        return null
+      }
+
+      console.log(
+        `[Queue] Attempt ${attempt + 1}/${maxRetries} failed (${errorMessage}), retrying...`
+      )
+    }
+  }
+
+  return null
+}
+
+/**
  * Handle clip submission from chat or API
  * Uses mutex to prevent race conditions on duplicate submissions
  */
@@ -684,6 +737,14 @@ async function handleClipSubmission(
 ): Promise<void> {
   const release = await clipSubmissionMutex.acquire()
   try {
+    // Duplicate URL protection (prevent processing same URL multiple times in 5s window)
+    const lastUrlSubmission = urlSubmissionCache.get(url)
+    if (lastUrlSubmission) {
+      console.log(`[Queue] Duplicate URL submitted within 5s window, ignoring: ${url}`)
+      return
+    }
+    urlSubmissionCache.set(url, Date.now())
+
     // Per-user rate limiting (prevent spam)
     const lastSubmission = userSubmissionCache.get(submitter)
     if (lastSubmission && Date.now() - lastSubmission < 10000) {
@@ -710,25 +771,10 @@ async function handleClipSubmission(
       console.log(`[Queue] Invalid URL format: ${url}`)
       return
     }
-    const PLATFORM_API_TIMEOUT = 10000 // 10 seconds
-
-    let clip
-    try {
-      clip = await Promise.race([
-        platformInstance.getClip(url),
-        new Promise<null>((_, reject) =>
-          setTimeout(() => reject(new Error('Platform API timeout')), PLATFORM_API_TIMEOUT)
-        )
-      ])
-    } catch (error) {
-      console.log(
-        `[Queue] Failed to fetch clip (${error instanceof Error ? error.message : 'timeout'}): ${url}`
-      )
-      return
-    }
+    // Fetch clip with retry logic (3 attempts with exponential backoff)
+    const clip = await fetchClipWithRetry(platformInstance, url)
 
     if (!clip) {
-      console.log(`[Queue] Failed to fetch clip: ${url}`)
       return
     }
 
@@ -796,9 +842,17 @@ app.use('/api/oauth', oauthRouter)
 
 // REST API endpoints
 app.get('/api/health', publicReadLimiter, (req, res) => {
+  const isConnected = eventSubClient?.isConnected() || false
+  const uptimeMs = eventSubConnectedAt ? Date.now() - eventSubConnectedAt.getTime() : null
+
   res.json({
     status: 'ok',
-    chatConnected: eventSubClient?.isConnected() || false,
+    eventsub: {
+      connected: isConnected,
+      connectedAt: eventSubConnectedAt?.toISOString() || null,
+      lastMessageAt: eventSubLastMessageAt?.toISOString() || null,
+      uptimeMs
+    },
     queueSize: queue.toArray().length
   })
 })

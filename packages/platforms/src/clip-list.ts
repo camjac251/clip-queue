@@ -42,9 +42,16 @@ export class PlayHistory {
   /**
    * Add a play log entry to the history
    * @param entry - The play log entry to add
+   * @param maxSize - Maximum number of entries to keep (default: 500)
    */
-  public add(entry: PlayLogEntry): void {
+  public add(entry: PlayLogEntry, maxSize: number = 500): void {
     this._entries.push(entry)
+
+    // Prune oldest entries if exceeding max size
+    if (this._entries.length > maxSize) {
+      const excessCount = this._entries.length - maxSize
+      this._entries.splice(0, excessCount)
+    }
   }
 
   /**
