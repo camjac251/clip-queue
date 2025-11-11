@@ -70,21 +70,36 @@
           </div>
         </template>
       </DataTable>
+
+      <!-- Infinite scroll trigger -->
+      <div ref="loadMoreTrigger" class="h-1" />
+
+      <!-- Loading indicator -->
+      <div v-if="history.loading.value" class="text-muted-foreground py-4 text-center text-sm">
+        Loading more history...
+      </div>
+
+      <!-- Error message -->
+      <div v-if="history.error.value" class="text-destructive py-4 text-center text-sm">
+        {{ history.error.value }}
+      </div>
     </Card>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { ColumnDef } from '@tanstack/vue-table'
-import { computed, h, ref } from 'vue'
+import { useIntersectionObserver } from '@vueuse/core'
+import { computed, h, onMounted, ref } from 'vue'
 
-import type { PlayLogEntry } from '@cq/platforms'
 import { toClipUUID } from '@cq/platforms'
 import { Button, Card, Checkbox, DataTable, Input, useConfirm } from '@cq/ui'
 
+import type { PlayLogEntry } from '@/composables/use-history'
 import PlatformName from '@/components/PlatformName.vue'
 import { ActionExternalLink, NavHistory, UiSearch } from '@/composables/icons'
 import { useToastNotifications } from '@/composables/toast'
+import { useHistory } from '@/composables/use-history'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
 import { useQueueServer as useQueue } from '@/stores/queue-server'
@@ -95,12 +110,25 @@ const { batchResult } = useToastNotifications()
 const queue = useQueue()
 const logger = useLogger()
 const user = useUser()
+const history = useHistory(50)
 
 const searchQuery = ref('')
 const selection = ref<PlayLogEntry[]>([])
+const loadMoreTrigger = ref<HTMLElement | null>(null)
+
+onMounted(() => {
+  history.loadMore()
+})
+
+useIntersectionObserver(loadMoreTrigger, (entries) => {
+  const entry = entries[0]
+  if (entry?.isIntersecting && history.hasMore.value && !history.loading.value) {
+    history.loadMore()
+  }
+})
 
 const filteredClips = computed(() => {
-  const entries = queue.playHistory
+  const entries = history.entries.value
   if (!searchQuery.value) return entries
 
   const query = searchQuery.value.toLowerCase()
@@ -230,6 +258,8 @@ function deleteClips() {
 
       if (results.succeeded > 0) {
         selection.value = []
+        history.reset()
+        history.loadMore()
       }
 
       batchResult(results.succeeded, results.failed, 'Deleted from history')
