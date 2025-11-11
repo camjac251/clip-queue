@@ -337,6 +337,7 @@ const preferences = usePreferences()
 // Keyboard shortcuts
 const keys = useMagicKeys()
 
+// Navigation shortcuts (moderator only)
 whenever(keys.ArrowLeft!, () => {
   if (!user.canControlQueue) return
   logger.debug('[Queue]: left arrow pressed.')
@@ -347,6 +348,19 @@ whenever(keys.ArrowRight!, () => {
   if (!user.canControlQueue) return
   logger.debug('[Queue]: right arrow pressed.')
   handleNext()
+})
+
+// Player shortcuts (available to all users)
+whenever(keys.Space!, () => {
+  if (!queue.current) return
+  logger.debug('[Queue]: space pressed - toggling play/pause.')
+  togglePlayPause()
+})
+
+whenever(keys.m!, () => {
+  if (!queue.current) return
+  logger.debug('[Queue]: M pressed - toggling mute.')
+  toggleMute()
 })
 
 async function handlePrevious() {
