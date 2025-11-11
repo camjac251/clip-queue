@@ -13,7 +13,7 @@ Clip Queue is a self-hosted web application for Twitch streamers. The Node.js ba
 - SQLite + Drizzle ORM for persistence
 - In-memory priority queue (sorted by popularity)
 - OAuth authentication with role-based permissions
-- Support for Twitch and Kick clips
+- Multi-platform clip support (extensible platform abstraction)
 - shadcn-vue design system (Tailwind CSS v4)
 
 ## Quick Start
@@ -149,10 +149,10 @@ packages/
   config/        @cq/config - Shared configs (TypeScript, ESLint, Prettier)
   constants/     @cq/constants - Shared constants (commands, platforms, events)
   player/        @cq/player - Vidstack video player component
-  platforms/     @cq/platforms - Clip fetching (Twitch, Kick) + ClipList
+  platforms/     @cq/platforms - Multi-platform clip fetching + ClipList
   queue-ops/     @cq/queue-ops - Queue operations (advance, previous, clear)
-  schemas/       @cq/schemas - Zod schemas (settings, auth, twitch, clip)
-  services/      @cq/services - API clients (Twitch Helix, Kick)
+  schemas/       @cq/schemas - Zod schemas (settings, auth, clip, platform-specific)
+  services/      @cq/services - Platform API clients
   ui/            @cq/ui - shadcn-vue components + Tailwind CSS v4
   utils/         @cq/utils - Shared utilities (HTTP, cache, URL parsing)
 ```
@@ -173,7 +173,7 @@ packages/
 @cq/constants   → . | /events | /commands | /platforms
 @cq/schemas     → . | /settings | /auth | /twitch | /clip
 @cq/utils       → . | /http | /cache | /url
-@cq/services    → /kick | /twitch
+@cq/services    → Per-platform exports (e.g., /twitch, /kick)
 @cq/platforms   → .
 @cq/queue-ops   → .
 @cq/player      → .
@@ -202,7 +202,7 @@ packages/
 
 **Key External Dependencies**:
 
-- **Backend**: Express, Drizzle ORM, better-sqlite3, ws (WebSocket for EventSub), helmet, express-rate-limit
+- **Backend**: Express, Drizzle ORM, better-sqlite3, ws (WebSocket), helmet, express-rate-limit
 - **Frontend**: Vue, Vue Router, Pinia, @tanstack/vue-table, @inlang/paraglide-js
 - **UI**: shadcn-vue, radix-vue, reka-ui, Tailwind CSS v4, vue-sonner
 - **Player**: Vidstack (video player with HLS/DASH support)
@@ -287,9 +287,10 @@ settings:                              // Single-row config
 - OAuth Authorization Code + PKCE flow (not deprecated Implicit Grant)
 - httpOnly cookies (XSS protection), SameSite=strict (CSRF protection)
 - Session store: SQLite (`connect-sqlite3`) for OAuth state + PKCE verifier
-- Token validation cache: 5min (capped from Twitch `expires_in`)
+- Token validation cache: 5min (capped from platform provider)
 - Role cache: 2min (faster mod status updates)
-- 60-day token lifetime (matches Twitch refresh token)
+- 60-day token lifetime (matches OAuth provider refresh token)
+- Automatic token refresh: Backend monitors bot token expiration (2-hour threshold) and proactively refreshes to prevent EventSub disconnection
 - Rate limiting: 100 req/15min (general), 20 req/15min (auth failures)
 - Security headers: CSP, HSTS (1-year), Referrer-Policy
 
@@ -365,8 +366,8 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from '@cq/ui'
 
 **Icon Sets Used:**
 
-- **Simple Icons** (`~icons/simple-icons/*`) - Official brand logos (Twitch, Kick)
-- **Lucide** (`~icons/lucide/*`) - Primary set for UI icons (1,500+ icons)
+- **Simple Icons** (`~icons/simple-icons/*`) - Official brand logos
+- **Lucide** (`~icons/lucide/*`) - Primary UI icons (1,500+ icons)
 
 **Architecture:**
 Icons are organized into centralized registries with semantic naming:
@@ -377,7 +378,7 @@ Icons are organized into centralized registries with semantic naming:
 **Icon Categories** (app registry):
 
 ```typescript
-// Brands: BrandTwitch, BrandKick
+// Brands: Platform logos
 // Actions: ActionPlay, ActionPause, ActionSkipForward, ActionTrash, ActionLogOut, etc.
 // Media: MediaVolume, MediaVolumeMute
 // Navigation: NavList, NavHistory, NavSettings, NavInfo, NavBookOpen, etc.
@@ -390,12 +391,11 @@ Icons are organized into centralized registries with semantic naming:
 
 ```vue
 <script setup>
-import { ActionPlay, BrandTwitch, NavHistory } from '@/composables/icons'
+import { ActionPlay, NavHistory } from '@/composables/icons'
 </script>
 
 <template>
   <ActionPlay :size="24" />
-  <BrandTwitch :size="20" />
   <NavHistory :size="16" />
 </template>
 ```
@@ -472,7 +472,7 @@ export type RouteIconKey = keyof typeof routeIcons
 - `next` / `prev` - Navigate queue
 - `setlimit <N>` / `removelimit` - Set queue size limit
 - `removebysubmitter <user>` - Remove clips by user
-- `removebyplatform <twitch|kick>` - Remove clips by platform
+- `removebyplatform <platform>` - Remove clips by platform
 - `enableplatform` / `disableplatform` - Toggle platform support
 - `enableautomod` / `disableautomod` - Toggle manual approval
 - `purgecache` - Clear auth caches
@@ -557,7 +557,8 @@ import('./index.js') // Import LAST
 6. `apps/api/src/db.ts` - Database operations (Drizzle)
 7. `apps/api/src/schema.ts` - Database schema + Zod validators
 8. `apps/api/src/paths.ts` - Workspace path resolution utilities
-9. `apps/api/src/setup.ts` - OAuth setup script for bot token
+9. `apps/api/src/token-manager.ts` - Automatic bot token refresh (prevents EventSub disconnection)
+10. `apps/api/src/setup.ts` - OAuth setup script for bot token
 
 **Frontend:**
 
@@ -567,22 +568,23 @@ import('./index.js') // Import LAST
 4. `apps/web/src/utils/api.ts` - Authenticated fetch wrapper
 5. `apps/web/src/composables/toast.ts` - Toast notifications composable
 6. `apps/web/src/composables/player-state.ts` - Video player state composable
-7. `apps/web/src/composables/icons.ts` - Centralized icon registry (34 icons)
-8. `apps/web/src/views/QueuePage.vue` - Main player view (passes autoplay preference)
-9. `apps/web/src/components/ClipPlayer.vue` - Clip player wrapper (threads autoplay to CqPlayer)
-10. `apps/web/src/components/TimelineView.vue` - Timeline scrubber (visual history navigation)
-11. `apps/web/src/views/HistoryPage.vue` - History archive (re-queue and delete operations)
+7. `apps/web/src/composables/icons.ts` - Centralized icon registry
+8. `apps/web/src/composables/settings-search.ts` - Settings search index
+9. `apps/web/src/views/QueuePage.vue` - Main player view (passes autoplay preference)
+10. `apps/web/src/components/ClipPlayer.vue` - Clip player wrapper (threads autoplay to CqPlayer)
+11. `apps/web/src/components/TimelineView.vue` - Timeline scrubber (visual history navigation)
+12. `apps/web/src/views/HistoryPage.vue` - History archive (re-queue and delete operations)
 
 **Shared:**
 
 1. `packages/platforms/src/clip-list.ts` - Priority queue (popularity sorting)
-2. `packages/platforms/src/twitch.ts` / `kick.ts` - Clip fetching
-3. `packages/platforms/src/types.ts` - `Clip` interface + `toClipUUID()`
+2. `packages/platforms/src/types.ts` - `Clip` interface + `toClipUUID()`
+3. `packages/platforms/src/*.ts` - Platform implementations (per-platform files)
 4. `packages/player/src/VidStackPlayer.vue` - Video player (auto URL refresh + play button overlay)
 5. `packages/player/src/CqPlayer.vue` - Player component router (accepts autoplay prop)
 6. `packages/ui/src/components/ui/` - shadcn-vue components
 7. `packages/ui/src/styles/tailwind.css` - Theme CSS variables
-8. `packages/ui/src/icons.ts` - UI package icon registry (10 component icons)
+8. `packages/ui/src/icons.ts` - UI package icon registry
 9. `packages/queue-ops/src/index.ts` - Queue operations
 10. `packages/utils/src/http.ts` / `cache.ts` - HTTP + cache utilities
 
@@ -590,31 +592,26 @@ import('./index.js') // Import LAST
 
 **Adding a New Clip Platform:**
 
-1. Create `packages/platforms/src/newplatform.ts`:
+Platforms follow the `BasePlatform` abstract class pattern:
 
-```typescript
-export class NewPlatform extends PlatformBase {
-  async getClip(url: string): Promise<Clip | null> {
-    // Fetch metadata, normalize to Clip type
-    return { platform: Platform.NEW, id, url, ... }
-  }
-}
-```
+1. **Implement platform class** extending `BasePlatform`:
+   - `getClip(url)` - Fetch metadata from platform API, normalize to `Clip` type
+   - `getPlayerFormat()` - Return 'video' or 'iframe' for player type
+   - `getPlayerSource()` - Extract playback URL from clip data
+   - Handle caching, error cases, optional fields (thumbnails, timestamps)
 
-2. Add URL detection in `apps/api/src/index.ts`:
+2. **Update platform detection logic** using validator functions:
+   - Pattern: `if (platformService.getIdFromUrl(url))` checks URL validity
+   - Detection order matters: More specific patterns first to avoid false matches
+   - EventSub monitors select platforms; others require manual submission
 
-```typescript
-// Existing patterns:
-// Twitch: url.includes('twitch.tv') && (url.includes('clip') || url.includes('/clips/'))
-// Kick: url.includes('kick.com/') && url.includes('/clips/clip_')
+3. **Update Platform enum** in `@cq/schemas/clip`
 
-if (url.includes('newplatform.com/clips/')) {
-  await handleClipSubmission(url, message.username, canAutoApprove)
-}
-```
-
-3. Update `schema.ts`: Add platform to enum
-4. Update `packages/platforms/src/types.ts`: Add to `Platform` enum
+4. **Platform-specific considerations:**
+   - Some platforms: `videoUrl` undefined (fetched client-side to avoid expiration)
+   - Other platforms: `videoUrl` populated (URLs don't expire)
+   - Optional fields: Use `undefined` for missing data (not null/empty strings)
+   - Check existing platform implementations for patterns
 
 **Adding a Database Migration:**
 
@@ -814,7 +811,7 @@ SKIP_HOOKS=1 git commit # Skip pre-commit checks
 
 1. Add keys to `apps/web/messages/en.json` (base locale)
 2. `pnpm web i18n:sync` - Sync to other locales (adds English placeholders, formats and sorts alphabetically)
-3. Use `@agent-i18n-translation-expert` to manually translate new keys across all 12 non-English locales
+3. Translate new keys across all 12 non-English locales (manually or via translation tools)
 4. `pnpm web i18n:check` - Validate completeness (TypeScript script)
 
 **Scripts**: `apps/web/scripts/check-i18n.ts`, `sync-i18n.ts`
@@ -827,6 +824,44 @@ SKIP_HOOKS=1 git commit # Skip pre-commit checks
 - **Mocks**: `apps/web/src/__tests__/mocks/`
 - **Run single file**: `pnpm test <path/to/test.spec.ts>`
 
+### Naming Conventions
+
+**TypeScript/JavaScript:**
+
+- **Variables & Functions**: camelCase (`pollTimeout`, `fetchWithAuth`, `useLogger`)
+- **Constants**: SCREAMING_SNAKE_CASE (`BASE_POLL_INTERVAL_MS`, `MAX_CONSECUTIVE_ERRORS`)
+- **Configuration Objects**: camelCase for exported objects (`env`, `config`, `platforms`) - treated as structured data
+- **Zod Schemas**: PascalCase + `Schema` suffix (`SubmitClipSchema`, `ClipIdSchema`) - treated as type constructors
+- **Drizzle Tables**: camelCase (`clips`, `clipSubmitters`, `playLog`) - ORM objects, not constants
+- **Types & Interfaces**: PascalCase (`Clip`, `QueueState`, `PlayerFormat`)
+- **Classes**: PascalCase (`ClipList`, `BasePlatform`, platform implementations)
+- **Enums**: PascalCase name, SCREAMING_SNAKE_CASE keys, lowercase values (e.g., enum keys are caps, values are lowercase strings)
+
+**Files:**
+
+- **Vue Components**: PascalCase.vue (`AppNavBar.vue`, `ClipPlayer.vue`, `TimelineView.vue`)
+- **Utilities/Services**: kebab-case.ts (`clip-list.ts`, `player-state.ts`, `settings-search.ts`)
+- **Stores**: kebab-case.ts (`queue-server.ts`, `user.ts`)
+- **Test Files**: Match source file name + `.spec.ts` (`clip-list.spec.ts`)
+
+**Database:**
+
+- **Table Names**: snake_case (`clips`, `clip_submitters`, `settings`)
+- **Column Names**: snake_case (`clip_id`, `embed_url`, `created_at`, `played_at`)
+- **Foreign Keys**: descriptive snake_case (`clip_submitters_clip_id_clips_id_fk`)
+
+**API:**
+
+- **Endpoints**: kebab-case with nouns (`/api/queue`, `/api/queue/pending`, `/api/auth/me`)
+- **Query Parameters**: camelCase in code, snake_case in URLs (Zod handles conversion)
+
+**General Principles:**
+
+- Consistent casing within each domain (TypeScript vs SQL vs REST)
+- Descriptive names over abbreviations (`pollTimeout` not `pt`)
+- Boolean variables prefixed with `is`/`has`/`can` (`isOpen`, `hasAutoModerationEnabled`, `canControlQueue`)
+- Avoid generic names (`data`, `temp`, `result`) - be specific
+
 ### Common Gotchas
 
 - **Entry point is `server.ts`** (not `index.ts`) - loads `.env` before imports (ESM hoisting workaround)
@@ -837,9 +872,10 @@ SKIP_HOOKS=1 git commit # Skip pre-commit checks
 - **ClipList sorting**: Popularity-based (more submitters = higher priority)
 - **toClipUUID()**: Returns `"platform:id"` (lowercase) for deduplication
 - **Settings are JSON blobs**: Stored in SQLite, validated with Zod on read/write
-- **Kick URL format**: `kick.com/channel/clips/clip_ID` (note: `/clips/` with `clip_` prefix)
+- **Platform URLs**: Each platform has specific URL patterns; check platform service validators for detection logic
 - **Auth caching**: 5min token cache, 2min role cache (broadcaster can clear)
 - **Token validation**: Frontend validates every 5 minutes, auto-logout on expiration
+- **Bot token refresh**: Automatic refresh at 2-hour threshold prevents EventSub disconnection; token manager handles expiration proactively
 - **HTTP Polling**: 2s intervals with ETag (most return 304 Not Modified)
 - **Backend EventSub**: `ws` package for Twitch only (not frontend)
 - **Batch operations**: Max 100 items, partial success pattern (some may fail)
@@ -849,7 +885,8 @@ SKIP_HOOKS=1 git commit # Skip pre-commit checks
 - **Tailwind CSS v4 required**: Cannot be removed (shadcn-vue foundation)
 - **Compositional API**: Use sub-components (e.g., `SelectTrigger` + `SelectContent`)
 - **Video player**: Vidstack (not Video.js) with client-side URL fetching
-- **Composables**: Use `useToastNotifications()` and `usePlayerState()`
+- **Composables pattern**: Extract reusable logic (toast, player state, settings search); use computed refs for reactive indexes; keep view logic in components
+- **Clip interface**: Optional fields use `undefined` (not null/empty strings); allows platform flexibility (thumbnails, timestamps, categories vary by platform)
 - **Generic typecheck errors**: MultiSelect/DataTable show TS4025 (known vue-tsc issue, runtime works)
 - **Icon imports**: Use centralized registries (`@/composables/icons` for app, `@cq/ui` for UI package) - do NOT import directly from `~icons/*`
 - **Icon naming**: Use semantic prefixes (Brand*, Action*, Nav*, Status*, Media*, Ui*, Theme\*) for clarity
