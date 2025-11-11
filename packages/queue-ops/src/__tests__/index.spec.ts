@@ -32,9 +32,20 @@ function createMockClip(id: string, title: string): Clip {
   }
 }
 
-// Mock UUID generator
+// Mock UUID generator (matches packages/platforms/src/utils.ts)
 function toClipUUID(clip: Clip): string {
-  return `${clip.platform}:${clip.id}`
+  const base = `${clip.platform.toString().toLowerCase()}:${clip.contentType.toLowerCase()}:${clip.id.toLowerCase()}`
+
+  // For VODs and Highlights, timestamp is semantically significant
+  if (
+    (clip.contentType === ContentType.VOD || clip.contentType === ContentType.HIGHLIGHT) &&
+    clip.timestamp !== undefined &&
+    clip.timestamp > 0
+  ) {
+    return `${base}:${clip.timestamp}`
+  }
+
+  return base
 }
 
 describe('queue-ops', () => {
@@ -73,7 +84,7 @@ describe('queue-ops', () => {
       expect(history[0]!.clip).toEqual(clip1)
       expect(state.queue.toArray()).toHaveLength(0)
 
-      expect(mockDb.updateClipStatus).toHaveBeenCalledWith('twitch:clip1', 'played')
+      expect(mockDb.updateClipStatus).toHaveBeenCalledWith('twitch:clip:clip1', 'played')
       expect(mockDb.insertPlayLog).toHaveBeenCalled()
     })
 
@@ -258,7 +269,7 @@ describe('queue-ops', () => {
       expect(state.queue.toArray()).not.toContainEqual(clip3)
       expect(state.queue.toArray()).toContainEqual(clip2)
 
-      expect(mockDb.updateClipStatus).toHaveBeenCalledWith('twitch:clip1', 'played')
+      expect(mockDb.updateClipStatus).toHaveBeenCalledWith('twitch:clip:clip1', 'played')
       expect(mockDb.insertPlayLog).toHaveBeenCalled()
     })
 
