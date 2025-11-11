@@ -257,6 +257,7 @@
 </template>
 
 <script setup lang="ts">
+import { useMagicKeys, whenever } from '@vueuse/core'
 import { ref } from 'vue'
 
 import type { Clip } from '@cq/platforms'
@@ -280,7 +281,6 @@ import {
   StatusAlertCircle,
   StatusClock
 } from '@/composables/icons'
-import { useKeydown } from '@/composables/keydown'
 import { usePlayerState } from '@/composables/player-state'
 import * as m from '@/paraglide/messages'
 import { useLogger } from '@/stores/logger'
@@ -334,17 +334,19 @@ const logger = useLogger()
 const user = useUser()
 const preferences = usePreferences()
 
-useKeydown((event) => {
-  // Check permissions before handling keyboard shortcuts
-  if (!user.canControlQueue) return
+// Keyboard shortcuts
+const keys = useMagicKeys()
 
-  if (event.key === 'ArrowLeft') {
-    logger.debug('[Queue]: left arrow pressed.')
-    handlePrevious()
-  } else if (event.key === 'ArrowRight') {
-    logger.debug('[Queue]: right arrow pressed.')
-    handleNext()
-  }
+whenever(keys.ArrowLeft!, () => {
+  if (!user.canControlQueue) return
+  logger.debug('[Queue]: left arrow pressed.')
+  handlePrevious()
+})
+
+whenever(keys.ArrowRight!, () => {
+  if (!user.canControlQueue) return
+  logger.debug('[Queue]: right arrow pressed.')
+  handleNext()
 })
 
 async function handlePrevious() {
