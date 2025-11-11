@@ -658,27 +658,34 @@ History clips can be interacted with in two different ways, each serving a diffe
 
 **Hooks Active:**
 
-- **pre-commit**: Format staged files (lint-staged) + run `typecheck`, `lint`, `test` on changed packages (Turborepo)
+- **pre-commit**: Format staged files (lint-staged) + run `typecheck`, `lint`, and `test` on changed packages (Turborepo)
 - **commit-msg**: Validate commit message format (commitlint)
 
 **Pre-commit Hook Details:**
 
-1. **lint-staged** (`.husky/pre-commit:5`):
+1. **lint-staged**:
    - Runs `prettier --write --ignore-unknown` on all staged files
    - Auto-formats code before commit
    - Automatically re-stages formatted files
+   - Shows: 🎨 Formatting staged files...
 
-2. **Turborepo validation** (`.husky/pre-commit:13`):
+2. **Turborepo validation**:
    - Runs `turbo run typecheck lint test --filter='...[HEAD]'`
    - Only checks changed packages + their dependents (fast!)
    - Uses cached results when possible (80-90% faster on cache hits)
    - Parallel execution with all CPU cores
+   - Shows output for new tasks only (`--output-logs=new-only`)
+   - Shows: 🔍 Running typecheck, lint, and tests...
+   - Shows: ✅ Pre-commit checks passed! (on success)
 
 **Commit-msg Hook Details:**
 
 - Validates [Conventional Commits](https://www.conventionalcommits.org/) format
 - Enforces line length limits (subject: 72, body/footer: 120)
 - Validates type and scope (see rules below)
+- Can be skipped with `SKIP_HOOKS=1`
+- Shows: 📝 Validating commit message...
+- Shows: ✅ Commit message valid! (on success)
 
 **Commit Message Format:**
 
@@ -732,19 +739,19 @@ git commit -m "fix(player): respect autoplay preference and add manual play butt
 **Skip Hooks:**
 
 ```sh
-# Skip pre-commit hook only (still validates commit message)
+# Skip all hooks (pre-commit, commit-msg)
 SKIP_HOOKS=1 git commit
 
-# Skip all hooks (pre-commit AND commit-msg)
+# Or use --no-verify (skips ALL hooks)
 git commit --no-verify
-# Or: SKIP_HOOKS=1 git commit --no-verify
 ```
 
 **When to skip:**
 
-- LLM workflows where formatting/tests already passed
+- LLM workflows where formatting/linting already passed
 - Emergency hotfixes (use sparingly!)
 - Amending commits after pre-commit hook made changes
+- WIP commits that will be squashed later
 
 **Troubleshooting:**
 
