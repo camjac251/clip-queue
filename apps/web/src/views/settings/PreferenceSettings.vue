@@ -83,8 +83,6 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, toRaw } from 'vue'
-
 import {
   Button,
   Card,
@@ -97,27 +95,32 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
-  useToast
+  SelectValue
 } from '@cq/ui'
 
 import type { Locale } from '@/paraglide/runtime'
 import type { Theme } from '@/stores/preferences'
 import { NavPalette } from '@/composables/icons'
+import { useSettingsForm } from '@/composables/use-settings-form'
 import * as m from '@/paraglide/messages'
 import { locales } from '@/paraglide/runtime'
 import { availableThemes, usePreferences } from '@/stores/preferences'
 
-const toast = useToast()
 const preferences = usePreferences()
 
-const formKey = ref(1)
-const formPreferences = ref(structuredClone(toRaw(preferences.preferences)))
-
-onMounted(() => {
-  // Initialize form with latest preferences
-  formPreferences.value = structuredClone(toRaw(preferences.preferences))
-})
+const {
+  formData: formPreferences,
+  formKey,
+  onReset,
+  onSubmit
+} = useSettingsForm(
+  () => preferences.preferences,
+  (value) => {
+    preferences.preferences = value
+  },
+  async () => {},
+  m.preferences_saved()
+)
 
 const themeTranslations: Record<Theme, () => string> = {
   dark: m.theme_dark,
@@ -138,21 +141,5 @@ const languageLabels: Record<Locale, string> = {
   ru: 'русский (Russian)',
   tr: 'Türkçe (Turkish)',
   zh: '中文 (Chinese)'
-}
-
-function onReset() {
-  formPreferences.value = structuredClone(toRaw(preferences.preferences))
-  formKey.value += 1
-}
-
-function onSubmit() {
-  preferences.preferences = formPreferences.value
-  toast.add({
-    severity: 'success',
-    summary: m.success(),
-    detail: m.preferences_saved(),
-    life: 3000
-  })
-  onReset()
 }
 </script>

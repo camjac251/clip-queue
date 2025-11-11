@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, toRaw, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 import {
   Button,
@@ -126,17 +126,16 @@ import {
   CardTitle,
   Checkbox,
   InputText,
-  Message,
-  useToast
+  Message
 } from '@cq/ui'
 
 import { NavMessageSquare } from '@/composables/icons'
+import { useSettingsForm } from '@/composables/use-settings-form'
 import * as m from '@/paraglide/messages'
 import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
 import { Command } from '@/types/commands'
 
-const toast = useToast()
 const user = useUser()
 const settings = useSettings()
 
@@ -174,8 +173,19 @@ const commandHelp: Record<Command, { description: string; args?: string[] }> = {
   [Command.PURGE_HISTORY]: { description: m.command_purge_history() }
 }
 
-const formKey = ref(1)
-const formSettings = ref(structuredClone(toRaw(settings.commands)))
+const {
+  formData: formSettings,
+  formKey,
+  onReset: baseReset,
+  onSubmit
+} = useSettingsForm(
+  () => settings.commands,
+  (value) => {
+    settings.commands = value
+  },
+  async () => settings.saveSettings(),
+  m.chat_settings_saved()
+)
 
 // Track individual checkbox states for reactivity
 const commandStates = ref<Record<string, boolean>>({})
@@ -200,9 +210,7 @@ watch(
 )
 
 onMounted(() => {
-  formSettings.value = structuredClone(toRaw(settings.commands))
   initializeCommandStates()
-  formKey.value += 1
 })
 
 function selectAll() {
@@ -220,33 +228,7 @@ function selectNone() {
 }
 
 function onReset() {
-  formSettings.value = structuredClone(toRaw(settings.commands))
+  baseReset()
   initializeCommandStates()
-  formKey.value += 1
-}
-
-async function onSubmit() {
-  try {
-    // Update local state
-    settings.commands = formSettings.value
-
-    // Save to backend
-    await settings.saveSettings()
-
-    toast.add({
-      severity: 'success',
-      summary: m.success(),
-      detail: m.chat_settings_saved(),
-      life: 3000
-    })
-    onReset()
-  } catch {
-    toast.add({
-      severity: 'error',
-      summary: m.error(),
-      detail: 'Failed to save settings',
-      life: 3000
-    })
-  }
 }
 </script>

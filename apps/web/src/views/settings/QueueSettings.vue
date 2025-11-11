@@ -115,8 +115,6 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, toRaw } from 'vue'
-
 import { Platform } from '@cq/platforms'
 import {
   Button,
@@ -129,57 +127,32 @@ import {
   InputNumber,
   Message,
   MultiSelect,
-  ToggleSwitch,
-  useToast
+  ToggleSwitch
 } from '@cq/ui'
 
 import PlatformName from '@/components/PlatformName.vue'
 import { NavInbox } from '@/composables/icons'
+import { useSettingsForm } from '@/composables/use-settings-form'
 import * as m from '@/paraglide/messages'
 import { usePreferences } from '@/stores/preferences'
 import { useSettings } from '@/stores/settings'
 import { useUser } from '@/stores/user'
 
-const toast = useToast()
 const settings = useSettings()
 const preferences = usePreferences()
 const user = useUser()
 
-const formKey = ref(1)
-const formSettings = ref(structuredClone(toRaw(settings.queue)))
-
-onMounted(() => {
-  // Initialize form with latest settings
-  formSettings.value = structuredClone(toRaw(settings.queue))
-})
-
-function onReset() {
-  formSettings.value = structuredClone(toRaw(settings.queue))
-  formKey.value += 1
-}
-
-async function onSubmit() {
-  try {
-    // Update local state
-    settings.queue = formSettings.value
-
-    // Save to backend
-    await settings.saveSettings()
-
-    toast.add({
-      severity: 'success',
-      summary: m.success(),
-      detail: m.queue_settings_saved(),
-      life: 3000
-    })
-    onReset()
-  } catch {
-    toast.add({
-      severity: 'error',
-      summary: m.error(),
-      detail: 'Failed to save settings',
-      life: 3000
-    })
-  }
-}
+const {
+  formData: formSettings,
+  formKey,
+  onReset,
+  onSubmit
+} = useSettingsForm(
+  () => settings.queue,
+  (value) => {
+    settings.queue = value
+  },
+  async () => settings.saveSettings(),
+  m.queue_settings_saved()
+)
 </script>

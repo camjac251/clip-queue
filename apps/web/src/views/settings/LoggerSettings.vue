@@ -140,7 +140,7 @@
 
 <script setup lang="ts">
 import type { ColumnDef } from '@tanstack/vue-table'
-import { computed, h, onMounted, ref, toRaw, useTemplateRef } from 'vue'
+import { computed, h, useTemplateRef } from 'vue'
 
 import {
   Badge,
@@ -158,12 +158,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  useConfirm,
-  useToast
+  useConfirm
 } from '@cq/ui'
 
 import type { Log } from '@/stores/logger'
 import { NavBookOpen, NavSettings } from '@/composables/icons'
+import { useSettingsForm } from '@/composables/use-settings-form'
 import * as m from '@/paraglide/messages'
 import { datetime } from '@/paraglide/registry'
 import {
@@ -175,20 +175,25 @@ import {
 import { usePreferences } from '@/stores/preferences'
 import { useSettings } from '@/stores/settings'
 
-const toast = useToast()
 const confirm = useConfirm()
 const preferences = usePreferences()
 const settings = useSettings()
 const logger = useLogger()
 const table = useTemplateRef<{ exportCSV: () => void }>('table')
 
-const formKey = ref(1)
-const formSettings = ref(structuredClone(toRaw(settings.logger)))
-
-onMounted(() => {
-  // Initialize form with latest settings
-  formSettings.value = structuredClone(toRaw(settings.logger))
-})
+const {
+  formData: formSettings,
+  formKey,
+  onReset,
+  onSubmit
+} = useSettingsForm(
+  () => settings.logger,
+  (value) => {
+    settings.logger = value
+  },
+  async () => settings.saveSettings(),
+  m.logger_settings_saved()
+)
 
 const logs = computed(() => {
   return [...logger.logs].sort((a, b) => {
@@ -258,35 +263,5 @@ function deleteAllLogs() {
       logger.debug('[Logs]: deletion of logs was cancelled.')
     }
   })
-}
-
-function onReset() {
-  formSettings.value = structuredClone(toRaw(settings.logger))
-  formKey.value += 1
-}
-
-async function onSubmit() {
-  try {
-    // Update local state
-    settings.logger = formSettings.value
-
-    // Save to backend
-    await settings.saveSettings()
-
-    toast.add({
-      severity: 'success',
-      summary: m.success(),
-      detail: m.logger_settings_saved(),
-      life: 3000
-    })
-    onReset()
-  } catch {
-    toast.add({
-      severity: 'error',
-      summary: m.error(),
-      detail: 'Failed to save settings',
-      life: 3000
-    })
-  }
 }
 </script>
