@@ -228,8 +228,12 @@ if (approvedClips.length > 0) {
 }
 console.log(`[Queue] Loaded ${approvedClips.length} approved clips from database`)
 
-// Load play history from play_log table on startup
-const playLogs = getPlayLogs(db, 100) // Load last 100 play events
+// Load play history from play_log table on startup (ASC order - oldest first)
+const playLogs = getPlayLogs(db, { limit: 100, order: 'asc' }) as Array<{
+  id: number
+  clip: Clip
+  playedAt: Date
+}>
 playLogs.forEach((entry) => {
   playHistory.add(entry)
 })
@@ -301,7 +305,11 @@ const urlSubmissionCache = new TTLCache<string, number>(5000) // 5 second TTL fo
 // Restore queue and play history from database
 function restoreQueueFromDatabase() {
   const approvedClips = getClipsByStatus(db, 'approved')
-  const playLogs = getPlayLogs(db, 50)
+  const playLogs = getPlayLogs(db, { limit: 50, order: 'asc' }) as Array<{
+    id: number
+    clip: Clip
+    playedAt: Date
+  }>
 
   for (const clip of approvedClips) {
     queue.add(clip)
@@ -874,6 +882,40 @@ app.get('/api/queue', publicReadLimiter, (req, res) => {
   res.json(getQueueState())
 })
 
+/**
+ * GET /api/history - Paginated play history with cursor-based pagination
+ * Query params:
+ *   - limit: number (optional, default 50, max 100)
+ *   - cursor: string (optional, base64-encoded playLog.id)
+ */
+app.get('/api/history', publicReadLimiter, (req, res) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined
+    const cursor = req.query.cursor as string | undefined
+
+    const result = getPlayLogs(db, {
+      limit,
+      cursor,
+      order: 'desc', // Newest first for UI browsing
+      paginate: true
+    }) as {
+      entries: Array<{ id: number; clip: Clip; playedAt: Date }>
+      nextCursor: string | null
+      hasMore: boolean
+    }
+
+    res.json({
+      entries: result.entries,
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
+      count: result.entries.length
+    })
+  } catch (error) {
+    console.error('[API] Failed to get paginated history:', error)
+    res.status(500).json({ error: 'Failed to fetch history' })
+  }
+})
+
 // HLS proxy for Twitch VODs (bypasses CORS restrictions)
 app.get(
   '/api/proxy/hls',
@@ -1122,9 +1164,13 @@ app.delete(
     // Delete all play log entries for this clip
     db.delete(playLog).where(eq(playLog.clipId, clipId)).run()
 
-    // Rebuild play history from database
+    // Rebuild play history from database (ASC order - oldest first)
     playHistory.clear()
-    const playLogs = getPlayLogs(db, 100)
+    const playLogs = getPlayLogs(db, { limit: 100, order: 'asc' }) as Array<{
+      id: number
+      clip: Clip
+      playedAt: Date
+    }>
     playLogs.forEach((entry) => playHistory.add(entry))
 
     // Delete clip from database

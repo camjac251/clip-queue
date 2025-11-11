@@ -8,7 +8,7 @@ import { existsSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
 
 import Database from 'better-sqlite3'
-import { asc, desc, eq, inArray } from 'drizzle-orm'
+import { asc, desc, eq, inArray, lt } from 'drizzle-orm'
 import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 
@@ -464,21 +464,52 @@ export function insertPlayLog(db: DbClient, clipId: string, playedAt?: Date): nu
 }
 
 /**
- * Get all play log entries (with clips) ordered by playedAt
- * @param limit - Maximum number of entries to return (default: 50)
+ * Get play logs with optional cursor-based pagination
+ * Flexible function supporting both simple queries and paginated API responses
+ *
+ * @param db - Database client
+ * @param options - Query options
+ * @returns Play log entries with optional pagination metadata
+ *
+ * @example
+ * // Startup restoration (ASC order, no pagination)
+ * getPlayLogs(db, { limit: 100, order: 'asc' })
+ *
+ * @example
+ * // API pagination (DESC order, cursor-based)
+ * getPlayLogs(db, { limit: 50, order: 'desc', cursor: 'base64...', paginate: true })
  */
 export function getPlayLogs(
   db: DbClient,
-  limit: number = 50
-): Array<{
-  id: number
-  clip: Clip
-  playedAt: Date
-  playedFor?: number
-  completedAt?: Date
-}> {
+  options: {
+    limit?: number
+    cursor?: string // base64-encoded playLog.id
+    order?: 'asc' | 'desc' // asc = oldest first (default), desc = newest first
+    paginate?: boolean // Return pagination metadata (default: false)
+  } = {}
+):
+  | Array<{ id: number; clip: Clip; playedAt: Date; playedFor?: number; completedAt?: Date }>
+  | {
+      entries: Array<{
+        id: number
+        clip: Clip
+        playedAt: Date
+        playedFor?: number
+        completedAt?: Date
+      }>
+      nextCursor: string | null
+      hasMore: boolean
+    } {
   try {
-    const rows = db
+    const order = options.order || 'asc'
+    const paginate = options.paginate || false
+    const limit = paginate ? Math.min(options.limit || 50, 100) : options.limit || 50
+    const cursor = options.cursor
+      ? parseInt(Buffer.from(options.cursor, 'base64').toString())
+      : null
+
+    // Build base query
+    const baseQuery = db
       .select({
         id: playLog.id,
         clipId: playLog.clipId,
@@ -487,12 +518,25 @@ export function getPlayLogs(
         completedAt: playLog.completedAt
       })
       .from(playLog)
-      .orderBy(asc(playLog.playedAt))
-      .limit(limit)
-      .all()
+
+    // Choose order function based on direction
+    const orderFn = order === 'desc' ? desc : asc
+
+    // For pagination, fetch limit + 1 to check hasMore
+    const fetchLimit = paginate ? limit + 1 : limit
+
+    // Apply cursor filter if provided (only for DESC order pagination)
+    const rows =
+      cursor !== null && order === 'desc'
+        ? baseQuery
+            .where(lt(playLog.id, cursor))
+            .orderBy(orderFn(playLog.id))
+            .limit(fetchLimit)
+            .all()
+        : baseQuery.orderBy(orderFn(playLog.id)).limit(fetchLimit).all()
 
     // Fetch clips for each play log entry
-    return rows.map((row) => {
+    const allEntries = rows.map((row) => {
       const clip = getClip(db, row.clipId)
       if (!clip) {
         throw new Error(`Clip not found for play log entry: ${row.clipId}`)
@@ -505,6 +549,25 @@ export function getPlayLogs(
         completedAt: row.completedAt ? new Date(row.completedAt) : undefined
       }
     })
+
+    // Return with pagination metadata if requested
+    if (paginate) {
+      const hasMore = allEntries.length > limit
+      const entries = allEntries.slice(0, limit)
+      const nextCursor =
+        hasMore && entries.length > 0
+          ? Buffer.from(entries[entries.length - 1]!.id.toString()).toString('base64')
+          : null
+
+      return {
+        entries,
+        nextCursor,
+        hasMore
+      }
+    }
+
+    // Return simple array
+    return allEntries
   } catch (error) {
     console.error(`[DB] Failed to get play logs: ${error}`)
     throw error
