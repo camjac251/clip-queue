@@ -212,6 +212,7 @@
 </template>
 
 <script setup lang="ts">
+import { useThrottleFn } from '@vueuse/core'
 import { nextTick, onMounted, ref, watch } from 'vue'
 
 import type { Clip } from '@cq/platforms'
@@ -261,7 +262,8 @@ function handleQueueClick(clip: Clip) {
   }
 }
 
-function handleScroll() {
+// Throttle scroll handler for better performance
+const handleScroll = useThrottleFn(() => {
   if (!timelineRef.value) return
 
   const scrollLeft = timelineRef.value.scrollLeft
@@ -277,7 +279,7 @@ function handleScroll() {
   } else {
     currentSection.value = 2 // Queue
   }
-}
+}, 100)
 
 async function scrollToCurrentClip() {
   await nextTick()
