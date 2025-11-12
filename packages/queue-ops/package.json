@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "format": "prettier --write .",
     "lint": "prettier --check . && eslint .",
     "lint:fix": "eslint . --fix"
@@ -19,6 +20,9 @@
   "devDependencies": {
     "@cq/config": "workspace:*",
     "@cq/constants": "workspace:*",
-    "typescript": "catalog:"
+    "@cq/schemas": "workspace:*",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "^3.2.4"
   }
 }

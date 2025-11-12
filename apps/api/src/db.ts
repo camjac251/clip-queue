@@ -20,12 +20,14 @@ import {
   ClipSchema,
   clipSubmitters,
   DEFAULT_SETTINGS,
+  playLog,
   settings
 } from './schema.js'
 
 export type DbClient = BetterSQLite3Database<{
   clips: typeof clips
   clipSubmitters: typeof clipSubmitters
+  playLog: typeof playLog
   settings: typeof settings
 }>
 
@@ -53,7 +55,7 @@ export function initDatabase(dbPath?: string): DbClient {
 
   // Create Drizzle client
   dbInstance = drizzle(sqlite, {
-    schema: { clips, clipSubmitters, settings }
+    schema: { clips, clipSubmitters, playLog, settings }
   })
 
   // Run migrations
@@ -205,10 +207,13 @@ export function upsertClip(
       // Update clip metadata (in case it changed)
       tx.update(clips)
         .set({
+          contentType: validated.contentType,
           title: validated.title,
           thumbnailUrl: validated.thumbnailUrl,
           videoUrl: validated.videoUrl,
-          category: validated.category
+          category: validated.category,
+          duration: validated.duration,
+          timestamp: validated.timestamp
         })
         .where(eq(clips.id, clipId))
         .run()
@@ -250,6 +255,7 @@ export function upsertClip(
         .values({
           id: clipId,
           platform: validated.platform,
+          contentType: validated.contentType,
           clipId: validated.id,
           url: validated.url,
           embedUrl: validated.embedUrl,
@@ -260,6 +266,8 @@ export function upsertClip(
           creator: validated.creator,
           category: validated.category,
           createdAt: validated.createdAt,
+          duration: validated.duration,
+          timestamp: validated.timestamp,
           status
         })
         .run()
@@ -297,15 +305,19 @@ export function getClip(db: DbClient, clipId: string): Clip | null {
   try {
     return ClipSchema.parse({
       platform: row.platform,
+      contentType: row.contentType || 'clip', // Fallback to 'clip' for old data
       id: row.clipId,
       url: row.url,
       embedUrl: row.embedUrl,
+      videoUrl: row.videoUrl ?? undefined,
       thumbnailUrl: row.thumbnailUrl,
       title: row.title,
       channel: row.channel,
-      creator: row.creator,
-      category: row.category,
-      createdAt: row.createdAt,
+      creator: row.creator ?? row.channel, // Fallback to channel if creator is missing
+      category: row.category || undefined, // Convert empty string to undefined
+      createdAt: row.createdAt ?? undefined,
+      duration: row.duration ?? undefined,
+      timestamp: row.timestamp ?? undefined,
       submitters: submitterRows.map((s) => s.submitter)
     })
   } catch (error) {
@@ -328,7 +340,7 @@ export function getClipsByStatus(
   if (status === 'approved') {
     query = query.orderBy(asc(clips.submittedAt)) as unknown as typeof query
   } else if (status === 'played') {
-    query = query.orderBy(desc(clips.playedAt)).limit(limit ?? 50) as unknown as typeof query
+    query = query.orderBy(desc(clips.submittedAt)).limit(limit ?? 50) as unknown as typeof query
   }
 
   const rows = query.all()
@@ -356,15 +368,19 @@ export function getClipsByStatus(
       try {
         return ClipSchema.parse({
           platform: row.platform,
+          contentType: row.contentType || 'clip', // Fallback to 'clip' for old data
           id: row.clipId,
           url: row.url,
           embedUrl: row.embedUrl,
+          videoUrl: row.videoUrl ?? undefined,
           thumbnailUrl: row.thumbnailUrl,
           title: row.title,
           channel: row.channel,
-          creator: row.creator,
-          category: row.category,
-          createdAt: row.createdAt,
+          creator: row.creator ?? row.channel, // Fallback to channel if creator is missing
+          category: row.category || undefined, // Convert empty string to undefined
+          createdAt: row.createdAt ?? undefined,
+          duration: row.duration ?? undefined,
+          timestamp: row.timestamp ?? undefined,
           submitters: submittersByClip.get(row.id) || []
         })
       } catch (error) {
@@ -383,14 +399,8 @@ export function updateClipStatus(
   clipId: string,
   status: 'approved' | 'pending' | 'rejected' | 'played'
 ): void {
-  const updates: Partial<typeof clips.$inferInsert> = { status }
-
-  if (status === 'played') {
-    updates.playedAt = new Date()
-  }
-
   try {
-    db.update(clips).set(updates).where(eq(clips.id, clipId)).run()
+    db.update(clips).set({ status }).where(eq(clips.id, clipId)).run()
   } catch (error) {
     console.error(`[DB] Failed to update clip status: ${error}`)
     throw error
@@ -425,11 +435,120 @@ export function deleteClip(db: DbClient, clipId: string): void {
 }
 
 /**
+ * Play Log Operations
+ */
+
+/**
+ * Insert a play log entry
+ * @returns The ID of the inserted play log entry
+ */
+export function insertPlayLog(db: DbClient, clipId: string, playedAt?: Date): number {
+  try {
+    const result = db
+      .insert(playLog)
+      .values({
+        clipId,
+        playedAt: playedAt ?? new Date()
+      })
+      .run()
+
+    return Number(result.lastInsertRowid)
+  } catch (error) {
+    console.error(`[DB] Failed to insert play log: ${error}`)
+    throw error
+  }
+}
+
+/**
+ * Get all play log entries (with clips) ordered by playedAt
+ * @param limit - Maximum number of entries to return (default: 50)
+ */
+export function getPlayLogs(
+  db: DbClient,
+  limit: number = 50
+): Array<{
+  id: number
+  clip: Clip
+  playedAt: Date
+  playedFor?: number
+  completedAt?: Date
+}> {
+  try {
+    const rows = db
+      .select({
+        id: playLog.id,
+        clipId: playLog.clipId,
+        playedAt: playLog.playedAt,
+        playedFor: playLog.playedFor,
+        completedAt: playLog.completedAt
+      })
+      .from(playLog)
+      .orderBy(asc(playLog.playedAt))
+      .limit(limit)
+      .all()
+
+    // Fetch clips for each play log entry
+    return rows.map((row) => {
+      const clip = getClip(db, row.clipId)
+      if (!clip) {
+        throw new Error(`Clip not found for play log entry: ${row.clipId}`)
+      }
+      return {
+        id: row.id,
+        clip,
+        playedAt: new Date(row.playedAt),
+        playedFor: row.playedFor ?? undefined,
+        completedAt: row.completedAt ? new Date(row.completedAt) : undefined
+      }
+    })
+  } catch (error) {
+    console.error(`[DB] Failed to get play logs: ${error}`)
+    throw error
+  }
+}
+
+/**
+ * Delete all play log entries for clips with specified status
+ */
+export function deletePlayLogsByClipStatus(db: DbClient, status: 'played'): void {
+  try {
+    // Get all clip IDs with the specified status
+    const clipIds = db
+      .select({ id: clips.id })
+      .from(clips)
+      .where(eq(clips.status, status))
+      .all()
+      .map((row) => row.id)
+
+    if (clipIds.length === 0) return
+
+    // Delete play log entries for those clips
+    db.delete(playLog).where(inArray(playLog.clipId, clipIds)).run()
+  } catch (error) {
+    console.error(`[DB] Failed to delete play logs by clip status: ${error}`)
+    throw error
+  }
+}
+
+/**
+ * Delete all play log entries
+ */
+export function deleteAllPlayLogs(db: DbClient): void {
+  try {
+    db.delete(playLog).run()
+  } catch (error) {
+    console.error(`[DB] Failed to delete all play logs: ${error}`)
+    throw error
+  }
+}
+
+/**
  * Re-export types and schemas
  */
 export {
   clips,
   clipSubmitters,
+  playLog,
   settings,
   type Clip,
   type AppSettings,

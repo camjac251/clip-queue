@@ -14,8 +14,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import type { Clip } from '@cq/platforms'
-import { BasicClipList, ClipList } from '@cq/platforms'
+import type { Clip, PlayLogEntry } from '@cq/platforms'
+import { ClipList, toClipUUID } from '@cq/platforms'
 
 import { env } from '@/config'
 import { fetchWithAuth } from '@/utils/api'
@@ -37,9 +37,10 @@ export const useQueueServer = defineStore('queue-server', () => {
 
   // State (synced from server via polling)
   const isOpen = ref<boolean>(true)
-  const history = ref<BasicClipList>(new BasicClipList())
+  const playHistory = ref<PlayLogEntry[]>([])
   const current = ref<Clip | undefined>(undefined)
   const upcoming = ref<ClipList>(new ClipList())
+  const historyPosition = ref<number>(-1) // -1 = queue mode, >= 0 = navigating history
   const isInitialized = ref<boolean>(false)
 
   // Polling state
@@ -53,6 +54,7 @@ export const useQueueServer = defineStore('queue-server', () => {
   const hasClips = computed(() => upcoming.value.size() > 0)
   const isEmpty = computed(() => upcoming.value.size() === 0)
   const size = computed(() => upcoming.value.size())
+  const isNavigatingHistory = computed(() => historyPosition.value >= 0)
 
   /**
    * Calculate next poll interval with jitter
@@ -163,7 +165,8 @@ export const useQueueServer = defineStore('queue-server', () => {
   function updateState(data: {
     current: Clip | null
     upcoming: Clip[]
-    history: Clip[]
+    playHistory: PlayLogEntry[]
+    historyPosition: number
     isOpen: boolean
     settings?: {
       commands: { prefix: string; allowed: string[] }
@@ -180,7 +183,10 @@ export const useQueueServer = defineStore('queue-server', () => {
     upcoming.value = new ClipList(...data.upcoming)
 
     // Update history (batch add)
-    history.value = new BasicClipList(...data.history)
+    playHistory.value = data.playHistory || []
+
+    // Update history position
+    historyPosition.value = data.historyPosition ?? -1
 
     // Update queue open/close status
     isOpen.value = data.isOpen
@@ -251,13 +257,10 @@ export const useQueueServer = defineStore('queue-server', () => {
     // Optimistic update: predict next state
     const previousCurrent = current.value
     const previousUpcoming = upcoming.value.toArray()
-    const previousHistory = history.value.toArray()
+    const previousHistory = [...playHistory.value]
 
     try {
       // Optimistically update UI
-      if (current.value) {
-        history.value.add(current.value)
-      }
       current.value = upcoming.value.shift()
 
       const response = await fetchWithAuth(`${API_URL}/api/queue/advance`, {
@@ -282,7 +285,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       // Revert optimistic update
       current.value = previousCurrent
       upcoming.value = new ClipList(...previousUpcoming)
-      history.value = new BasicClipList(...previousHistory)
+      playHistory.value = previousHistory
 
       throw error
     }
@@ -294,14 +297,15 @@ export const useQueueServer = defineStore('queue-server', () => {
     // Optimistic update
     const previousCurrent = current.value
     const previousUpcoming = upcoming.value.toArray()
-    const previousHistory = history.value.toArray()
+    const previousHistory = [...playHistory.value]
 
     try {
       // Optimistically update UI
       if (current.value) {
         upcoming.value.add(current.value)
       }
-      current.value = history.value.pop()
+      const lastEntry = playHistory.value.pop()
+      current.value = lastEntry?.clip
 
       const response = await fetchWithAuth(`${API_URL}/api/queue/previous`, {
         method: 'POST'
@@ -324,7 +328,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       // Revert optimistic update
       current.value = previousCurrent
       upcoming.value = new ClipList(...previousUpcoming)
-      history.value = new BasicClipList(...previousHistory)
+      playHistory.value = previousHistory
 
       throw error
     }
@@ -436,11 +440,11 @@ export const useQueueServer = defineStore('queue-server', () => {
   async function clearHistory(): Promise<void> {
     markActivity()
 
-    const previousHistory = history.value.toArray()
+    const previousHistory = [...playHistory.value]
 
     try {
       // Optimistically clear history
-      history.value.clear()
+      playHistory.value = []
 
       const response = await fetchWithAuth(`${API_URL}/api/queue/history`, {
         method: 'DELETE'
@@ -461,7 +465,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       logger.error(`[Queue]: Failed to clear history: ${error}`)
 
       // Revert optimistic update
-      history.value = new BasicClipList(...previousHistory)
+      playHistory.value = previousHistory
 
       throw error
     }
@@ -545,15 +549,12 @@ export const useQueueServer = defineStore('queue-server', () => {
     // Optimistic update
     const previousCurrent = current.value
     const previousUpcoming = upcoming.value.toArray()
-    const previousHistory = history.value.toArray()
+    const previousHistory = [...playHistory.value]
     const clipToPlay = previousUpcoming.find((c) => c.id === clipId)
 
     try {
       // Optimistically play clip
       if (clipToPlay) {
-        if (current.value) {
-          history.value.add(current.value)
-        }
         upcoming.value.remove(clipToPlay)
         current.value = clipToPlay
       }
@@ -583,7 +584,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       // Revert optimistic update
       current.value = previousCurrent
       upcoming.value = new ClipList(...previousUpcoming)
-      history.value = new BasicClipList(...previousHistory)
+      playHistory.value = previousHistory
 
       throw error
     }
@@ -593,15 +594,9 @@ export const useQueueServer = defineStore('queue-server', () => {
     markActivity()
 
     // Optimistic update
-    const previousHistory = history.value.toArray()
-    const clipToRemove = previousHistory.find((c) => c.id === clipId)
+    const previousHistory = [...playHistory.value]
 
     try {
-      // Optimistically remove clip from history
-      if (clipToRemove) {
-        history.value.remove(clipToRemove)
-      }
-
       const response = await fetchWithAuth(`${API_URL}/api/queue/history/${clipId}`, {
         method: 'DELETE'
       })
@@ -621,7 +616,7 @@ export const useQueueServer = defineStore('queue-server', () => {
       logger.error(`[Queue]: Failed to remove clip from history: ${error}`)
 
       // Revert optimistic update
-      history.value = new BasicClipList(...previousHistory)
+      playHistory.value = previousHistory
 
       throw error
     }
@@ -785,17 +780,13 @@ export const useQueueServer = defineStore('queue-server', () => {
 
     // Optimistic update
     const previousCurrent = current.value
-    const previousHistory = history.value.toArray()
-    const clipToReplay = previousHistory.find((c) => c.id === clipId)
+    const previousHistory = [...playHistory.value]
+    const clipToReplay = previousHistory.find((entry) => toClipUUID(entry.clip) === clipId)
 
     try {
       // Optimistically replay clip from history
       if (clipToReplay) {
-        if (current.value) {
-          history.value.add(current.value)
-        }
-        history.value.remove(clipToReplay)
-        current.value = clipToReplay
+        current.value = clipToReplay.clip
       }
 
       const response = await fetchWithAuth(`${API_URL}/api/queue/history/${clipId}/replay`, {
@@ -818,7 +809,7 @@ export const useQueueServer = defineStore('queue-server', () => {
 
       // Revert optimistic update
       current.value = previousCurrent
-      history.value = new BasicClipList(...previousHistory)
+      playHistory.value = previousHistory
 
       throw error
     }
@@ -828,7 +819,9 @@ export const useQueueServer = defineStore('queue-server', () => {
     // State
     current,
     upcoming,
-    history,
+    playHistory,
+    historyPosition,
+    isNavigatingHistory,
     isOpen,
     hasClips,
     isEmpty,

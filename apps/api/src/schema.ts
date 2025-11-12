@@ -13,7 +13,7 @@ import { z } from 'zod'
 
 import type { Clip } from '@cq/schemas/clip'
 import type { AppSettings } from '@cq/schemas/settings'
-import { Platform } from '@cq/schemas/clip'
+import { ContentType, Platform } from '@cq/schemas/clip'
 import {
   AppSettingsSchema,
   CommandSettingsSchema,
@@ -30,7 +30,7 @@ export type {
 export { CommandSettingsSchema, QueueSettingsSchema, LoggerSettingsSchema, AppSettingsSchema }
 
 // Re-export clip types for convenience
-export { Platform, type Clip }
+export { Platform, ContentType, type Clip }
 
 /**
  * Clips Table
@@ -40,18 +40,23 @@ export { Platform, type Clip }
 export const clips = sqliteTable(
   'clips',
   {
-    id: text('id').primaryKey(), // UUID format: "platform:clip_id"
+    id: text('id').primaryKey(), // UUID format: "platform:contentType:clip_id"
     platform: text('platform', { enum: ['twitch', 'kick'] }).notNull(),
+    contentType: text('content_type', { enum: ['clip', 'vod', 'highlight'] })
+      .notNull()
+      .default('clip'),
     clipId: text('clip_id').notNull(), // The actual clip ID from platform
     url: text('url').notNull(),
     embedUrl: text('embed_url').notNull(),
-    videoUrl: text('video_url'), // Direct video URL (Kick only - Twitch fetches client-side)
+    videoUrl: text('video_url'), // Direct video URL (Kick only - Twitch content fetches client-side)
     thumbnailUrl: text('thumbnail_url').notNull(),
     title: text('title').notNull(),
     channel: text('channel').notNull(),
     creator: text('creator').notNull(),
     category: text('category'),
     createdAt: text('created_at'), // ISO date string from platform
+    duration: integer('duration'), // Duration in seconds (for VODs/highlights)
+    timestamp: integer('timestamp'), // Start time in seconds (from URL ?t= parameter)
     status: text('status', {
       enum: ['approved', 'pending', 'rejected', 'played']
     })
@@ -59,14 +64,12 @@ export const clips = sqliteTable(
       .default('approved'),
     submittedAt: integer('submitted_at', { mode: 'timestamp' })
       .notNull()
-      .default(sql`(unixepoch())`),
-    playedAt: integer('played_at', { mode: 'timestamp' })
+      .default(sql`(unixepoch())`)
   },
   (table) => ({
     platformIdx: index('idx_clips_platform').on(table.platform),
     statusIdx: index('idx_clips_status').on(table.status),
     channelIdx: index('idx_clips_channel').on(table.channel),
-    playedAtIdx: index('idx_clips_played_at').on(table.playedAt),
     statusSubmittedIdx: index('idx_clips_status_submitted').on(table.status, table.submittedAt)
   })
 )
@@ -95,6 +98,31 @@ export const clipSubmitters = sqliteTable(
 )
 
 /**
+ * Play Log Table
+ *
+ * Tracks every play event (allows replays, analytics, watch time tracking).
+ * Each row represents a single play event with timestamps.
+ */
+export const playLog = sqliteTable(
+  'play_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    clipId: text('clip_id')
+      .notNull()
+      .references(() => clips.id, { onDelete: 'cascade' }),
+    playedAt: integer('played_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    playedFor: integer('played_for'), // Duration watched in seconds (optional)
+    completedAt: integer('completed_at', { mode: 'timestamp' }) // When playback ended (optional)
+  },
+  (table) => ({
+    clipIdIdx: index('idx_play_log_clip_id').on(table.clipId),
+    playedAtIdx: index('idx_play_log_played_at').on(table.playedAt)
+  })
+)
+
+/**
  * Settings Table
  *
  * Single-row table for application settings.
@@ -117,17 +145,20 @@ export const settings = sqliteTable('settings', {
 // Clip validation schema (matches @cq/platforms types exactly)
 export const ClipSchema = z.object({
   platform: z.nativeEnum(Platform),
+  contentType: z.nativeEnum(ContentType),
   id: z.string(),
   url: z.string().url(),
   embedUrl: z.string().url(),
-  videoUrl: z.string().url().optional(), // Direct video URL (Kick only - Twitch fetches client-side)
+  videoUrl: z.string().url().optional(), // Direct video URL (Kick only - Twitch content fetches client-side)
   thumbnailUrl: z.string().url(),
   title: z.string(),
   channel: z.string(),
   creator: z.string(),
   submitters: z.array(z.string()).default([]),
   category: z.string().optional(),
-  createdAt: z.string().optional() // ISO date string
+  createdAt: z.string().optional(), // ISO date string
+  duration: z.number().int().positive().optional(),
+  timestamp: z.number().int().nonnegative().optional()
 })
 
 /**

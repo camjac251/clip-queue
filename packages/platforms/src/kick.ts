@@ -1,3 +1,4 @@
+import { ContentType } from '@cq/schemas/clip'
 import kick from '@cq/services/kick'
 
 import type { Clip, PlayerFormat } from './types'
@@ -22,6 +23,8 @@ export class KickPlatform extends BasePlatform {
     try {
       const clip = await kick.getClip(id)
       const response: Clip = {
+        platform: this.name,
+        contentType: ContentType.CLIP,
         id: clip.id,
         title: clip.title,
         channel: clip.channel.username,
@@ -32,7 +35,6 @@ export class KickPlatform extends BasePlatform {
         embedUrl: clip.clip_url,
         videoUrl: clip.video_url,
         thumbnailUrl: clip.thumbnail_url,
-        platform: this.name,
         submitters: []
       }
       this.cache[id] = response

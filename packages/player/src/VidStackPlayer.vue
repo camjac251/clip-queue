@@ -52,7 +52,7 @@ import 'vidstack/player/ui'
 import type { MediaPlayerElement } from 'vidstack/elements'
 import { onMounted, ref, toRefs, watch } from 'vue'
 
-import { getDirectVideoUrl } from '@cq/services/twitch'
+import twitch, { getDirectVideoUrl } from '@cq/services/twitch'
 
 export interface Props {
   poster: string | undefined
@@ -61,15 +61,22 @@ export interface Props {
   title?: string
   clipId?: string
   clipPlatform?: string
+  contentType?: string
+  timestamp?: number
+  apiUrl?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   autoplay: true,
   title: undefined,
   clipId: undefined,
-  clipPlatform: undefined
+  clipPlatform: undefined,
+  contentType: undefined,
+  timestamp: undefined,
+  apiUrl: 'http://localhost:3000'
 })
-const { poster, source, autoplay, title, clipId, clipPlatform } = toRefs(props)
+const { poster, source, autoplay, title, clipId, clipPlatform, contentType, timestamp, apiUrl } =
+  toRefs(props)
 
 const emit = defineEmits<{
   (e: 'ended'): void
@@ -78,10 +85,13 @@ const emit = defineEmits<{
 
 const playerElement = ref<MediaPlayerElement>()
 const hasRefreshed = ref(false)
-const currentVideoUrl = ref<string | undefined>(undefined)
+const currentVideoUrl = ref<string | { src: string; type: 'application/x-mpegurl' } | undefined>(
+  undefined
+)
 const isPlayerReady = ref(false)
 const pendingPlay = ref(false)
 const hasStartedPlaying = ref(false)
+const currentFetchAbort = ref<AbortController | null>(null)
 
 // Expose player API for external controls
 defineExpose({
@@ -138,27 +148,64 @@ const VOLUME_STORAGE_KEY = 'cq-player-volume'
 const DEFAULT_VOLUME = 1.0
 
 /**
- * Fetches direct video URL for Twitch clips client-side
- * Vidstack auto-detects format from URL extension or Content-Type
+ * Fetches direct video URL for Twitch content client-side
+ * - Clips: MP4 URL via GraphQL ClipsDownloadButton query (returned as string)
+ * - VODs/Highlights: HLS playlist URL via GraphQL VideoPlaybackAccessToken query (returned as object with type)
  */
-async function fetchTwitchVideoUrl(): Promise<string | undefined> {
+async function fetchTwitchVideoUrl(): Promise<
+  string | { src: string; type: 'application/x-mpegurl' } | undefined
+> {
   if (!clipId?.value || clipPlatform?.value !== 'twitch') {
     return undefined
   }
 
   try {
-    console.log(`[VidStack] Fetching direct video URL for Twitch clip: ${clipId.value}`)
-    const url = await getDirectVideoUrl(clipId.value)
+    const type = contentType?.value || 'clip'
+    console.log(`[VidStack] Fetching direct video URL for Twitch ${type}: ${clipId.value}`)
 
-    if (!url) {
-      console.error('[VidStack] Failed to fetch Twitch video URL')
-      return undefined
+    let url: string | undefined
+
+    // Clips use MP4 URLs (GraphQL ClipsDownloadButton query)
+    if (type === 'clip') {
+      url = await getDirectVideoUrl(clipId.value)
+
+      if (!url) {
+        console.error(`[VidStack] Failed to fetch Twitch ${type} URL`)
+        return undefined
+      }
+
+      console.log(`[VidStack] Successfully fetched Twitch ${type} URL`)
+      return url // Return as string for MP4
+    }
+    // VODs and highlights use HLS playlist URLs (GraphQL VideoPlaybackAccessToken query)
+    else if (type === 'vod' || type === 'highlight') {
+      url = await twitch.getVideoDirectUrl(clipId.value)
+
+      // Wrap HLS URLs with CORS proxy (Twitch blocks direct browser access)
+      if (url && url.includes('usher.ttvnw.net')) {
+        url = `${apiUrl.value}/api/proxy/hls?url=${encodeURIComponent(url)}`
+        console.log('[VidStack] Wrapped HLS URL with CORS proxy')
+      }
+
+      if (!url) {
+        console.error(`[VidStack] Failed to fetch Twitch ${type} URL`)
+        emit('error', `Failed to load ${type} video URL. Please try again.`)
+        return undefined
+      }
+
+      console.log(`[VidStack] Successfully fetched Twitch ${type} URL`)
+      // Return as object with explicit HLS type (Vidstack needs this for proxied URLs)
+      return {
+        src: url,
+        type: 'application/x-mpegurl'
+      }
     }
 
-    console.log('[VidStack] Successfully fetched Twitch video URL')
-    return url
+    return undefined
   } catch (error) {
+    const type = contentType?.value || 'clip'
     console.error('[VidStack] Error fetching Twitch video URL:', error)
+    emit('error', `Failed to load ${type} video: ${error}`)
     return undefined
   }
 }
@@ -166,7 +213,9 @@ async function fetchTwitchVideoUrl(): Promise<string | undefined> {
 /**
  * Refreshes expired Twitch video URL
  */
-async function refreshVideoUrl(): Promise<string | undefined> {
+async function refreshVideoUrl(): Promise<
+  string | { src: string; type: 'application/x-mpegurl' } | undefined
+> {
   if (clipPlatform?.value !== 'twitch') {
     return undefined
   }
@@ -264,6 +313,8 @@ function handleProviderChange() {
 
 function handlePlaying() {
   hasStartedPlaying.value = true
+  // Reset refresh flag to allow retry on next error (e.g., mid-playback expiration)
+  hasRefreshed.value = false
 }
 
 async function handleCanPlay() {
@@ -275,6 +326,12 @@ async function handleCanPlay() {
     const savedVolume = loadSavedVolume()
     playerElement.value.volume = savedVolume
     console.log(`[VidStack] Restored volume: ${savedVolume}`)
+  }
+
+  // Seek to timestamp if provided (e.g., from URL ?t=0h12m0s)
+  if (timestamp?.value && playerElement.value) {
+    console.log(`[VidStack] Seeking to timestamp: ${timestamp.value}s`)
+    playerElement.value.currentTime = timestamp.value
   }
 
   // If we have a pending play request (from error recovery), execute it now
@@ -290,28 +347,47 @@ async function handleCanPlay() {
 }
 
 async function handlePlayClick() {
-  if (playerElement.value) {
-    try {
-      await playerElement.value.play()
-    } catch (error) {
-      console.error('[VidStack] Failed to start playback:', error)
-      emit('error', 'Failed to start playback')
-    }
+  if (!playerElement.value) {
+    return
+  }
+
+  // Ensure player is ready before attempting to play
+  if (!isPlayerReady.value) {
+    console.warn('[VidStack] Play clicked but player not ready, waiting...')
+    // Set pending play flag so it plays when ready
+    pendingPlay.value = true
+    return
+  }
+
+  try {
+    await playerElement.value.play()
+  } catch (error) {
+    console.error('[VidStack] Failed to start playback:', error)
+    emit('error', 'Failed to start playback')
   }
 }
 
-// Watch for source or clipId changes
+// Watch for source, clipId, or contentType changes
 watch(
-  [source, clipId, clipPlatform],
+  [source, clipId, clipPlatform, contentType],
   async ([newSource, newClipId, newPlatform]) => {
+    // Abort previous fetch to prevent race conditions on rapid advances
+    if (currentFetchAbort.value) {
+      console.warn('[VidStack] Aborting previous fetch (race condition prevented)')
+      currentFetchAbort.value.abort()
+      currentFetchAbort.value = null
+    }
+
     hasRefreshed.value = false
     isPlayerReady.value = false
     pendingPlay.value = false
     hasStartedPlaying.value = false
 
-    // If no source provided but we have a Twitch clip ID, fetch it
+    // If no source provided but we have a Twitch content ID, fetch it
     if (!newSource && newClipId && newPlatform === 'twitch') {
+      currentFetchAbort.value = new AbortController()
       currentVideoUrl.value = await fetchTwitchVideoUrl()
+      currentFetchAbort.value = null
     } else {
       currentVideoUrl.value = newSource
     }
@@ -325,7 +401,7 @@ onMounted(async () => {
   pendingPlay.value = false
   hasStartedPlaying.value = false
 
-  // If no source provided but we have a Twitch clip ID, fetch it
+  // If no source provided but we have a Twitch content ID, fetch it
   if (!source.value && clipId?.value && clipPlatform?.value === 'twitch') {
     currentVideoUrl.value = await fetchTwitchVideoUrl()
   } else {

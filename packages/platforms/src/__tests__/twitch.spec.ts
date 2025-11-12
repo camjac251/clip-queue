@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { TwitchUserCtx } from '@cq/services/twitch'
+import { ContentType } from '@cq/schemas/clip'
 
 import { TwitchPlatform } from '../twitch'
 import { mockKickClip, mockTwitchClip, mockTwitchGame } from './mocks'
@@ -14,6 +15,12 @@ vi.mock('@cq/services/twitch', async (importOriginal) => {
       }),
       getGames: vi.fn((_: TwitchUserCtx, ids: string[]) => {
         return ids.map((id) => ({ ...mockTwitchGame, id }))
+      }),
+      getContentTypeFromUrl: vi.fn((url: string) => {
+        if (!url.includes('twitch')) {
+          return
+        }
+        return ContentType.CLIP
       }),
       getClipIdFromUrl: vi.fn((url: string) => {
         if (!url.includes('twitch')) {
@@ -43,7 +50,7 @@ describe('twitch.ts', () => {
 
   it('gets the player format of the clip', () => {
     const provider = new TwitchPlatform()
-    expect(provider.getPlayerFormat()).toEqual('iframe')
+    expect(provider.getPlayerFormat()).toEqual('video')
   })
 
   it('gets the player source of the clip', async () => {

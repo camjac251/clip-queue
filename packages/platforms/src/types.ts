@@ -79,6 +79,10 @@ export interface PlatformCtx {
    * The token of the user.
    */
   token?: string
+  /**
+   * The application client ID (platform-specific).
+   */
+  clientId?: string
 }
 
 /**

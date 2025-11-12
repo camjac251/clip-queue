@@ -2,7 +2,102 @@ import type { Clip, Platform } from './types'
 import { toClipUUID } from './utils'
 
 /**
+ * Play log entry
+ * Represents a single play event in the history
+ */
+export interface PlayLogEntry {
+  /**
+   * Unique ID from database (0 for in-memory entries not yet persisted)
+   */
+  id: number
+  /**
+   * The clip that was played
+   */
+  clip: Clip
+  /**
+   * When the clip started playing
+   */
+  playedAt: Date
+  /**
+   * How long the clip was watched (seconds, optional)
+   */
+  playedFor?: number
+  /**
+   * When the clip finished playing (optional)
+   */
+  completedAt?: Date
+}
+
+/**
+ * Chronological play history
+ * Stores play log entries in insertion order (oldest first, newest last)
+ */
+export class PlayHistory {
+  private _entries: PlayLogEntry[]
+
+  constructor(...entries: PlayLogEntry[]) {
+    this._entries = [...entries]
+  }
+
+  /**
+   * Add a play log entry to the history
+   * @param entry - The play log entry to add
+   */
+  public add(entry: PlayLogEntry): void {
+    this._entries.push(entry)
+  }
+
+  /**
+   * Get the most recent play log entry
+   * @returns The most recent entry or undefined if history is empty
+   */
+  public getLast(): PlayLogEntry | undefined {
+    return this._entries[this._entries.length - 1]
+  }
+
+  /**
+   * Get all play log entries
+   * @returns All entries in chronological order (oldest first)
+   */
+  public getAll(): PlayLogEntry[] {
+    return this._entries
+  }
+
+  /**
+   * Get the size of the history
+   * @returns The number of entries
+   */
+  public size(): number {
+    return this._entries.length
+  }
+
+  /**
+   * Clear the history
+   */
+  public clear(): void {
+    this._entries = []
+  }
+
+  /**
+   * Check if the history is empty
+   * @returns Whether the history is empty
+   */
+  public empty(): boolean {
+    return this._entries.length === 0
+  }
+
+  /**
+   * Get entries as an array (alias for getAll)
+   * @returns All entries in chronological order
+   */
+  public toArray(): PlayLogEntry[] {
+    return this._entries
+  }
+}
+
+/**
  * A basic list of clips. Clips are not sorted.
+ * @deprecated Use PlayHistory for chronological play logs
  */
 export class BasicClipList {
   protected _clips: Clip[]

@@ -1,5 +1,6 @@
 import type { KickCategory, KickChannel, KickClip } from '@cq/services/kick'
 import type { TwitchClip, TwitchGame } from '@cq/services/twitch'
+import { ContentType } from '@cq/schemas/clip'
 
 import type { Clip } from '..'
 import { Platform } from '..'
@@ -72,6 +73,7 @@ export const mockTwitchClip: TwitchClip = {
 
 export const clipFromKick: Clip = {
   platform: Platform.KICK,
+  contentType: ContentType.CLIP,
   submitters: ['testsubmitterkick'],
   id: 'testclipkick',
   title: 'testclipkick',
@@ -86,6 +88,7 @@ export const clipFromKick: Clip = {
 
 export const clipFromTwitch: Clip = {
   platform: Platform.TWITCH,
+  contentType: ContentType.CLIP,
   submitters: ['testsubmittertwitch'],
   id: 'testcliptwitch',
   title: 'testcliptwitch',

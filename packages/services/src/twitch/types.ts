@@ -14,6 +14,10 @@ export interface TwitchUserCtx {
    * The username of the user.
    */
   username?: string
+  /**
+   * The Twitch application client ID.
+   */
+  clientId?: string
 }
 
 /**
@@ -220,6 +224,83 @@ export interface TwitchClip {
    * The duration of the clip.
    */
   duration: number
+}
+
+/**
+ * A Twitch VOD (Video on Demand).
+ */
+export interface TwitchVideo {
+  /**
+   * The ID of the video.
+   */
+  id: string
+  /**
+   * The stream ID (null if not a VOD of a stream).
+   */
+  stream_id: string | null
+  /**
+   * The user ID who owns the video.
+   */
+  user_id: string
+  /**
+   * The user login who owns the video.
+   */
+  user_login: string
+  /**
+   * The user display name who owns the video.
+   */
+  user_name: string
+  /**
+   * The title of the video.
+   */
+  title: string
+  /**
+   * The description of the video.
+   */
+  description: string
+  /**
+   * The created at time of the video.
+   */
+  created_at: string
+  /**
+   * The published at time of the video.
+   */
+  published_at: string
+  /**
+   * The URL of the video.
+   */
+  url: string
+  /**
+   * The thumbnail URL template.
+   */
+  thumbnail_url: string
+  /**
+   * The viewable status.
+   */
+  viewable: string
+  /**
+   * The view count.
+   */
+  view_count: number
+  /**
+   * The language.
+   */
+  language: string
+  /**
+   * The type (archive, highlight, upload).
+   */
+  type: 'archive' | 'highlight' | 'upload'
+  /**
+   * The duration string (e.g., "1h23m45s").
+   */
+  duration: string
+  /**
+   * Muted segments.
+   */
+  muted_segments: Array<{
+    duration: number
+    offset: number
+  }> | null
 }
 
 /**

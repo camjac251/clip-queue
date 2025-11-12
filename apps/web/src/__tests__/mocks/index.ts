@@ -1,11 +1,13 @@
 import type { Clip } from '@cq/platforms'
 import { Platform } from '@cq/platforms'
+import { ContentType } from '@cq/schemas/clip'
 
 export * from './kick'
 export * from './twitch'
 
 export const clipFromKick: Clip = {
   platform: Platform.KICK,
+  contentType: ContentType.CLIP,
   submitters: ['testsubmitterkick'],
   id: 'testclipkick',
   title: 'testclipkick',
@@ -20,6 +22,7 @@ export const clipFromKick: Clip = {
 
 export const clipFromTwitch: Clip = {
   platform: Platform.TWITCH,
+  contentType: ContentType.CLIP,
   submitters: ['testsubmittertwitch'],
   id: 'testcliptwitch',
   title: 'testcliptwitch',

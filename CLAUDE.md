@@ -518,7 +518,7 @@ import('./index.js') // Import LAST
 | POST | `/api/queue/approve` | Mod | Approve pending clip |
 | POST | `/api/queue/reject` | Mod | Reject pending clip |
 | POST | `/api/queue/rejected/:clipId/restore` | Mod | Restore rejected clip |
-| POST | `/api/queue/history/:clipId/replay` | Mod | Replay from history |
+| POST | `/api/queue/history/:clipId/replay` | Mod | Jump to history clip (Timeline navigation) |
 | DELETE | `/api/queue/history/:clipId` | Mod | Delete from history |
 | POST | `/api/queue/batch/remove` | Mod | Remove multiple (max 100) |
 | POST | `/api/queue/batch/approve` | Mod | Approve multiple (max 100) |
@@ -571,6 +571,8 @@ import('./index.js') // Import LAST
 7. `apps/web/src/composables/icons.ts` - Centralized icon registry (34 icons)
 8. `apps/web/src/views/QueuePage.vue` - Main player view (passes autoplay preference)
 9. `apps/web/src/components/ClipPlayer.vue` - Clip player wrapper (threads autoplay to CqPlayer)
+10. `apps/web/src/components/TimelineView.vue` - Timeline scrubber (visual history navigation)
+11. `apps/web/src/views/HistoryPage.vue` - History archive (re-queue and delete operations)
 
 **Shared:**
 
@@ -628,6 +630,30 @@ if (url.includes('newplatform.com/clips/')) {
     */
    ```
 4. Migration auto-applies on server startup via `initDatabase()`
+
+**Working with History (Two Distinct Patterns):**
+
+History clips can be interacted with in two different ways, each serving a different purpose:
+
+1. **Timeline Navigation** (visual scrubber for broadcaster control):
+   - **Component**: `TimelineView.vue` (horizontal clip timeline on QueuePage)
+   - **Action**: Click any history clip to jump back and play it
+   - **Flow**: TimelineView @replay → QueuePage.handleReplay → queue.replayFromHistory()
+   - **Endpoint**: `POST /api/queue/history/:clipId/replay`
+   - **Operation**: `jumpToHistoryClip()` - Sets `historyPosition` to navigate history
+   - **Behavior**: Does NOT create duplicate history entries; just moves playback pointer
+   - **Use case**: Broadcaster wants to quickly jump back to a clip from 5 clips ago
+
+2. **HistoryPage Re-queuing** (batch operations for clip management):
+   - **Component**: `HistoryPage.vue` (full history archive table)
+   - **Actions**: "Queue" button (re-submit clips), "Delete" button (remove from history)
+   - **Flow**: HistoryPage.queueClips → queue.submit() → regular submission flow
+   - **Endpoint**: `POST /api/queue/submit` (standard clip submission)
+   - **Operation**: Regular clip submission - goes through approval flow
+   - **Behavior**: Creates NEW queue entries (may create duplicate history when played)
+   - **Use case**: Re-queue multiple old clips as new submissions for later viewing
+
+**Key Difference**: Timeline navigation is for **playback control** (temporary scrubbing), while HistoryPage is for **data management** (permanent re-queuing or cleanup).
 
 ### Git Hooks (Husky)
 

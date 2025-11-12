@@ -8,7 +8,10 @@
       :thumbnail-url="clip.thumbnailUrl"
       :clip-id="clip.id"
       :clip-platform="clip.platform"
+      :content-type="clip.contentType"
+      :timestamp="clip.timestamp"
       :autoplay="shouldAutoplay"
+      :api-url="apiUrl"
       @ended="handleVideoEnded"
       @error="handleVideoError"
     >
@@ -111,8 +114,12 @@ const playerFormat = computed<PlayerFormat | undefined>(() => {
 })
 
 const playerSource = computed<string | undefined>(() => {
+  // Twitch: undefined (fetched client-side in VidStackPlayer)
+  // Kick: direct video URL (server-fetched)
   return platforms.getPlayerSource(clip.value)
 })
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 </script>
 
 <style scoped>

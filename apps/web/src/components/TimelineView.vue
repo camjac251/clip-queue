@@ -87,6 +87,16 @@
               :alt="currentClip.title"
               class="h-full w-full object-cover"
             />
+            <!-- Navigation badge (when viewing history) -->
+            <div
+              v-if="isNavigatingHistory"
+              class="absolute top-1 right-1 flex items-center gap-0.5 rounded bg-amber-500/90 px-1 py-0.5 text-[9px] font-bold text-white sm:top-2 sm:right-2 sm:gap-1 sm:px-1.5 sm:text-[10px]"
+            >
+              <ActionRotateCcw :size="10" class="sm:hidden" />
+              <ActionRotateCcw :size="12" class="hidden sm:block" />
+              <span class="hidden sm:inline">VIEWING HISTORY</span>
+              <span class="sm:hidden">HIST</span>
+            </div>
             <div
               class="pointer-events-none absolute inset-0 flex items-center justify-center bg-violet-600/20 text-white dark:bg-violet-500/20"
             >
@@ -222,10 +232,12 @@ export interface Props {
   historyClips: Clip[]
   upcomingClips: Clip[]
   canControl?: boolean
+  isNavigatingHistory?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  canControl: false
+  canControl: false,
+  isNavigatingHistory: false
 })
 
 const emit = defineEmits<{

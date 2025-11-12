@@ -19,6 +19,24 @@ export enum Platform {
 }
 
 /**
+ * Enumeration of content types.
+ */
+export enum ContentType {
+  /**
+   * Short clips (15-60s highlights).
+   */
+  CLIP = 'clip',
+  /**
+   * Full VODs (complete stream recordings).
+   */
+  VOD = 'vod',
+  /**
+   * Highlights (user-curated segments from VODs).
+   */
+  HIGHLIGHT = 'highlight'
+}
+
+/**
  * A clip.
  */
 export interface Clip {
@@ -26,6 +44,10 @@ export interface Clip {
    * The platform of the clip.
    */
   platform: Platform
+  /**
+   * The content type of the clip.
+   */
+  contentType: ContentType
   /**
    * The ID of the clip.
    */
@@ -72,6 +94,14 @@ export interface Clip {
    * The created at time of the clip.
    */
   createdAt?: string
+  /**
+   * Duration in seconds (for VODs and highlights).
+   */
+  duration?: number
+  /**
+   * Start time in seconds (from URL timestamp parameter like ?t=0h12m0s).
+   */
+  timestamp?: number
 }
 
 /**
@@ -79,6 +109,7 @@ export interface Clip {
  */
 export const ClipSchema = z.object({
   platform: z.nativeEnum(Platform),
+  contentType: z.nativeEnum(ContentType),
   id: z.string(),
   url: z.string().url(),
   embedUrl: z.string().url(),
@@ -89,5 +120,7 @@ export const ClipSchema = z.object({
   creator: z.string(),
   submitters: z.array(z.string()).default([]),
   category: z.string().optional(),
-  createdAt: z.string().optional()
+  createdAt: z.string().optional(),
+  duration: z.number().int().positive().optional(),
+  timestamp: z.number().int().nonnegative().optional()
 })

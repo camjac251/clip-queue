@@ -88,7 +88,7 @@
               variant="ghost"
               size="icon"
               class="h-9 w-9 shrink-0"
-              :disabled="queue.history.size() === 0"
+              :disabled="queue.playHistory.length === 0"
               :aria-label="m.previous()"
               @click="handlePrevious()"
             >
@@ -193,9 +193,15 @@
         <!-- Timeline -->
         <TimelineView
           :current-clip="queue.current"
-          :history-clips="queue.history.toArray().slice().reverse()"
+          :history-clips="
+            queue.playHistory
+              .map((entry) => entry.clip)
+              .slice()
+              .reverse()
+          "
           :upcoming-clips="queue.upcoming.toArray()"
           :can-control="user.canControlQueue"
+          :is-navigating-history="queue.isNavigatingHistory"
           @replay="handleReplay"
           @play="handlePlay"
         />
@@ -213,7 +219,7 @@
               {{ m.history() }}
             </span>
             <span class="text-foreground text-base font-bold sm:text-lg">{{
-              queue.history.size()
+              queue.playHistory.length
             }}</span>
           </div>
           <Separator orientation="vertical" class="h-4 sm:h-5 lg:h-6" />

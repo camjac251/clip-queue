@@ -18,8 +18,8 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import helmet from 'helmet'
 import { z } from 'zod'
 
-import { ClipList, KickPlatform, toClipUUID, TwitchPlatform } from '@cq/platforms'
-import { advanceQueue, clearQueue, playClip, previousClip } from '@cq/queue-ops'
+import { ClipList, KickPlatform, PlayHistory, toClipUUID, TwitchPlatform } from '@cq/platforms'
+import { advanceQueue, clearQueue, jumpToHistoryClip, playClip, previousClip } from '@cq/queue-ops'
 import kick from '@cq/services/kick'
 import twitch from '@cq/services/twitch'
 import { TTLCache } from '@cq/utils'
@@ -39,10 +39,14 @@ import {
   clips,
   closeDatabase,
   deleteClipsByStatus,
+  deletePlayLogsByClipStatus,
   getClip,
   getClipsByStatus,
+  getPlayLogs,
   initDatabase,
   initSettings,
+  insertPlayLog,
+  playLog,
   updateClipStatus,
   updateSettings,
   upsertClip
@@ -177,6 +181,15 @@ const authenticatedLimiter = rateLimit({
   skipSuccessfulRequests: false
 })
 
+// HLS proxy limiter - higher limit for streaming (HLS uses ~50+ requests per video)
+const hlsProxyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5000, // Allow ~100 videos per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many HLS proxy requests. Check RateLimit-Reset header for retry time.'
+})
+
 const authFailureLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -195,8 +208,9 @@ console.log('[Settings] Loaded from database:', settings)
 
 // Initialize queue and platform
 const queue = new ClipList()
-const history = new ClipList()
+const playHistory = new PlayHistory()
 let currentClip: Clip | null = null
+let historyPosition = -1 // -1 = at end (queue mode), >= 0 = index in history
 let isQueueOpen = true
 
 // Load approved clips from database on startup (bulk add for O(n log n) performance)
@@ -206,12 +220,12 @@ if (approvedClips.length > 0) {
 }
 console.log(`[Queue] Loaded ${approvedClips.length} approved clips from database`)
 
-// Load played clips into history on startup (load all for long-term history preservation)
-const playedClips = getClipsByStatus(db, 'played')
-if (playedClips.length > 0) {
-  history.add(...playedClips)
-}
-console.log(`[Queue] Loaded ${playedClips.length} played clips into history from database`)
+// Load play history from play_log table on startup
+const playLogs = getPlayLogs(db, 100) // Load last 100 play events
+playLogs.forEach((entry) => {
+  playHistory.add(entry)
+})
+console.log(`[Queue] Loaded ${playLogs.length} play log entries from database`)
 
 /**
  * Generate ETag hash from queue state
@@ -237,7 +251,9 @@ function generateStateHash(): string {
     current: currentClip?.id || null,
     currentSubmitters: currentClip?.submitters.length || 0,
     upcoming: queue.toArray().map((c) => ({ id: c.id, submitters: c.submitters.length })),
-    history: history.toArray().map((c) => ({ id: c.id, submitters: c.submitters.length })),
+    playHistory: playHistory
+      .toArray()
+      .map((e) => ({ id: e.id, clipId: e.clip.id, playedAt: e.playedAt.getTime() })),
     isOpen: isQueueOpen,
     settings: settings // Include settings in hash for change detection
   }
@@ -254,7 +270,8 @@ function getQueueState() {
   return {
     current: currentClip,
     upcoming: queue.toArray(),
-    history: history.toArray(),
+    playHistory: playHistory.toArray(),
+    historyPosition, // Navigation state
     isOpen: isQueueOpen,
     settings: settings // Include settings for client synchronization
   }
@@ -271,21 +288,21 @@ const platforms = {
 // Per-user rate limiting cache (tracks last submission time per user)
 const userSubmissionCache = new TTLCache<string, number>(60000) // 1 minute TTL
 
-// Restore queue and history from database
+// Restore queue and play history from database
 function restoreQueueFromDatabase() {
   const approvedClips = getClipsByStatus(db, 'approved')
-  const playedClips = getClipsByStatus(db, 'played', 50)
+  const playLogs = getPlayLogs(db, 50)
 
   for (const clip of approvedClips) {
     queue.add(clip)
   }
 
-  for (const clip of playedClips.reverse()) {
-    history.add(clip)
+  for (const entry of playLogs) {
+    playHistory.add(entry)
   }
 
   console.log(`[Queue] Restored ${approvedClips.length} clips from database`)
-  console.log(`[History] Restored ${playedClips.length} clips from database`)
+  console.log(`[PlayHistory] Restored ${playLogs.length} play log entries from database`)
 
   // Invalidate ETag after restoring state
   invalidateETag()
@@ -381,11 +398,11 @@ async function connectToChat() {
 
         // Submit each URL
         for (const url of urls) {
-          // Check if it's a Twitch clip URL (use proper parser)
-          if (twitch.getClipIdFromUrl(url)) {
+          // Check if it's a Twitch URL (clip, VOD, or highlight)
+          if (twitch.getContentTypeFromUrl(url)) {
             await handleClipSubmission(url, message.username, canAutoApprove)
           }
-          // Check if it's a Kick clip URL (use proper parser)
+          // Check if it's a Kick clip URL
           else if (kick.getClipIdFromUrl(url)) {
             await handleClipSubmission(url, message.username, canAutoApprove)
           }
@@ -444,10 +461,12 @@ async function handleChatCommand(message: { username: string; text: string }): P
     case 'clear': {
       try {
         await clearQueue(
-          { current: currentClip, queue, history },
+          { current: currentClip, queue, playHistory, historyPosition },
           {
             updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
-            deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
+            deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
+            insertPlayLog: (clipId, playedAt) => insertPlayLog(db, clipId, playedAt),
+            deletePlayLogsByClipStatus: (status) => deletePlayLogsByClipStatus(db, status)
           }
         )
         console.log(`[Command] Queue cleared by ${message.username}`)
@@ -484,16 +503,19 @@ async function handleChatCommand(message: { username: string; text: string }): P
 
     case 'next': {
       try {
-        const state = { current: currentClip, queue, history }
+        const state = { current: currentClip, queue, playHistory, historyPosition }
         await advanceQueue(
           state,
           {
             updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
-            deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
+            deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
+            insertPlayLog: (clipId, playedAt) => insertPlayLog(db, clipId, playedAt),
+            deletePlayLogsByClipStatus: (status) => deletePlayLogsByClipStatus(db, status)
           },
           toClipUUID
         )
         currentClip = state.current
+        historyPosition = state.historyPosition
 
         // Broadcast change
         console.log(`[Command] Advanced to next clip by ${message.username}`)
@@ -506,9 +528,10 @@ async function handleChatCommand(message: { username: string; text: string }): P
 
     case 'prev':
     case 'previous': {
-      const state = { current: currentClip, queue, history }
+      const state = { current: currentClip, queue, playHistory, historyPosition }
       await previousClip(state)
       currentClip = state.current
+      historyPosition = state.historyPosition
 
       // Broadcast change
       console.log(`[Command] Went to previous clip by ${message.username}`)
@@ -623,9 +646,10 @@ async function handleChatCommand(message: { username: string; text: string }): P
       break
 
     case 'purgehistory':
-      history.clear()
+      playHistory.clear()
+      deletePlayLogsByClipStatus(db, 'played')
       deleteClipsByStatus(db, 'played')
-      console.log(`[Command] History purged by ${message.username}`)
+      console.log(`[Command] Play history purged by ${message.username}`)
       break
 
     default:
@@ -771,6 +795,89 @@ app.get('/api/queue', publicReadLimiter, (req, res) => {
   res.json(getQueueState())
 })
 
+// HLS proxy for Twitch VODs (bypasses CORS restrictions)
+app.get(
+  '/api/proxy/hls',
+  hlsProxyLimiter,
+  asyncHandler(async (req, res) => {
+    const url = req.query.url as string
+
+    if (!url) {
+      return res.status(400).json({ error: 'Missing url parameter' })
+    }
+
+    // Only allow Twitch HLS domains (usher.ttvnw.net, video-weaver.*, *.cloudfront.net)
+    const urlObj = new URL(url)
+    const hostname = urlObj.hostname
+    const isTwitchDomain =
+      hostname === 'usher.ttvnw.net' ||
+      hostname.includes('video-weaver') ||
+      hostname.endsWith('.cloudfront.net')
+
+    if (!isTwitchDomain) {
+      return res.status(403).json({ error: 'Domain not allowed' })
+    }
+
+    try {
+      // Fetch from Twitch
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      })
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch from Twitch' })
+      }
+
+      // Get content type
+      const contentType = response.headers.get('content-type') || 'application/vnd.apple.mpegurl'
+
+      // If it's an m3u8 manifest, rewrite URLs to go through proxy
+      if (
+        contentType.includes('mpegurl') ||
+        contentType.includes('m3u8') ||
+        url.endsWith('.m3u8')
+      ) {
+        const text = await response.text()
+        const baseUrl = url.substring(0, url.lastIndexOf('/'))
+
+        // Rewrite relative URLs in manifest to go through proxy
+        const rewritten = text
+          .split('\n')
+          .map((line) => {
+            if (line.startsWith('#') || line.trim() === '') {
+              return line
+            }
+            // If it's a relative URL, make it absolute and proxy it
+            if (!line.startsWith('http')) {
+              const absoluteUrl = `${baseUrl}/${line}`
+              return `/api/proxy/hls?url=${encodeURIComponent(absoluteUrl)}`
+            }
+            // If it's already absolute, proxy it
+            return `/api/proxy/hls?url=${encodeURIComponent(line)}`
+          })
+          .join('\n')
+
+        res.setHeader('Content-Type', contentType)
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.send(rewritten)
+      } else {
+        // For .ts segments, just stream through
+        res.setHeader('Content-Type', contentType)
+        res.setHeader('Access-Control-Allow-Origin', '*')
+
+        // Stream the response
+        const buffer = await response.arrayBuffer()
+        res.send(Buffer.from(buffer))
+      }
+    } catch (error) {
+      console.error('[HLS Proxy] Error:', error)
+      res.status(500).json({ error: 'Proxy error' })
+    }
+  })
+)
+
 // Manual clip submission (moderators only)
 app.post(
   '/api/queue/submit',
@@ -804,16 +911,19 @@ app.post(
   asyncHandler(async (req, res) => {
     const release = await queueOperationMutex.acquire()
     try {
-      const state = { current: currentClip, queue, history }
+      const state = { current: currentClip, queue, playHistory, historyPosition }
       await advanceQueue(
         state,
         {
           updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
-          deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
+          deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
+          insertPlayLog: (clipId, playedAt) => insertPlayLog(db, clipId, playedAt),
+          deletePlayLogsByClipStatus: (status) => deletePlayLogsByClipStatus(db, status)
         },
         toClipUUID
       )
       currentClip = state.current
+      historyPosition = state.historyPosition
 
       // Broadcast change
       invalidateETag()
@@ -835,9 +945,10 @@ app.post(
   asyncHandler(async (req, res) => {
     const release = await queueOperationMutex.acquire()
     try {
-      const state = { current: currentClip, queue, history }
+      const state = { current: currentClip, queue, playHistory, historyPosition }
       await previousClip(state)
       currentClip = state.current
+      historyPosition = state.historyPosition
 
       // Broadcast change
       invalidateETag()
@@ -859,10 +970,12 @@ app.delete(
   requireBroadcaster,
   asyncHandler(async (req, res) => {
     await clearQueue(
-      { current: currentClip, queue, history },
+      { current: currentClip, queue, playHistory, historyPosition },
       {
         updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
-        deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
+        deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
+        insertPlayLog: (clipId, playedAt) => insertPlayLog(db, clipId, playedAt),
+        deletePlayLogsByClipStatus: (status) => deletePlayLogsByClipStatus(db, status)
       }
     )
 
@@ -872,7 +985,7 @@ app.delete(
   })
 )
 
-// Clear history (broadcaster only)
+// Clear play history (broadcaster only)
 app.delete(
   '/api/queue/history',
   authenticate,
@@ -880,25 +993,26 @@ app.delete(
   authenticatedLimiter,
   requireBroadcaster,
   asyncHandler(async (req, res) => {
-    const previousHistory = history.toArray()
+    const previousHistory = playHistory.toArray()
     try {
-      history.clear()
+      playHistory.clear()
+      deletePlayLogsByClipStatus(db, 'played')
       deleteClipsByStatus(db, 'played')
 
       // Broadcast history cleared event
       invalidateETag()
 
-      console.log('[Queue] Cleared history')
+      console.log('[Queue] Cleared play history')
       res.json({ success: true, state: getQueueState() })
     } catch (error) {
       // Roll back in-memory changes on database failure
-      previousHistory.forEach((clip: Clip) => history.add(clip))
+      previousHistory.forEach((entry) => playHistory.add(entry))
       throw error // Let asyncHandler catch and respond with error
     }
   })
 )
 
-// DELETE /api/queue/history/:clipId - Remove individual clip from history (moderator only)
+// DELETE /api/queue/history/:clipId - Remove all play log entries for a clip (moderator only)
 app.delete(
   '/api/queue/history/:clipId',
   authenticate,
@@ -916,35 +1030,32 @@ app.delete(
       })
     }
 
-    // Find clip in history
-    const historyClips = history.toArray()
-    const clip = historyClips.find((c) => toClipUUID(c) === clipId)
-
+    // Check if clip exists
+    const clip = getClip(db, clipId)
     if (!clip) {
       return res.status(404).json({
         error: 'CLIP_NOT_FOUND',
-        message: 'Clip not found in history',
+        message: 'Clip not found',
         clipId
       })
     }
 
-    try {
-      // Remove from in-memory history
-      history.remove(clip)
+    // Delete all play log entries for this clip
+    db.delete(playLog).where(eq(playLog.clipId, clipId)).run()
 
-      // Delete from database
-      db.delete(clips).where(eq(clips.id, clipId)).run()
+    // Rebuild play history from database
+    playHistory.clear()
+    const playLogs = getPlayLogs(db, 100)
+    playLogs.forEach((entry) => playHistory.add(entry))
 
-      // Invalidate ETag
-      invalidateETag()
+    // Delete clip from database
+    db.delete(clips).where(eq(clips.id, clipId)).run()
 
-      console.log(`[Queue] Removed clip from history: ${clip.title}`)
-      res.json({ success: true, state: getQueueState() })
-    } catch (error) {
-      // Roll back in-memory changes on database failure
-      history.add(clip)
-      throw error // Let asyncHandler catch and respond with error
-    }
+    // Invalidate ETag
+    invalidateETag()
+
+    console.log(`[Queue] Removed all play log entries for clip: ${clip.title}`)
+    res.json({ success: true, state: getQueueState() })
   })
 )
 
@@ -1220,17 +1331,20 @@ app.post(
         })
       }
 
-      const state = { current: currentClip, queue, history }
+      const state = { current: currentClip, queue, playHistory, historyPosition }
       await playClip(
         state,
         {
           updateClipStatus: (clipId, status) => updateClipStatus(db, clipId, status),
-          deleteClipsByStatus: (status) => deleteClipsByStatus(db, status)
+          deleteClipsByStatus: (status) => deleteClipsByStatus(db, status),
+          insertPlayLog: (clipId, playedAt) => insertPlayLog(db, clipId, playedAt),
+          deletePlayLogsByClipStatus: (status) => deletePlayLogsByClipStatus(db, status)
         },
         clip,
         toClipUUID
       )
       currentClip = state.current
+      historyPosition = state.historyPosition
 
       // Broadcast change
       invalidateETag()
@@ -1243,7 +1357,7 @@ app.post(
   })
 )
 
-// Replay clip from history (moderators only)
+// Jump to history clip from timeline (moderators only)
 app.post(
   '/api/queue/history/:clipId/replay',
   authenticate,
@@ -1265,10 +1379,10 @@ app.post(
     const release = await queueOperationMutex.acquire()
     try {
       // Find clip in history
-      const historyClips = history.toArray()
-      const clip = historyClips.find((c) => toClipUUID(c) === clipId)
+      const historyEntries = playHistory.getAll()
+      const entry = historyEntries.find((e) => toClipUUID(e.clip) === clipId)
 
-      if (!clip) {
+      if (!entry) {
         release()
         return res.status(404).json({
           error: 'CLIP_NOT_IN_HISTORY',
@@ -1277,26 +1391,18 @@ app.post(
         })
       }
 
-      // Remove from history
-      history.remove(clip)
+      // Jump to history clip without creating duplicate entry
+      const state = { current: currentClip, queue, playHistory, historyPosition }
+      await jumpToHistoryClip(state, entry.clip, toClipUUID)
 
-      // Add to queue
-      queue.add(clip)
-
-      // Update database status from 'played' to 'approved'
-      try {
-        updateClipStatus(db, clipId, 'approved')
-      } catch (error) {
-        // Rollback: remove from queue and re-add to history
-        queue.remove(clip)
-        history.add(clip)
-        throw error
-      }
+      // Update in-memory state
+      currentClip = state.current
+      historyPosition = state.historyPosition
 
       // Broadcast change
       invalidateETag()
 
-      console.log(`[Queue] Replayed clip from history: ${clip.title}`)
+      console.log(`[Queue] Jumped to history clip: ${entry.clip.title}`)
       res.json({ success: true, state: getQueueState() })
     } finally {
       release()

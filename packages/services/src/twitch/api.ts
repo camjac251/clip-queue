@@ -6,7 +6,8 @@ import type {
   TwitchPagedResponse,
   TwitchResponse,
   TwitchUser,
-  TwitchUserCtx
+  TwitchUserCtx,
+  TwitchVideo
 } from './types'
 import { toURLParams } from './utils'
 
@@ -76,6 +77,30 @@ export async function getUsers(ctx: TwitchUserCtx, ids: string[]): Promise<Twitc
     throw new Error(`Failed to users with IDs ${ids.join(' ')}: ${response.statusText}`)
   }
   const data: TwitchResponse<TwitchUser[]> = await response.json()
+  return data.data
+}
+
+/**
+ * Get videos (VODs/highlights) from Twitch.
+ * @param ctx - The Twitch user context.
+ * @param ids - The video IDs to fetch.
+ * @returns The videos.
+ * @throws Will throw an error if no video IDs are provided or the fetch fails.
+ */
+export async function getVideos(ctx: TwitchUserCtx, ids: string[]): Promise<TwitchVideo[]> {
+  if (ids.length <= 0) {
+    throw new Error('Video IDs were not provided.')
+  }
+  if (!ctx.token) {
+    throw new Error('Authentication token is required.')
+  }
+  const response = await fetch(`${BASE_URL}/videos?${toURLParams('id', ids)}`, {
+    headers: createAuthHeaders(ctx.token, ctx.id)
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to fetch videos with IDs ${ids.join(' ')}: ${response.statusText}`)
+  }
+  const data: TwitchResponse<TwitchVideo[]> = await response.json()
   return data.data
 }
 
@@ -159,9 +184,83 @@ export async function getDirectUrl(
   return videoUrl
 }
 
+// Public client ID used by Twitch web player (safe to expose)
+const TWITCH_PUBLIC_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'
+
+/**
+ * Get VOD playback access token using Twitch GraphQL API.
+ * Required to construct HLS playlist URLs for direct video playback.
+ *
+ * @param videoId - The video ID (numeric string).
+ * @returns Object with token value and signature.
+ * @throws Will throw an error if the fetch fails.
+ */
+async function getVideoAccessToken(videoId: string): Promise<{ value: string; signature: string }> {
+  const query = `
+    query PlaybackAccessToken($id: ID!) {
+      videoPlaybackAccessToken(id: $id, params: {platform: "web", playerBackend: "mediaplayer", playerType: "site"}) {
+        value
+        signature
+      }
+    }
+  `
+
+  const response = await fetch('https://gql.twitch.tv/gql', {
+    method: 'POST',
+    headers: {
+      'Client-Id': TWITCH_PUBLIC_CLIENT_ID,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      query,
+      variables: { id: videoId }
+    })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'No error details')
+    throw new Error(`Failed to fetch video access token: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+
+  if (!data.data?.videoPlaybackAccessToken) {
+    throw new Error(`Failed to get access token for video ${videoId}`)
+  }
+
+  return {
+    value: data.data.videoPlaybackAccessToken.value,
+    signature: data.data.videoPlaybackAccessToken.signature
+  }
+}
+
+/**
+ * Get direct HLS playlist URL for a Twitch VOD/highlight.
+ * Uses GraphQL API to get access token, then constructs Usher API URL.
+ *
+ * @param videoId - The video ID (numeric string).
+ * @returns The HLS playlist URL (.m3u8).
+ * @throws Will throw an error if unable to get access token.
+ */
+export async function getVideoDirectUrl(videoId: string): Promise<string> {
+  const { value, signature } = await getVideoAccessToken(videoId)
+
+  // Construct Usher API URL with access token
+  const params = new URLSearchParams({
+    token: value,
+    sig: signature,
+    allow_source: 'true',
+    allow_audio_only: 'true'
+  })
+
+  return `https://usher.ttvnw.net/vod/${videoId}.m3u8?${params.toString()}`
+}
+
 export default {
   getClips,
   getGames,
   getUsers,
-  getDirectUrl
+  getVideos,
+  getDirectUrl,
+  getVideoDirectUrl
 }

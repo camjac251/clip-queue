@@ -41,7 +41,7 @@
           variant="destructive"
           class="w-full"
           size="sm"
-          :disabled="queue.history.size() === 0"
+          :disabled="queue.playHistory.length === 0"
           @click="purgeHistory()"
         >
           {{ m.purge_history() }}

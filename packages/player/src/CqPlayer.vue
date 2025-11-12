@@ -17,7 +17,10 @@
         :title
         :clip-id="clipId"
         :clip-platform="clipPlatform"
+        :content-type="contentType"
+        :timestamp
         :autoplay
+        :api-url="apiUrl"
         @ended="emit('ended')"
         @error="(error) => emit('error', error)"
       />
@@ -43,7 +46,10 @@ export interface Props {
   thumbnailUrl?: string
   clipId?: string
   clipPlatform?: string
+  contentType?: string
+  timestamp?: number
   autoplay?: boolean
+  apiUrl?: string
 }
 
 const {
@@ -53,7 +59,10 @@ const {
   thumbnailUrl = undefined,
   clipId = undefined,
   clipPlatform = undefined,
-  autoplay = true
+  contentType = undefined,
+  timestamp = undefined,
+  autoplay = true,
+  apiUrl = 'http://localhost:3000'
 } = defineProps<Props>()
 
 const emit = defineEmits<{

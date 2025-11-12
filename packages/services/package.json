@@ -16,6 +16,7 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@cq/schemas": "workspace:*",
     "@cq/utils": "workspace:*"
   },
   "devDependencies": {

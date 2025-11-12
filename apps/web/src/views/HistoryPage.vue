@@ -33,9 +33,6 @@
         >
           {{ m.queue() }}
         </Button>
-        <Button variant="secondary" size="sm" :disabled="!selection.length" @click="replayClips()">
-          {{ m.play() }}
-        </Button>
         <Button
           variant="destructive"
           size="sm"
@@ -81,7 +78,7 @@
 import type { ColumnDef } from '@tanstack/vue-table'
 import { computed, h, ref } from 'vue'
 
-import type { Clip } from '@cq/platforms'
+import type { PlayLogEntry } from '@cq/platforms'
 import { toClipUUID } from '@cq/platforms'
 import { Button, Card, Checkbox, DataTable, Input, useConfirm } from '@cq/ui'
 
@@ -100,29 +97,32 @@ const logger = useLogger()
 const user = useUser()
 
 const searchQuery = ref('')
-const selection = ref<Clip[]>([])
+const selection = ref<PlayLogEntry[]>([])
 
 const filteredClips = computed(() => {
-  const clips = queue.history.toArray()
-  if (!searchQuery.value) return clips
+  const entries = queue.playHistory
+  if (!searchQuery.value) return entries
 
   const query = searchQuery.value.toLowerCase()
-  return clips.filter(
-    (clip) =>
-      clip.title.toLowerCase().includes(query) ||
-      clip.channel.toLowerCase().includes(query) ||
-      clip.creator?.toLowerCase().includes(query) ||
-      clip.category?.toLowerCase().includes(query) ||
-      clip.platform.toLowerCase().includes(query) ||
-      clip.submitters.some((s) => s.toLowerCase().includes(query))
+  return entries.filter(
+    (entry) =>
+      entry.clip.title.toLowerCase().includes(query) ||
+      entry.clip.channel.toLowerCase().includes(query) ||
+      entry.clip.creator?.toLowerCase().includes(query) ||
+      entry.clip.category?.toLowerCase().includes(query) ||
+      entry.clip.platform.toLowerCase().includes(query) ||
+      entry.clip.submitters.some((s: string) => s.toLowerCase().includes(query))
   )
 })
 
 const isQueueClipsDisabled = computed(() => {
-  return selection.value.length === 0 || selection.value.every((c) => queue.upcoming.includes(c))
+  return (
+    selection.value.length === 0 ||
+    selection.value.every((entry) => queue.upcoming.includes(entry.clip))
+  )
 })
 
-const columns = computed<ColumnDef<Clip>[]>(() => [
+const columns = computed<ColumnDef<PlayLogEntry>[]>(() => [
   {
     id: 'select',
     header: ({ table }) =>
@@ -138,10 +138,10 @@ const columns = computed<ColumnDef<Clip>[]>(() => [
     enableSorting: false
   },
   {
-    accessorKey: 'title',
+    accessorKey: 'clip.title',
     header: m.info(),
     cell: ({ row }) => {
-      const clip = row.original
+      const clip = row.original.clip
       return h('div', { class: 'flex items-center' }, [
         h('img', {
           class: 'hidden aspect-video w-24 rounded-lg sm:block',
@@ -173,65 +173,41 @@ const columns = computed<ColumnDef<Clip>[]>(() => [
     }
   },
   {
-    accessorKey: 'platform',
+    accessorKey: 'clip.platform',
     header: m.platform(),
-    cell: ({ row }) => h(PlatformName, { platform: row.original.platform })
+    cell: ({ row }) => h(PlatformName, { platform: row.original.clip.platform })
   },
   {
-    accessorKey: 'creator',
+    accessorKey: 'clip.creator',
     header: m.creator(),
-    cell: ({ row }) => row.original.creator ?? m.unknown()
+    cell: ({ row }) => row.original.clip.creator ?? m.unknown()
   },
   {
-    accessorKey: 'submitters',
+    accessorKey: 'clip.submitters',
     header: m.submitter(),
-    cell: ({ row }) => row.original.submitters[0] ?? ''
+    cell: ({ row }) => row.original.clip.submitters[0] ?? ''
   }
 ])
 
 async function queueClips() {
-  const clips = selection.value
+  const entries = selection.value
   selection.value = []
-  logger.debug(`[History]: queuing ${clips.length} clip(s).`)
-  for (const clip of clips) {
+  logger.debug(`[History]: queuing ${entries.length} clip(s).`)
+  for (const entry of entries) {
     try {
-      await queue.submit(clip.url, clip.submitters[0] || 'unknown')
+      await queue.submit(entry.clip.url, entry.clip.submitters[0] || 'unknown')
     } catch (error) {
       logger.error(`[History]: Failed to queue clip: ${error}`)
     }
   }
 }
 
-async function replayClips() {
-  const clips = [...selection.value]
-  logger.debug(`[History]: replaying ${clips.length} clip(s).`)
-
-  const results = { succeeded: 0, failed: 0 }
-
-  for (const clip of clips) {
-    try {
-      await queue.replayFromHistory(toClipUUID(clip))
-      results.succeeded++
-      logger.debug(`[History]: Replayed clip: ${clip.title}`)
-    } catch (error) {
-      results.failed++
-      logger.error(`[History]: Failed to replay clip ${clip.title}: ${error}`)
-    }
-  }
-
-  if (results.succeeded > 0) {
-    selection.value = []
-  }
-
-  batchResult(results.succeeded, results.failed, 'Replayed from history')
-}
-
 function deleteClips() {
-  const clips = [...selection.value]
-  logger.debug(`[History]: attempting to delete ${clips.length} clip(s).`)
+  const entries = [...selection.value]
+  logger.debug(`[History]: attempting to delete ${entries.length} clip(s).`)
   confirm.require({
     header: m.delete_history(),
-    message: m.delete_history_confirm({ length: clips.length }),
+    message: m.delete_history_confirm({ length: entries.length }),
     rejectProps: {
       label: m.cancel()
     },
@@ -241,14 +217,14 @@ function deleteClips() {
     accept: async () => {
       const results = { succeeded: 0, failed: 0 }
 
-      for (const clip of clips) {
+      for (const entry of entries) {
         try {
-          await queue.removeFromHistory(toClipUUID(clip))
+          await queue.removeFromHistory(toClipUUID(entry.clip))
           results.succeeded++
-          logger.debug(`[History]: Deleted clip: ${clip.title}`)
+          logger.debug(`[History]: Deleted clip: ${entry.clip.title}`)
         } catch (error) {
           results.failed++
-          logger.error(`[History]: Failed to delete clip ${clip.title}: ${error}`)
+          logger.error(`[History]: Failed to delete clip ${entry.clip.title}: ${error}`)
         }
       }
 
@@ -259,7 +235,7 @@ function deleteClips() {
       batchResult(results.succeeded, results.failed, 'Deleted from history')
     },
     reject: () => {
-      logger.debug(`[History]: deletion of ${clips.length} clip(s) was cancelled.`)
+      logger.debug(`[History]: deletion of ${entries.length} clip(s) was cancelled.`)
     }
   })
 }
