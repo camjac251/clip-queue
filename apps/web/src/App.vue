@@ -21,11 +21,12 @@
 <script setup lang="ts">
 import { useIntervalFn, useMagicKeys, whenever } from '@vueuse/core'
 import { onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { GlobalConfirmDialog, Toaster, useToast } from '@cq/ui'
 
 import AppNavBar from '@/components/AppNavBar.vue'
+import { useCommonShortcuts } from '@/composables/shortcuts'
 import { useSidebar } from '@/composables/sidebar'
 import { usePreferences } from './stores/preferences'
 import { useQueueServer } from './stores/queue-server'
@@ -34,6 +35,7 @@ import { useUser } from './stores/user'
 import { consumeAuthEvent } from './utils/events'
 
 const route = useRoute()
+const router = useRouter()
 const sidebar = useSidebar()
 
 const preferences = usePreferences()
@@ -80,13 +82,42 @@ const handleBeforeUnload = () => {
 
 // Keyboard shortcuts
 const keys = useMagicKeys()
+const shortcuts = useCommonShortcuts()
 
+// Sidebar toggle (Ctrl+B / Cmd+B)
 whenever(keys['Ctrl+B']!, (value) => {
   if (value) sidebar.toggleCollapse()
 })
 
 whenever(keys['Meta+B']!, (value) => {
   if (value) sidebar.toggleCollapse()
+})
+
+// Settings navigation (Ctrl+, / Cmd+,)
+shortcuts.settings(() => {
+  if (user.canManageSettings) {
+    router.push('/settings')
+  }
+})
+
+// Help/keyboard shortcuts reference (Ctrl+/ / Cmd+/)
+shortcuts.help(() => {
+  toast.add({
+    severity: 'info',
+    summary: 'Keyboard Shortcuts',
+    detail: 'Ctrl+B: Toggle sidebar, Ctrl+,: Settings, Space: Play/Pause, ←→: Navigate',
+    life: 5000
+  })
+})
+
+// Konami code easter egg
+shortcuts.konami(() => {
+  toast.add({
+    severity: 'success',
+    summary: '🎮 Konami Code!',
+    detail: 'You found the secret! ↑↑↓↓←→←→BA',
+    life: 10000
+  })
 })
 
 onMounted(async () => {
