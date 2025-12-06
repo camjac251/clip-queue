@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 
 import {
   Button,
@@ -188,7 +188,12 @@ const {
 )
 
 // Track individual checkbox states for reactivity
-const commandStates = ref<Record<string, boolean>>({})
+// Initialize synchronously to avoid watcher firing with empty object before onMounted
+const commandStates = ref<Record<string, boolean>>(
+  Object.fromEntries(
+    Object.values(Command).map((cmd) => [cmd, formSettings.value.allowed.includes(cmd)])
+  )
+)
 
 function initializeCommandStates() {
   const states: Record<string, boolean> = {}
@@ -208,10 +213,6 @@ watch(
   },
   { deep: true }
 )
-
-onMounted(() => {
-  initializeCommandStates()
-})
 
 function selectAll() {
   formSettings.value.allowed = [...Object.values(Command)]
