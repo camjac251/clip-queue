@@ -71,6 +71,8 @@ export async function advanceQueue(
   // Normal mode: at end of history, playing from queue
   const previousCurrent = state.current
   let playLogId: number | null = null
+  let nextClip: Clip | undefined
+  let queueModified = false
 
   try {
     // Log current clip play to database and add to history
@@ -93,14 +95,16 @@ export async function advanceQueue(
     }
 
     // Get next clip from queue
-    const nextClip = state.queue.shift()
+    nextClip = state.queue.shift()
+    queueModified = true
     state.current = nextClip ?? null
     state.historyPosition = -1 // Stay in queue mode
   } catch (error) {
     // Rollback in-memory changes on database failure
     // Note: Database rollback happens via transaction in db layer
-    if (state.current) {
-      state.queue.unshift(state.current)
+    // Only restore the clip if it was actually removed from the queue
+    if (queueModified && nextClip) {
+      state.queue.unshift(nextClip)
     }
     state.current = previousCurrent
     throw error
@@ -175,6 +179,7 @@ export async function playClip(
   const previousCurrent = state.current
   const previousPosition = state.historyPosition
   let playLogId: number | null = null
+  let clipRemovedFromQueue = false
 
   try {
     // Log current clip only if we're in queue mode (not navigating history)
@@ -198,13 +203,15 @@ export async function playClip(
 
     // Remove clip from queue and set as current
     state.queue.remove(clipToPlay)
+    clipRemovedFromQueue = true
     state.current = clipToPlay
 
     // Reset to queue mode (not navigating history)
     state.historyPosition = -1
   } catch (error) {
     // Rollback in-memory changes on database failure
-    if (clipToPlay) {
+    // Only restore the clip if it was actually removed from the queue
+    if (clipRemovedFromQueue && clipToPlay) {
       state.queue.add(clipToPlay)
     }
     state.current = previousCurrent
