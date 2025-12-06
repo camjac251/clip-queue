@@ -657,26 +657,26 @@ History clips can be interacted with in two different ways, each serving a diffe
 
 **Configuration:** `lefthook.yml`
 
+**Strategy:** Fast commits, tested pushes
+
 **Hooks Active:**
 
-- **pre-commit**: Format staged files (Prettier) + run `typecheck`, `lint`, and `test` on changed packages (Turborepo)
+- **pre-commit**: Format + typecheck + lint (catches errors immediately)
 - **commit-msg**: Validate commit message format (commitlint)
+- **pre-push**: Run tests (slower, before pushing)
 
-**Pre-commit Hook Details:**
+**Pre-commit Hook:**
 
-1. **Format staged files**:
-   - Runs `prettier --write --ignore-unknown` on staged files
-   - Auto-formats code before commit
-   - Automatically re-stages formatted files (`stage_fixed: true`)
+- Formats staged files with Prettier (auto re-stages)
+- Runs `turbo run typecheck lint --filter='...[HEAD]'` on changed packages
+- Uses Turborepo caching (80-90% faster on cache hits)
 
-2. **Turborepo validation**:
-   - Runs `turbo run typecheck lint test --filter='...[HEAD]'`
-   - Only checks changed packages + their dependents (fast!)
-   - Uses cached results when possible (80-90% faster on cache hits)
-   - Parallel execution with all CPU cores
-   - Shows output for new tasks only (`--output-logs=new-only`)
+**Pre-push Hook:**
 
-**Commit-msg Hook Details:**
+- Runs `turbo run build test` on all packages
+- Catches build failures and test failures before they reach remote
+
+**Commit-msg Hook:**
 
 - Validates [Conventional Commits](https://www.conventionalcommits.org/) format
 - Enforces line length limits (subject: 72, body/footer: 120)
