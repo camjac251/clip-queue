@@ -6,6 +6,8 @@ export default defineConfig({
     projects: ['apps/*', 'packages/*'],
     // Vitest 4.0 changed default excludes - use configDefaults.exclude plus dist
     exclude: [...configDefaults.exclude, '**/dist/**'],
+    // Compact output: 'dot' for minimal, 'basic' for summary only
+    reporters: ['basic'],
     coverage: {
       provider: 'v8',
       include: ['apps/**', 'packages/**'],

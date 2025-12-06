@@ -1,5 +1,0 @@
-# Skip if SKIP_HOOKS=1
-[ "$SKIP_HOOKS" = "1" ] && exit 0
-
-echo "📝 Validating commit message..."
-pnpm commitlint ${1} && echo "✅ Commit message valid!"

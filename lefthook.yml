@@ -1,0 +1,30 @@
+# Lefthook git hooks configuration
+# https://github.com/evilmartians/lefthook
+#
+# Skip hooks: LEFTHOOK=0 git commit (or --no-verify)
+
+# Assert mise versions before running hooks
+assert_lefthook_installed: true
+
+pre-commit:
+  # Skip all hooks if SKIP_HOOKS=1
+  skip:
+    - run: '[ "$SKIP_HOOKS" = "1" ]'
+
+  commands:
+    format:
+      glob: '*'
+      run: pnpm prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true
+
+    typecheck-lint-test:
+      run: pnpm turbo run typecheck lint test --filter='...[HEAD]' --output-logs=errors-only --concurrency=100%
+
+commit-msg:
+  # Skip if SKIP_HOOKS=1
+  skip:
+    - run: '[ "$SKIP_HOOKS" = "1" ]'
+
+  commands:
+    commitlint:
+      run: pnpm commitlint --edit {1}

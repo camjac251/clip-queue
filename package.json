@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prepare": "husky",
+    "prepare": "lefthook install",
     "api": "turbo run --filter=@cq/api",
     "web": "turbo run --filter=@cq/web",
     "cfg": "turbo run --filter=@cq/config",
@@ -13,19 +13,16 @@
     "services": "turbo run --filter=@cq/services",
     "sources": "turbo run --filter=@cq/sources",
     "ui": "turbo run --filter=@cq/ui",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "lint:fix": "turbo run lint:fix",
-    "format": "turbo run format",
-    "test": "turbo run test",
+    "build": "turbo run build --output-logs=errors-only",
+    "lint": "turbo run lint --output-logs=errors-only",
+    "lint:fix": "turbo run lint:fix --output-logs=errors-only",
+    "format": "turbo run format --output-logs=errors-only",
+    "test": "turbo run test --output-logs=errors-only",
     "test:coverage": "turbo run test:coverage",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck --output-logs=errors-only",
     "deps:update": "corepack use pnpm@latest && pnpm up --latest && pnpm --recursive up --latest",
     "commitlint": "commitlint --edit",
     "dev:all": "turbo run dev --filter=@cq/api --filter=@cq/web"
-  },
-  "lint-staged": {
-    "*": "prettier --write --ignore-unknown"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.2.0",
@@ -37,8 +34,6 @@
     "@iconify-json/simple-icons": "^1.2.61",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "^4.0.15",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
     "turbo": "^2.6.3",
     "typescript": "catalog:",
     "vitest": "^4.0.15"
@@ -46,6 +41,6 @@
   "packageManager": "pnpm@10.18.2+sha512.9fb969fa749b3ade6035e0f109f0b8a60b5d08a1a87fdf72e337da90dcc93336e2280ca4e44f2358a649b83c17959e9993e777c2080879f3801e6f0d999ad3dd",
   "engines": {
     "pnpm": ">=10",
-    "node": ">=20"
+    "node": ">=24"
   }
 }

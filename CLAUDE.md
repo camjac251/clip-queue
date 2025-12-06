@@ -19,8 +19,10 @@ Clip Queue is a self-hosted web application for Twitch streamers. The Node.js ba
 ## Quick Start
 
 ```sh
-# Install dependencies (requires Node.js >=20, pnpm >=10)
-corepack enable && corepack install
+# Install tools via mise (Node.js 24 LTS, pnpm 10, lefthook)
+mise trust && mise install
+
+# Install dependencies
 pnpm install
 
 # Set up environment variables
@@ -651,20 +653,21 @@ History clips can be interacted with in two different ways, each serving a diffe
 
 **Key Difference**: Timeline navigation is for **playback control** (temporary scrubbing), while HistoryPage is for **data management** (permanent re-queuing or cleanup).
 
-### Git Hooks (Husky)
+### Git Hooks (Lefthook)
+
+**Configuration:** `lefthook.yml`
 
 **Hooks Active:**
 
-- **pre-commit**: Format staged files (lint-staged) + run `typecheck`, `lint`, and `test` on changed packages (Turborepo)
+- **pre-commit**: Format staged files (Prettier) + run `typecheck`, `lint`, and `test` on changed packages (Turborepo)
 - **commit-msg**: Validate commit message format (commitlint)
 
 **Pre-commit Hook Details:**
 
-1. **lint-staged**:
-   - Runs `prettier --write --ignore-unknown` on all staged files
+1. **Format staged files**:
+   - Runs `prettier --write --ignore-unknown` on staged files
    - Auto-formats code before commit
-   - Automatically re-stages formatted files
-   - Shows: 🎨 Formatting staged files...
+   - Automatically re-stages formatted files (`stage_fixed: true`)
 
 2. **Turborepo validation**:
    - Runs `turbo run typecheck lint test --filter='...[HEAD]'`
@@ -672,17 +675,12 @@ History clips can be interacted with in two different ways, each serving a diffe
    - Uses cached results when possible (80-90% faster on cache hits)
    - Parallel execution with all CPU cores
    - Shows output for new tasks only (`--output-logs=new-only`)
-   - Shows: 🔍 Running typecheck, lint, and tests...
-   - Shows: ✅ Pre-commit checks passed! (on success)
 
 **Commit-msg Hook Details:**
 
 - Validates [Conventional Commits](https://www.conventionalcommits.org/) format
 - Enforces line length limits (subject: 72, body/footer: 120)
 - Validates type and scope (see rules below)
-- Can be skipped with `SKIP_HOOKS=1`
-- Shows: 📝 Validating commit message...
-- Shows: ✅ Commit message valid! (on success)
 
 **Commit Message Format:**
 
@@ -737,7 +735,8 @@ git commit -m "fix(player): respect autoplay preference and add manual play butt
 
 ```sh
 # Skip all hooks (pre-commit, commit-msg)
-SKIP_HOOKS=1 git commit
+LEFTHOOK=0 git commit
+# Or: SKIP_HOOKS=1 git commit
 
 # Or use --no-verify (skips ALL hooks)
 git commit --no-verify
@@ -785,9 +784,9 @@ rm -rf .turbo                        # Clear cache
 - **TypeScript** (`@cq/config/eslint/typescript`, `prettier/base`) - 8 packages: api, constants, queue-ops, schemas, utils, services, platforms, config
 - **Vue** (`@cq/config/eslint/vue`, `prettier/vue`) - 3 packages: web, player, ui (adds Tailwind class sorting)
 
-**Pre-commit hooks** (Husky):
+**Pre-commit hooks** (Lefthook):
 
-1. `lint-staged` - Prettier auto-formats all staged files
+1. Prettier auto-formats all staged files (`stage_fixed: true`)
 2. `turbo typecheck lint test --filter='...[HEAD]'` - Runs on changed packages only (cached)
 
 **Common commands**:
@@ -796,7 +795,7 @@ rm -rf .turbo                        # Clear cache
 pnpm lint              # Check all packages
 pnpm lint:fix          # Auto-fix all packages
 pnpm format            # Format all packages
-SKIP_HOOKS=1 git commit # Skip pre-commit checks
+LEFTHOOK=0 git commit  # Skip pre-commit checks
 ```
 
 **Adding new packages**: Must include `eslint.config.js`, `prettier.config.js`, and lint scripts (`lint`, `lint:fix`, `format`) in `package.json`. Import configs from `@cq/config` to match existing packages.

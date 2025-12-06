@@ -10,8 +10,8 @@
     "build": "vite build",
     "typecheck": "vue-tsc --build --force",
     "format": "prettier --write .",
-    "lint": "prettier --check . && eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint": "prettier --check . --log-level=warn && eslint . --quiet --cache",
+    "lint:fix": "eslint . --fix --cache"
   },
   "dependencies": {
     "@tanstack/vue-table": "^8.21.3",

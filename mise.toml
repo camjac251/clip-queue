@@ -1,0 +1,103 @@
+[tools]
+node = "lts"   # Currently 24 (Krypton)
+pnpm = "10"
+lefthook = "latest"
+
+[settings]
+# Use .env files if present
+env_file = ".env"
+# Trust this project directory
+trusted_config_paths = ["."]
+
+[env]
+# Ensure corepack is enabled for pnpm
+_.path = ["./node_modules/.bin"]
+
+[tasks.install]
+description = "Install all dependencies"
+run = "pnpm install"
+
+[tasks.dev]
+description = "Run backend + frontend"
+run = "pnpm dev:all"
+
+[tasks."dev:api"]
+description = "Run backend API server"
+run = "pnpm api dev"
+
+[tasks."dev:web"]
+description = "Run frontend dev server"
+run = "pnpm web dev"
+
+[tasks.build]
+description = "Build all packages"
+run = "pnpm build"
+
+[tasks.typecheck]
+description = "Type check all packages"
+run = "pnpm typecheck"
+
+[tasks.lint]
+description = "Lint all packages"
+run = "pnpm lint"
+
+[tasks."lint:fix"]
+description = "Auto-fix linting issues"
+run = "pnpm lint:fix"
+
+[tasks.test]
+description = "Run all tests"
+run = "pnpm test"
+
+[tasks.format]
+description = "Format all packages"
+run = "pnpm format"
+
+[tasks.clean]
+description = "Clean build artifacts and node_modules"
+run = """
+find . -name 'dist' -type d -prune -exec rm -rf {} +
+find . -name 'node_modules' -type d -prune -exec rm -rf {} +
+find . -name '.turbo' -type d -prune -exec rm -rf {} +
+rm -rf .turbo
+"""
+
+[tasks."api:setup"]
+description = "Get Twitch bot token (OAuth)"
+run = "pnpm api setup"
+
+[tasks."db:generate"]
+description = "Generate database migration"
+run = "pnpm --filter @cq/api db:generate"
+
+[tasks."db:migrate"]
+description = "Apply database migrations"
+run = "pnpm --filter @cq/api db:migrate"
+
+[tasks."db:studio"]
+description = "Open Drizzle Studio GUI"
+run = "pnpm --filter @cq/api db:studio"
+
+[tasks."i18n:check"]
+description = "Validate translation completeness"
+run = "pnpm web i18n:check"
+
+[tasks."i18n:sync"]
+description = "Sync missing keys from en.json"
+run = "pnpm web i18n:sync"
+
+[tasks."docker:build"]
+description = "Build Docker images"
+run = "docker-compose build"
+
+[tasks."docker:up"]
+description = "Start containers"
+run = "docker-compose up -d"
+
+[tasks."docker:down"]
+description = "Stop containers"
+run = "docker-compose down"
+
+[tasks."docker:logs"]
+description = "View backend logs"
+run = "docker logs clip-queue-backend -f"

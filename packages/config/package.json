@@ -12,8 +12,8 @@
   },
   "scripts": {
     "format": "prettier --write .",
-    "lint": "prettier --check . && eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint": "prettier --check . --log-level=warn && eslint . --quiet --cache",
+    "lint:fix": "eslint . --fix --cache"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
