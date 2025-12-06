@@ -86,8 +86,13 @@ export class TwitchPlatform extends BasePlatform {
     if (!id) {
       throw new Error(`[${this.name}]: Invalid video URL.`)
     }
-    if (this.cache[id]) {
-      return this.cache[id]
+
+    // Extract timestamp before cache lookup (different timestamps = different cache entries)
+    const timestamp = twitch.getTimestampFromUrl(url)
+    const cacheKey = timestamp !== undefined ? `${id}:${timestamp}` : id
+
+    if (this.cache[cacheKey]) {
+      return this.cache[cacheKey]
     }
     try {
       const ctx = await this.ctx()
@@ -99,9 +104,6 @@ export class TwitchPlatform extends BasePlatform {
 
       // Fetched client-side to avoid backend URL expiration handling (consistent with clips)
       const videoUrl = undefined
-
-      // Extract timestamp from URL (e.g., ?t=0h12m0s)
-      const timestamp = twitch.getTimestampFromUrl(url)
 
       const response: Clip = {
         platform: this.name,
@@ -120,7 +122,7 @@ export class TwitchPlatform extends BasePlatform {
         timestamp, // Start time from URL parameter
         submitters: []
       }
-      this.cache[id] = response
+      this.cache[cacheKey] = response
       return response
     } catch (error) {
       throw new Error(`[${this.name}]: ${error}`)
