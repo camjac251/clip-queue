@@ -927,12 +927,13 @@ app.get(
       return res.status(400).json({ error: 'Missing url parameter' })
     }
 
-    // Only allow Twitch HLS domains (usher.ttvnw.net, video-weaver.*, *.cloudfront.net)
+    // Only allow Twitch HLS domains (usher.ttvnw.net, video-weaver.*.hls.ttvnw.net, *.cloudfront.net)
     const urlObj = new URL(url)
     const hostname = urlObj.hostname
+    const videoWeaverPattern = /^video-weaver\.[a-z0-9-]+\.hls\.ttvnw\.net$/
     const isTwitchDomain =
       hostname === 'usher.ttvnw.net' ||
-      hostname.includes('video-weaver') ||
+      videoWeaverPattern.test(hostname) ||
       hostname.endsWith('.cloudfront.net')
 
     if (!isTwitchDomain) {
