@@ -55,8 +55,14 @@ export const DEFAULT_LOGGER_SETTINGS: LoggerSettings = {
 const { API_URL } = env
 
 export const useSettings = defineStore('settings', () => {
-  const commands = ref<CommandSettings>({ ...DEFAULT_COMMAND_SETTINGS })
-  const queue = ref<QueueSettings>({ ...DEFAULT_QUEUE_SETTINGS })
+  const commands = ref<CommandSettings>({
+    ...DEFAULT_COMMAND_SETTINGS,
+    allowed: [...DEFAULT_COMMAND_SETTINGS.allowed]
+  })
+  const queue = ref<QueueSettings>({
+    ...DEFAULT_QUEUE_SETTINGS,
+    platforms: [...DEFAULT_QUEUE_SETTINGS.platforms]
+  })
   const logger = ref<LoggerSettings>({ ...DEFAULT_LOGGER_SETTINGS })
   const log = useLogger()
   const isInitialized = ref<boolean>(false)
@@ -99,9 +105,15 @@ export const useSettings = defineStore('settings', () => {
   })
 
   function $reset(): void {
-    commands.value = DEFAULT_COMMAND_SETTINGS
-    queue.value = DEFAULT_QUEUE_SETTINGS
-    logger.value = DEFAULT_LOGGER_SETTINGS
+    commands.value = {
+      ...DEFAULT_COMMAND_SETTINGS,
+      allowed: [...DEFAULT_COMMAND_SETTINGS.allowed]
+    }
+    queue.value = {
+      ...DEFAULT_QUEUE_SETTINGS,
+      platforms: [...DEFAULT_QUEUE_SETTINGS.platforms]
+    }
+    logger.value = { ...DEFAULT_LOGGER_SETTINGS }
   }
 
   /**

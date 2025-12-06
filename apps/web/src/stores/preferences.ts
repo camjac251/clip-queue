@@ -124,7 +124,7 @@ export const usePreferences = defineStore(
     }
 
     function $reset() {
-      preferences.value = DEFAULTS
+      preferences.value = structuredClone(DEFAULTS)
     }
 
     return {
