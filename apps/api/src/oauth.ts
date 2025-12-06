@@ -145,7 +145,7 @@ router.get('/callback', async (req: Request, res: Response) => {
   // Handle OAuth errors from Twitch
   if (error) {
     console.error('[OAuth] Twitch returned error:', error, error_description)
-    return res.redirect(`${frontendUrl}/?login=error&reason=${error}`)
+    return res.redirect(`${frontendUrl}/?login=error&reason=${encodeURIComponent(String(error))}`)
   }
 
   // Validate required parameters
