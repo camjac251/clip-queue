@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import twitch from '@cq/services/twitch'
@@ -208,14 +208,6 @@ export const useUser = defineStore('user', () => {
   }
 
   /**
-   * Cleanup on store disposal
-   */
-  onBeforeUnmount(() => {
-    stopProactiveValidation()
-    logger.debug('[User]: Cleaned up validation interval on unmount')
-  })
-
-  /**
    * Logout user
    */
   async function logout(): Promise<void> {
@@ -240,6 +232,10 @@ export const useUser = defineStore('user', () => {
     profileImageUrl.value = undefined
     isBroadcaster.value = false
     isModerator.value = false
+
+    // Reset initialization state for proper re-login behavior
+    isInitialized.value = false
+    initializationPromise = null
   }
 
   return {
