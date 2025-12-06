@@ -11,6 +11,7 @@ import { useToast } from '@cq/ui'
  * - Save with success/error toast notifications
  * - Reset to original values
  * - Form key for forcing re-renders
+ * - Extensible for future validation (VeeValidate, Zod, etc.)
  *
  * @example
  * const { formData, formKey, onReset, onSubmit } = useSettingsForm(
