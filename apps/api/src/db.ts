@@ -310,7 +310,7 @@ export function getClip(db: DbClient, clipId: string): Clip | null {
       url: row.url,
       embedUrl: row.embedUrl,
       videoUrl: row.videoUrl ?? undefined,
-      thumbnailUrl: row.thumbnailUrl,
+      thumbnailUrl: row.thumbnailUrl ?? undefined,
       title: row.title,
       channel: row.channel,
       creator: row.creator ?? row.channel, // Fallback to channel if creator is missing

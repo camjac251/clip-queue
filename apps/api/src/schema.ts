@@ -9,11 +9,10 @@
 
 import { sql } from 'drizzle-orm'
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
-import { z } from 'zod'
 
 import type { Clip } from '@cq/schemas/clip'
 import type { AppSettings } from '@cq/schemas/settings'
-import { ContentType, Platform } from '@cq/schemas/clip'
+import { ClipSchema, ContentType, Platform } from '@cq/schemas/clip'
 import {
   AppSettingsSchema,
   CommandSettingsSchema,
@@ -139,27 +138,9 @@ export const settings = sqliteTable('settings', {
 })
 
 /**
- * Zod Validation Schemas
+ * Re-export ClipSchema from @cq/schemas for validation
  */
-
-// Clip validation schema (matches @cq/platforms types exactly)
-export const ClipSchema = z.object({
-  platform: z.nativeEnum(Platform),
-  contentType: z.nativeEnum(ContentType),
-  id: z.string(),
-  url: z.string().url(),
-  embedUrl: z.string().url(),
-  videoUrl: z.string().url().optional(), // Direct video URL (Kick only - Twitch content fetches client-side)
-  thumbnailUrl: z.string().url(),
-  title: z.string(),
-  channel: z.string(),
-  creator: z.string(),
-  submitters: z.array(z.string()).default([]),
-  category: z.string().optional(),
-  createdAt: z.string().optional(), // ISO date string
-  duration: z.number().int().positive().optional(),
-  timestamp: z.number().int().nonnegative().optional()
-})
+export { ClipSchema }
 
 /**
  * Default Settings (validated)
