@@ -56,6 +56,7 @@
     <!-- Data Table Card -->
     <Card class="overflow-hidden">
       <DataTable
+        ref="dataTableRef"
         :data="filteredClips"
         :columns="columns"
         paginator
@@ -88,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import type { ColumnDef } from '@tanstack/vue-table'
+import type { ColumnDef, Table } from '@tanstack/vue-table'
 import { useIntersectionObserver } from '@vueuse/core'
 import { computed, h, onMounted, ref } from 'vue'
 
@@ -105,6 +106,11 @@ import { useLogger } from '@/stores/logger'
 import { useQueueServer as useQueue } from '@/stores/queue-server'
 import { useUser } from '@/stores/user'
 
+interface DataTableExposed<T> {
+  table: Table<T>
+  selectedRows: T[]
+}
+
 const confirm = useConfirm()
 const { batchResult } = useToastNotifications()
 const queue = useQueue()
@@ -113,8 +119,12 @@ const user = useUser()
 const history = useHistory(50)
 
 const searchQuery = ref('')
-const selection = ref<PlayLogEntry[]>([])
+const dataTableRef = ref<DataTableExposed<PlayLogEntry> | null>(null)
 const loadMoreTrigger = ref<HTMLElement | null>(null)
+
+const selection = computed<PlayLogEntry[]>(() => {
+  return (dataTableRef.value?.selectedRows ?? []) as PlayLogEntry[]
+})
 
 onMounted(() => {
   history.loadMore()
@@ -218,8 +228,8 @@ const columns = computed<ColumnDef<PlayLogEntry>[]>(() => [
 ])
 
 async function queueClips() {
-  const entries = selection.value
-  selection.value = []
+  const entries = [...selection.value]
+  dataTableRef.value?.table.resetRowSelection()
   logger.debug(`[History]: queuing ${entries.length} clip(s).`)
   for (const entry of entries) {
     try {
@@ -257,7 +267,7 @@ function deleteClips() {
       }
 
       if (results.succeeded > 0) {
-        selection.value = []
+        dataTableRef.value?.table.resetRowSelection()
         history.reset()
         history.loadMore()
       }

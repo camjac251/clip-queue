@@ -1,6 +1,6 @@
 <!-- eslint-disable -->
 <script setup lang="ts" generic="TData">
-import type { ColumnDef, SortingState } from '@tanstack/vue-table'
+import type { ColumnDef, RowSelectionState, SortingState } from '@tanstack/vue-table'
 import {
   FlexRender,
   getCoreRowModel,
@@ -34,6 +34,7 @@ const props = withDefaults(
 )
 
 const sorting = ref<SortingState>([])
+const rowSelection = ref<RowSelectionState>({})
 const pageSize = ref(props.rows)
 
 const table = useVueTable({
@@ -47,6 +48,9 @@ const table = useVueTable({
     get sorting() {
       return sorting.value
     },
+    get rowSelection() {
+      return rowSelection.value
+    },
     get pagination() {
       return {
         pageIndex: 0,
@@ -58,10 +62,16 @@ const table = useVueTable({
     sorting.value =
       typeof updaterOrValue === 'function' ? updaterOrValue(sorting.value) : updaterOrValue
   },
+  onRowSelectionChange: (updaterOrValue) => {
+    rowSelection.value =
+      typeof updaterOrValue === 'function' ? updaterOrValue(rowSelection.value) : updaterOrValue
+  },
   getCoreRowModel: getCoreRowModel(),
   getSortedRowModel: getSortedRowModel(),
   getPaginationRowModel: props.paginator ? getPaginationRowModel() : undefined
 })
+
+const selectedRows = computed(() => table.getSelectedRowModel().rows.map((row) => row.original))
 
 function exportCSV() {
   const columnsWithAccessor = props.columns.filter(
@@ -96,7 +106,7 @@ function exportCSV() {
   URL.revokeObjectURL(url)
 }
 
-defineExpose({ exportCSV })
+defineExpose({ exportCSV, table, selectedRows })
 </script>
 
 <template>
