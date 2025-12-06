@@ -1,7 +1,8 @@
-import { defineProject } from 'vitest/config'
+import { configDefaults, defineProject } from 'vitest/config'
 
 export default defineProject({
   test: {
-    environment: 'jsdom'
+    environment: 'jsdom',
+    exclude: [...configDefaults.exclude, '**/dist/**']
   }
 })

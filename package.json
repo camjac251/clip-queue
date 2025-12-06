@@ -28,16 +28,20 @@
     "*": "prettier --write --ignore-unknown"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.1.0",
-    "@commitlint/config-conventional": "^20.0.0",
-    "@commitlint/types": "^20.0.0",
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
+    "@commitlint/types": "^20.2.0",
+    "@iconify-json/lucide": "^1.2.79",
+    "@iconify-json/material-symbols": "^1.2.49",
+    "@iconify-json/mdi": "^1.2.3",
+    "@iconify-json/simple-icons": "^1.2.61",
     "@types/node": "catalog:",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^4.0.15",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.4",
-    "turbo": "^2.5.8",
+    "lint-staged": "^16.2.7",
+    "turbo": "^2.6.3",
     "typescript": "catalog:",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.15"
   },
   "packageManager": "pnpm@10.18.2+sha512.9fb969fa749b3ade6035e0f109f0b8a60b5d08a1a87fdf72e337da90dcc93336e2280ca4e44f2358a649b83c17959e9993e777c2080879f3801e6f0d999ad3dd",
   "engines": {

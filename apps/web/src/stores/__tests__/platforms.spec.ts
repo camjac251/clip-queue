@@ -21,7 +21,7 @@ describe('platforms.ts', () => {
 
   it.each([
     [clipFromKick, 'video' as PlayerFormat],
-    [clipFromTwitch, 'iframe' as PlayerFormat],
+    [clipFromTwitch, 'video' as PlayerFormat],
     [{} as Clip, undefined]
   ])(
     'returns the correct player format based on clip: (clip: %o) -> %s',
@@ -33,7 +33,7 @@ describe('platforms.ts', () => {
 
   it.each([
     [clipFromKick, clipFromKick.embedUrl],
-    [clipFromTwitch, `${clipFromTwitch.embedUrl}&autoplay=true&parent=${window.location.hostname}`],
+    [clipFromTwitch, undefined], // Twitch clips fetch videoUrl client-side
     [{} as Clip, undefined]
   ])(
     'returns the correct player source based on clip: (clip: %o) -> %s',

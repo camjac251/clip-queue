@@ -72,7 +72,7 @@ describe('preferences.ts', () => {
     const preferences = usePreferences()
     expect(preferences.preferences.theme).toEqual('light')
     expect(preferences.isDark).toEqual(false)
-    expect(document?.querySelector('html')?.classList.contains('app-dark')).toEqual(false)
+    expect(document?.querySelector('html')?.classList.contains('dark')).toEqual(false)
   })
 
   it('gets the default value from localstorage if possible (dark)', () => {
@@ -80,7 +80,7 @@ describe('preferences.ts', () => {
     const preferences = usePreferences()
     expect(preferences.preferences.theme).toEqual('dark')
     expect(preferences.isDark).toEqual(true)
-    expect(document?.querySelector('html')?.classList.contains('app-dark')).toEqual(true)
+    expect(document?.querySelector('html')?.classList.contains('dark')).toEqual(true)
   })
 
   it('gets the default value from config when no value is in local storage', () => {
@@ -93,14 +93,14 @@ describe('preferences.ts', () => {
     const preferences = usePreferences()
     expect(preferences.preferences.theme).toEqual('dark')
     expect(preferences.isDark).toEqual(true)
-    expect(document?.querySelector('html')?.classList.contains('app-dark')).toBeTruthy()
+    expect(document?.querySelector('html')?.classList.contains('dark')).toBeTruthy()
     preferences.toggleTheme()
     expect(preferences.preferences.theme).toEqual('light')
     expect(preferences.isDark).toEqual(false)
-    expect(document?.querySelector('html')?.classList.contains('app-dark')).toBeFalsy()
+    expect(document?.querySelector('html')?.classList.contains('dark')).toBeFalsy()
     preferences.toggleTheme()
     expect(preferences.preferences.theme).toEqual('dark')
     expect(preferences.isDark).toEqual(true)
-    expect(document?.querySelector('html')?.classList.contains('app-dark')).toBeTruthy()
+    expect(document?.querySelector('html')?.classList.contains('dark')).toBeTruthy()
   })
 })

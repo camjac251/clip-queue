@@ -1,14 +1,13 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
     environment: 'jsdom',
-    projects: [
-      'apps/*',
-      'packages/*'
-    ],
+    projects: ['apps/*', 'packages/*'],
+    // Vitest 4.0 changed default excludes - use configDefaults.exclude plus dist
+    exclude: [...configDefaults.exclude, '**/dist/**'],
     coverage: {
-      platform: 'v8',
+      provider: 'v8',
       include: ['apps/**', 'packages/**'],
       exclude: [
         '**/*.config.js',
@@ -18,4 +17,4 @@ export default defineConfig({
       ]
     }
   }
-});
+})
