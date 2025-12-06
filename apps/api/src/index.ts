@@ -221,24 +221,6 @@ let currentClip: Clip | null = null
 let historyPosition = -1 // -1 = at end (queue mode), >= 0 = index in history
 let isQueueOpen = true
 
-// Load approved clips from database on startup (bulk add for O(n log n) performance)
-const approvedClips = getClipsByStatus(db, 'approved')
-if (approvedClips.length > 0) {
-  queue.add(...approvedClips)
-}
-console.log(`[Queue] Loaded ${approvedClips.length} approved clips from database`)
-
-// Load play history from play_log table on startup (ASC order - oldest first)
-const playLogs = getPlayLogs(db, { limit: 100, order: 'asc' }) as Array<{
-  id: number
-  clip: Clip
-  playedAt: Date
-}>
-playLogs.forEach((entry) => {
-  playHistory.add(entry)
-})
-console.log(`[Queue] Loaded ${playLogs.length} play log entries from database`)
-
 /**
  * Generate ETag hash from queue state
  * Used for efficient HTTP caching (304 Not Modified responses)
