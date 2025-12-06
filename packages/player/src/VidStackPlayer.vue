@@ -151,10 +151,12 @@ const DEFAULT_VOLUME = 1.0
  * Fetches direct video URL for Twitch content client-side
  * - Clips: MP4 URL via GraphQL ClipsDownloadButton query (returned as string)
  * - VODs/Highlights: HLS playlist URL via GraphQL VideoPlaybackAccessToken query (returned as object with type)
+ *
+ * @param signal - Optional AbortSignal for request cancellation (prevents race conditions on rapid clip navigation)
  */
-async function fetchTwitchVideoUrl(): Promise<
-  string | { src: string; type: 'application/x-mpegurl' } | undefined
-> {
+async function fetchTwitchVideoUrl(
+  signal?: AbortSignal
+): Promise<string | { src: string; type: 'application/x-mpegurl' } | undefined> {
   if (!clipId?.value || clipPlatform?.value !== 'twitch') {
     return undefined
   }
@@ -167,7 +169,7 @@ async function fetchTwitchVideoUrl(): Promise<
 
     // Clips use MP4 URLs (GraphQL ClipsDownloadButton query)
     if (type === 'clip') {
-      url = await getDirectVideoUrl(clipId.value)
+      url = await getDirectVideoUrl(clipId.value, signal)
 
       if (!url) {
         console.error(`[VidStack] Failed to fetch Twitch ${type} URL`)
@@ -179,7 +181,7 @@ async function fetchTwitchVideoUrl(): Promise<
     }
     // VODs and highlights use HLS playlist URLs (GraphQL VideoPlaybackAccessToken query)
     else if (type === 'vod' || type === 'highlight') {
-      url = await twitch.getVideoDirectUrl(clipId.value)
+      url = await twitch.getVideoDirectUrl(clipId.value, signal)
 
       // Wrap HLS URLs with CORS proxy (Twitch blocks direct browser access)
       if (url && url.includes('usher.ttvnw.net')) {
@@ -386,7 +388,7 @@ watch(
     // If no source provided but we have a Twitch content ID, fetch it
     if (!newSource && newClipId && newPlatform === 'twitch') {
       currentFetchAbort.value = new AbortController()
-      currentVideoUrl.value = await fetchTwitchVideoUrl()
+      currentVideoUrl.value = await fetchTwitchVideoUrl(currentFetchAbort.value.signal)
       currentFetchAbort.value = null
     } else {
       currentVideoUrl.value = newSource

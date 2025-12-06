@@ -1825,7 +1825,10 @@ app.put(
       res.status(400).json({
         error: 'INVALID_SETTINGS',
         message: 'Settings validation failed. Check the details for specific errors.',
-        details: error
+        details:
+          error instanceof z.ZodError
+            ? error.issues.map((i) => ({ path: i.path.join('.'), message: i.message }))
+            : 'Unknown validation error'
       })
     }
   }

@@ -132,11 +132,6 @@ export async function getDirectUrl(
     )
   }
 
-  console.log(`[Twitch API] Fetching clip data for: ${id}`)
-  console.log(
-    `[Twitch API] Client-ID: ${trimmedClientId.substring(0, 10)}... (${trimmedClientId.length} chars)`
-  )
-
   // Use Helix API to get clip metadata
   const url = `https://api.twitch.tv/helix/clips?id=${id}`
   const headers: Record<string, string> = {
@@ -177,10 +172,6 @@ export async function getDirectUrl(
   // Convert thumbnail URL to video URL by removing "-preview-480x272.jpg" and adding ".mp4"
   const videoUrl = thumbnailUrl.replace(/-preview-\d+x\d+\.jpg$/, '.mp4')
 
-  console.log(`[Twitch API] Converted thumbnail to video URL`)
-  console.log(`[Twitch API] Thumbnail: ${thumbnailUrl}`)
-  console.log(`[Twitch API] Video: ${videoUrl}`)
-
   return videoUrl
 }
 
@@ -192,10 +183,14 @@ const TWITCH_PUBLIC_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'
  * Required to construct HLS playlist URLs for direct video playback.
  *
  * @param videoId - The video ID (numeric string).
+ * @param signal - Optional AbortSignal for request cancellation.
  * @returns Object with token value and signature.
  * @throws Will throw an error if the fetch fails.
  */
-async function getVideoAccessToken(videoId: string): Promise<{ value: string; signature: string }> {
+async function getVideoAccessToken(
+  videoId: string,
+  signal?: AbortSignal
+): Promise<{ value: string; signature: string }> {
   const query = `
     query PlaybackAccessToken($id: ID!) {
       videoPlaybackAccessToken(id: $id, params: {platform: "web", playerBackend: "mediaplayer", playerType: "site"}) {
@@ -211,6 +206,7 @@ async function getVideoAccessToken(videoId: string): Promise<{ value: string; si
       'Client-Id': TWITCH_PUBLIC_CLIENT_ID,
       'Content-Type': 'application/json'
     },
+    signal,
     body: JSON.stringify({
       query,
       variables: { id: videoId }
@@ -239,11 +235,12 @@ async function getVideoAccessToken(videoId: string): Promise<{ value: string; si
  * Uses GraphQL API to get access token, then constructs Usher API URL.
  *
  * @param videoId - The video ID (numeric string).
+ * @param signal - Optional AbortSignal for request cancellation.
  * @returns The HLS playlist URL (.m3u8).
  * @throws Will throw an error if unable to get access token.
  */
-export async function getVideoDirectUrl(videoId: string): Promise<string> {
-  const { value, signature } = await getVideoAccessToken(videoId)
+export async function getVideoDirectUrl(videoId: string, signal?: AbortSignal): Promise<string> {
+  const { value, signature } = await getVideoAccessToken(videoId, signal)
 
   // Construct Usher API URL with access token
   const params = new URLSearchParams({

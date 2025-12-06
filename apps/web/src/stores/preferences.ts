@@ -120,7 +120,6 @@ export const usePreferences = defineStore(
 
     function toggleTheme() {
       preferences.value.theme = preferences.value.theme === 'dark' ? 'light' : 'dark'
-      document.querySelector('html')?.classList.toggle('dark')
     }
 
     function $reset() {

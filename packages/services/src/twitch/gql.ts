@@ -43,7 +43,10 @@ interface GraphQLResponse {
  * const url = await getDirectVideoUrl('AwkwardHelplessSalamanderSwiftRage')
  * // Returns: https://...cloudfront.net/...mp4?sig=...&token=...
  */
-export async function getDirectVideoUrl(clipId: string): Promise<string | undefined> {
+export async function getDirectVideoUrl(
+  clipId: string,
+  signal?: AbortSignal
+): Promise<string | undefined> {
   try {
     const response = await fetch(TWITCH_GQL_ENDPOINT, {
       method: 'POST',
@@ -51,6 +54,7 @@ export async function getDirectVideoUrl(clipId: string): Promise<string | undefi
         'Content-Type': 'application/json',
         'Client-Id': TWITCH_PUBLIC_CLIENT_ID
       },
+      signal,
       body: JSON.stringify([
         {
           operationName: 'ClipsDownloadButton',

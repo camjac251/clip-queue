@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import { onMounted, ref, toRaw } from 'vue'
+import { ref, toRaw } from 'vue'
 
 import { useToast } from '@cq/ui'
 
@@ -62,10 +62,6 @@ export function useSettingsForm<T>(
       throw error
     }
   }
-
-  onMounted(() => {
-    reset()
-  })
 
   return {
     formData,

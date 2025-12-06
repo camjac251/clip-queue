@@ -504,9 +504,11 @@ export function getPlayLogs(
     const order = options.order || 'asc'
     const paginate = options.paginate || false
     const limit = paginate ? Math.min(options.limit || 50, 100) : options.limit || 50
-    const cursor = options.cursor
-      ? parseInt(Buffer.from(options.cursor, 'base64').toString())
-      : null
+    let cursor: number | null = null
+    if (options.cursor) {
+      const parsed = parseInt(Buffer.from(options.cursor, 'base64').toString())
+      cursor = Number.isNaN(parsed) ? null : parsed
+    }
 
     // Build base query
     const baseQuery = db
@@ -535,20 +537,23 @@ export function getPlayLogs(
             .all()
         : baseQuery.orderBy(orderFn(playLog.id)).limit(fetchLimit).all()
 
-    // Fetch clips for each play log entry
-    const allEntries = rows.map((row) => {
-      const clip = getClip(db, row.clipId)
-      if (!clip) {
-        throw new Error(`Clip not found for play log entry: ${row.clipId}`)
-      }
-      return {
-        id: row.id,
-        clip,
-        playedAt: new Date(row.playedAt),
-        playedFor: row.playedFor ?? undefined,
-        completedAt: row.completedAt ? new Date(row.completedAt) : undefined
-      }
-    })
+    // Fetch clips for each play log entry, filtering out orphaned entries
+    const allEntries = rows
+      .map((row) => {
+        const clip = getClip(db, row.clipId)
+        if (!clip) {
+          console.warn(`[Database] Orphaned play log entry: clip ${row.clipId} not found, skipping`)
+          return null
+        }
+        return {
+          id: row.id,
+          clip,
+          playedAt: new Date(row.playedAt),
+          playedFor: row.playedFor ?? undefined,
+          completedAt: row.completedAt ? new Date(row.completedAt) : undefined
+        }
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
 
     // Return with pagination metadata if requested
     if (paginate) {

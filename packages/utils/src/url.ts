@@ -20,7 +20,8 @@ export function safeParseURL(url: string): URL | null {
  */
 export function extractIdFromPath(pathname: string): string | undefined {
   const idStart = pathname.lastIndexOf('/')
-  return pathname.slice(idStart).split('?')[0]?.slice(1)
+  const id = pathname.slice(idStart).split('?')[0]?.slice(1)
+  return id || undefined
 }
 
 /**
