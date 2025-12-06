@@ -131,7 +131,12 @@ export class BasicClipList {
           this._clips[index] = c
         }
       } else {
-        this._clips.push(clip)
+        // Normalize submitters to lowercase on initial add
+        const normalizedClip = {
+          ...clip,
+          submitters: clip.submitters.map((s) => s.toLowerCase())
+        }
+        this._clips.push(normalizedClip)
       }
     })
     return this._clips
@@ -236,11 +241,19 @@ export class ClipList extends BasicClipList {
    */
   public override remove(clip: Clip): void {
     const index = this._clips.findIndex((c) => toClipUUID(c) === toClipUUID(clip))
-    const submitter = clip.submitters[0]?.toLowerCase()
-    if (index > -1 && submitter) {
-      this.removeSubmitterFromClip(submitter, index)
-      this.sort()
+    if (index === -1) {
+      return
     }
+
+    const submitter = clip.submitters[0]?.toLowerCase()
+    if (submitter) {
+      // Remove specific submitter (may remove clip if last submitter)
+      this.removeSubmitterFromClip(submitter, index)
+    } else {
+      // No submitter provided, remove the entire clip
+      this._clips.splice(index, 1)
+    }
+    this.sort()
   }
 
   /**
