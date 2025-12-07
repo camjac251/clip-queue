@@ -14,32 +14,35 @@ Monitors your Twitch chat via EventSub and automatically queues clips submitted 
 ## Quick Start
 
 **Prerequisites:**
-- Node.js 20+
+
+- [mise](https://mise.jdx.dev/) (manages Node.js 24 LTS, pnpm 10, lefthook)
 - [Twitch Developer Application](https://dev.twitch.tv/console/apps) (Client ID & Secret)
 
 **Setup:**
 
 ```bash
-# Install dependencies
-corepack enable && pnpm install
+# Install tools and dependencies
+mise trust && mise install
+mise r install
 
 # Configure environment
 cp .env.example .env
 # Edit .env with: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL_NAME, SESSION_SECRET
 
 # Get bot token (opens browser)
-pnpm api setup
+mise r api:setup
 
 # Start servers
-pnpm dev:all
+mise r dev
 ```
 
 Open http://localhost:5173 and post a clip URL in your Twitch chat to test.
 
 ## Supported Platforms
 
-- **Twitch** — Clips
+- **Twitch** — Clips, VODs, Highlights
 - **Kick** — Clips
+- **Sora** — Posts (OpenAI's video generator)
 
 ## Chat Commands
 
@@ -59,11 +62,13 @@ See [CLAUDE.md](./CLAUDE.md) for full command list.
 ## Architecture
 
 **Backend:** Node.js + Express + SQLite
+
 - Twitch EventSub WebSocket client for persistent chat monitoring
 - REST API with ETag-optimized HTTP polling for state sync
 - Drizzle ORM for database operations
 
-**Frontend:** Vue.js + PrimeVue
+**Frontend:** Vue.js + shadcn-vue
+
 - HTTP polling client (2-second intervals)
 - Twitch OAuth for authentication
 - Multi-device sync via shared backend state
@@ -72,27 +77,26 @@ See [CLAUDE.md](./CLAUDE.md) for full command list.
 
 ## Development
 
-pnpm monorepo with Turborepo. All commands run from project root.
+pnpm monorepo with Turborepo. All commands run from project root via mise tasks.
 
 ```bash
 # Development
-pnpm dev:all           # Run backend + frontend
-pnpm api dev           # Backend only
-pnpm web dev           # Frontend only
+mise r dev             # Run backend + frontend
+mise r dev:api         # Backend only
+mise r dev:web         # Frontend only
 
 # Build & test
-pnpm build             # Build all packages
-pnpm typecheck         # Type check all packages
-pnpm test              # Run all tests
-pnpm lint              # Lint all packages
+mise r build           # Build all packages
+mise r typecheck       # Type check all packages
+mise r test            # Run all tests
+mise r lint            # Lint all packages
 
-# Makefile shortcuts
-make help              # List all available commands
-make api-setup         # Get bot token
-make dev-all           # Run both servers
+# See all tasks
+mise tasks
 ```
 
 **Structure:**
+
 - `apps/api` - Backend server
 - `apps/web` - Frontend SPA
 - `packages/` - Shared libraries (platforms, services, ui, etc)
@@ -102,13 +106,15 @@ See [CLAUDE.md](./CLAUDE.md) for architecture details.
 ## Deployment
 
 **Docker:**
+
 ```bash
 docker-compose up -d clip-queue-backend
 ```
 
 **Manual:**
+
 ```bash
-pnpm build
+mise r build
 pnpm --filter @cq/api start
 ```
 
@@ -116,8 +122,8 @@ Frontend can be deployed to Cloudflare Pages, Vercel, or served statically.
 
 ## Troubleshooting
 
-| Issue                      | Solution                                           |
-| -------------------------- | -------------------------------------------------- |
-| EventSub won't connect     | Re-run `pnpm api setup` to refresh token           |
-| Clips not being added      | Check queue is open (`!cq open`) and server logs   |
-| Token expired              | Tokens expire after 60 days, re-run setup          |
+| Issue                  | Solution                                         |
+| ---------------------- | ------------------------------------------------ |
+| EventSub won't connect | Re-run `mise r api:setup` to refresh token       |
+| Clips not being added  | Check queue is open (`!cq open`) and server logs |
+| Token expired          | Tokens expire after 60 days, re-run setup        |

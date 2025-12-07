@@ -13,7 +13,7 @@ Clip Queue is a self-hosted web application for Twitch streamers. The Node.js ba
 - SQLite + Drizzle ORM for persistence
 - In-memory priority queue (sorted by popularity)
 - OAuth authentication with role-based permissions
-- Multi-platform clip support (extensible platform abstraction)
+- Multi-platform clip support (Twitch, Kick, Sora)
 - shadcn-vue design system (Tailwind CSS v4)
 
 ## Quick Start
@@ -23,17 +23,17 @@ Clip Queue is a self-hosted web application for Twitch streamers. The Node.js ba
 mise trust && mise install
 
 # Install dependencies
-pnpm install
+mise r install
 
 # Set up environment variables
 cp .env.example .env
 # Edit .env with: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_CHANNEL_NAME
 
 # Generate bot token (opens browser, auto-updates .env)
-pnpm api setup
+mise r api:setup
 
 # Run both backend and frontend
-pnpm dev:all
+mise r dev
 ```
 
 **Environment Variables Required:**
@@ -41,7 +41,7 @@ pnpm dev:all
 ```env
 TWITCH_CLIENT_ID=your_client_id
 TWITCH_CLIENT_SECRET=your_client_secret  # For OAuth token exchange (setup script)
-TWITCH_BOT_TOKEN=your_user_token         # From: pnpm api setup
+TWITCH_BOT_TOKEN=your_user_token         # From: mise r api:setup
 TWITCH_CHANNEL_NAME=your_channel         # Lowercase
 SESSION_SECRET=your_random_secret        # Generate: openssl rand -base64 48
 ```
@@ -64,66 +64,53 @@ VITE_PORT=5173                         # Dev server port (optional)
 
 ## Common Commands
 
-```sh
-# Development
-pnpm dev:all              # Run backend + frontend
-pnpm api dev              # Backend only (port 3000)
-pnpm web dev              # Frontend only (port 5173)
-
-# Build and test
-pnpm build                # Build all packages
-pnpm typecheck            # Type check all packages
-pnpm test                 # Run all tests
-pnpm lint                 # Check formatting and lint
-pnpm lint:fix             # Auto-fix linting issues
-
-# Database operations
-pnpm --filter @cq/api db:generate  # Generate migration
-pnpm --filter @cq/api db:migrate   # Apply migrations
-pnpm --filter @cq/api db:studio    # Open Drizzle Studio GUI
-
-# i18n (13 locales: ar, de, en, es, fr, hi, it, ja, ko, pt, ru, tr, zh)
-pnpm web i18n:check       # Validate translation completeness
-pnpm web i18n:sync        # Sync missing keys from en.json (formats & sorts alphabetically)
-
-# Per-package commands (work from root)
-pnpm api <script>         # Backend script (e.g., pnpm api dev, pnpm api db:generate)
-pnpm web <script>         # Frontend script (e.g., pnpm web dev, pnpm web i18n:check)
-pnpm platforms <script>   # Platforms package script
-pnpm ui <script>          # UI package script
-pnpm player <script>      # Player package script
-pnpm services <script>    # Services package script
-```
-
-**Makefile Available**: Run `make help` for aliases.
-
-**Common Makefile targets**:
+**mise Tasks** (preferred): Run `mise tasks` for full list, `mise r <task>` to execute.
 
 ```sh
-# Setup
-make install       # Install all dependencies
-make api-setup     # Get Twitch bot token (OAuth)
+# Setup & Development
+mise r install          # Install all dependencies
+mise r dev              # Run backend + frontend
+mise r dev:api          # Run backend API server
+mise r dev:web          # Run frontend dev server
+mise r api:setup        # Get Twitch bot token (OAuth)
 
-# Development
-make api-dev       # Run backend API server
-make web-dev       # Run frontend dev server
-make dev-all       # Run both backend + frontend
+# Build & Quality
+mise r build            # Build all packages
+mise r typecheck        # Type check all packages
+mise r lint             # Lint all packages
+mise r lint:fix         # Auto-fix linting issues
+mise r format           # Format all packages
 
-# Build & Test
-make build         # Build everything
-make typecheck     # Type check all packages
-make lint          # Lint all packages
-make lint-fix      # Auto-fix linting issues
-make test          # Run all tests
+# Database (Drizzle)
+mise r db:generate      # Generate migration from schema changes
+mise r db:migrate       # Apply pending migrations
+mise r db:studio        # Open Drizzle Studio GUI
+
+# i18n
+mise r i18n:check       # Validate translation completeness
+mise r i18n:sync        # Sync missing keys from en.json
 
 # Docker
-make docker-build  # Build Docker images
-make docker-up     # Start containers
-make docker-down   # Stop containers
-make docker-logs   # View backend logs
+mise r docker:build     # Build Docker images
+mise r docker:up        # Start containers
+mise r docker:down      # Stop containers
+mise r docker:logs      # View backend logs
+mise r docker:restart   # Restart with rebuild
 
-# Utilities
-make clean         # Clean build artifacts and node_modules
+# Testing
+mise r test             # Run all tests
+mise r test:coverage    # Run tests with coverage
+
+# Cleanup
+mise r clean            # Remove dist/, node_modules/, .turbo/
+```
+
+**Per-package pnpm commands** (when mise tasks don't cover your need):
+
+```sh
+pnpm api <script>         # e.g., pnpm api dev, pnpm api db:generate
+pnpm web <script>         # e.g., pnpm web dev, pnpm web i18n:check
+pnpm --filter @cq/<pkg> <script>  # Any package by name
 ```
 
 ## Architecture Overview
@@ -175,7 +162,7 @@ packages/
 @cq/constants   → . | /events | /commands | /platforms
 @cq/schemas     → . | /settings | /auth | /twitch | /clip
 @cq/utils       → . | /http | /cache | /url
-@cq/services    → Per-platform exports (e.g., /twitch, /kick)
+@cq/services    → Per-platform exports (/twitch, /kick, /sora)
 @cq/platforms   → .
 @cq/queue-ops   → .
 @cq/player      → .
@@ -280,7 +267,7 @@ settings:                              // Single-row config
 - `getClipsByStatus()` bulk fetches submitters (avoids N+1 queries)
 - Zod validates all JSON data on read/write
 
-**Migrations**: Modify `schema.ts` → `pnpm api db:generate` → Auto-apply on startup
+**Migrations**: Modify `schema.ts` → `mise r db:generate` → Auto-apply on startup
 
 #### 4. Authentication & Authorization
 
@@ -592,6 +579,14 @@ import('./index.js') // Import LAST
 
 ### Common Patterns
 
+**Supported Platforms:**
+
+| Platform | Content Types           | URL Pattern                                                     | Video Source                      |
+| -------- | ----------------------- | --------------------------------------------------------------- | --------------------------------- |
+| Twitch   | clips, VODs, highlights | `clips.twitch.tv/*`, `twitch.tv/*/clip/*`, `twitch.tv/videos/*` | Client-side fetch (expiring URLs) |
+| Kick     | clips                   | `kick.com/*?clip=*`, `kick.com/*/clips/*`                       | Direct `videoUrl`                 |
+| Sora     | posts                   | `sora.chatgpt.com/p/s_*`                                        | Direct `videoUrl`                 |
+
 **Adding a New Clip Platform:**
 
 Platforms follow the `BasePlatform` abstract class pattern:
@@ -618,7 +613,7 @@ Platforms follow the `BasePlatform` abstract class pattern:
 **Adding a Database Migration:**
 
 1. Modify `apps/api/src/schema.ts`
-2. Run `pnpm api db:generate` (creates `drizzle/0001_random_name.sql`)
+2. Run `mise r db:generate` (creates `drizzle/0001_random_name.sql`)
 3. Add SQL comment header to document changes:
    ```sql
    /**
@@ -792,9 +787,9 @@ rm -rf .turbo                        # Clear cache
 **Common commands**:
 
 ```sh
-pnpm lint              # Check all packages
-pnpm lint:fix          # Auto-fix all packages
-pnpm format            # Format all packages
+mise r lint            # Check all packages
+mise r lint:fix        # Auto-fix all packages
+mise r format          # Format all packages
 LEFTHOOK=0 git commit  # Skip pre-commit checks
 ```
 
@@ -809,9 +804,9 @@ LEFTHOOK=0 git commit  # Skip pre-commit checks
 **Workflow:**
 
 1. Add keys to `apps/web/messages/en.json` (base locale)
-2. `pnpm web i18n:sync` - Sync to other locales (adds English placeholders, formats and sorts alphabetically)
+2. `mise r i18n:sync` - Sync to other locales (adds English placeholders, formats and sorts alphabetically)
 3. Translate new keys across all 12 non-English locales (manually or via translation tools)
-4. `pnpm web i18n:check` - Validate completeness (TypeScript script)
+4. `mise r i18n:check` - Validate completeness (TypeScript script)
 
 **Scripts**: `apps/web/scripts/check-i18n.ts`, `sync-i18n.ts`
 **Translation**: Manual translations via i18n-translation-expert agent
@@ -865,7 +860,7 @@ LEFTHOOK=0 git commit  # Skip pre-commit checks
 
 - **Entry point is `server.ts`** (not `index.ts`) - loads `.env` before imports (ESM hoisting workaround)
 - **Path resolution**: Backend uses `resolveFromRoot()` from `paths.ts` for workspace-relative paths (avoids `process.cwd()` issues)
-- **EventSub requires token**: Run `pnpm api setup` to generate `TWITCH_BOT_TOKEN`
+- **EventSub requires token**: Run `mise r api:setup` to generate `TWITCH_BOT_TOKEN`
 - **SESSION_SECRET required**: Generate with `openssl rand -base64 48`
 - **Single channel only**: Server monitors ONE channel (multi-channel not supported)
 - **ClipList sorting**: Popularity-based (more submitters = higher priority)

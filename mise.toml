@@ -101,3 +101,11 @@ run = "docker-compose down"
 [tasks."docker:logs"]
 description = "View backend logs"
 run = "docker logs clip-queue-backend -f"
+
+[tasks."docker:restart"]
+description = "Restart containers with rebuild"
+run = "docker-compose up -d --build"
+
+[tasks."test:coverage"]
+description = "Run tests with coverage"
+run = "pnpm test:coverage"
