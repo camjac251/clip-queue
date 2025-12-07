@@ -18,7 +18,8 @@ import {
   CommandSettingsSchema,
   LoggerSettingsSchema,
   PROVIDERS,
-  QueueSettingsSchema
+  QueueSettingsSchema,
+  SoraSettingsSchema
 } from '@cq/schemas/settings'
 
 export type {
@@ -26,14 +27,16 @@ export type {
   Provider,
   QueueSettings,
   LoggerSettings,
-  AppSettings
+  AppSettings,
+  SoraSettings
 } from '@cq/schemas/settings'
 export {
   CommandSettingsSchema,
   PROVIDERS,
   QueueSettingsSchema,
   LoggerSettingsSchema,
-  AppSettingsSchema
+  AppSettingsSchema,
+  SoraSettingsSchema
 }
 
 // Re-export clip types for convenience
@@ -49,7 +52,7 @@ export const clips = sqliteTable(
   {
     id: text('id').primaryKey(), // UUID format: "platform:contentType:clip_id"
     platform: text('platform', { enum: ['twitch', 'kick', 'sora'] }).notNull(),
-    contentType: text('content_type', { enum: ['clip', 'vod', 'highlight'] })
+    contentType: text('content_type', { enum: ['clip', 'vod', 'highlight', 'cameo'] })
       .notNull()
       .default('clip'),
     clipId: text('clip_id').notNull(), // The actual clip ID from platform
@@ -177,7 +180,17 @@ export const DEFAULT_SETTINGS: AppSettings = {
   queue: {
     hasAutoModerationEnabled: true,
     limit: null,
-    providers: ['twitch:clip', 'twitch:vod', 'twitch:highlight', 'kick:clip', 'sora:clip']
+    providers: [
+      'twitch:clip',
+      'twitch:vod',
+      'twitch:highlight',
+      'kick:clip',
+      'sora:clip',
+      'sora:cameo'
+    ],
+    sora: {
+      allowedCameos: []
+    }
   },
   logger: {
     level: 'WARN',

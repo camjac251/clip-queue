@@ -80,6 +80,9 @@ const displayName = computed(() => {
     case 'highlight':
       contentTypeName = m.content_type_highlight()
       break
+    case 'cameo':
+      contentTypeName = m.content_type_cameo()
+      break
     default:
       contentTypeName = contentType
   }

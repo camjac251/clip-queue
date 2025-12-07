@@ -9,10 +9,15 @@ export {
   QueueSettingsSchema,
   LoggerSettingsSchema,
   AppSettingsSchema,
+  SoraSettingsSchema,
+  PROVIDERS,
+  ProviderSchema,
   type CommandSettings,
   type QueueSettings,
   type LoggerSettings,
-  type AppSettings
+  type AppSettings,
+  type SoraSettings,
+  type Provider
 } from './settings.js'
 
 // Auth

@@ -82,6 +82,24 @@
               </template>
             </MultiSelect>
           </div>
+
+          <!-- Sora Cameo Filtering (only shown when sora:cameo is enabled) -->
+          <div v-if="hasSoraCameoEnabled" class="p-4">
+            <div class="mb-3">
+              <label for="soraCameos" class="text-foreground block text-sm font-medium">
+                {{ m.sora_allowed_cameos() }}
+              </label>
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                {{ m.sora_allowed_cameos_description() }}
+              </p>
+            </div>
+            <Textarea
+              id="soraCameos"
+              v-model="soraCameosText"
+              :placeholder="m.sora_allowed_cameos_placeholder()"
+              class="min-h-[80px] w-full"
+            />
+          </div>
         </div>
 
         <!-- Actions -->
@@ -124,9 +142,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import type { Provider } from '@cq/schemas/settings'
 import { PROVIDERS } from '@cq/schemas/settings'
-import { Button, Chip, InputNumber, MultiSelect, ToggleSwitch } from '@cq/ui'
+import { Button, Chip, InputNumber, MultiSelect, Textarea, ToggleSwitch } from '@cq/ui'
 
 import ProviderName from '@/components/ProviderName.vue'
 import { NavInbox, StatusLock } from '@/composables/icons'
@@ -153,4 +173,19 @@ const {
   async () => settings.saveSettings(),
   m.queue_settings_saved()
 )
+
+/** Whether sora:cameo provider is enabled */
+const hasSoraCameoEnabled = computed(() => formSettings.value.providers.includes('sora:cameo'))
+
+/** Bidirectional binding for cameo usernames as comma-separated text */
+const soraCameosText = computed({
+  get: () => formSettings.value.sora.allowedCameos.join(', '),
+  set: (value: string) => {
+    // Parse comma-separated usernames, trim whitespace, lowercase, remove empty
+    formSettings.value.sora.allowedCameos = value
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0)
+  }
+})
 </script>

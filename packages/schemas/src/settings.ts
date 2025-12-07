@@ -36,18 +36,38 @@ export type CommandSettings = z.infer<typeof CommandSettingsSchema>
 /**
  * Valid provider identifiers (platform:contentType combinations)
  * Each provider represents a specific type of content from a specific platform.
+ *
+ * Sora providers:
+ * - sora:clip = Sora videos without cameos (persona appearances)
+ * - sora:cameo = Sora videos with cameos (can filter by specific usernames)
  */
 export const PROVIDERS = [
   'twitch:clip',
   'twitch:vod',
   'twitch:highlight',
   'kick:clip',
-  'sora:clip'
+  'sora:clip',
+  'sora:cameo'
 ] as const
 
 export type Provider = (typeof PROVIDERS)[number]
 
 export const ProviderSchema = z.enum(PROVIDERS)
+
+/**
+ * Sora-specific Settings Schema
+ * Controls Sora cameo content filtering
+ */
+export const SoraSettingsSchema = z.object({
+  /**
+   * Allowed cameo usernames (case-insensitive, stored lowercase).
+   * Only applies when sora:cameo provider is enabled.
+   * Empty array = allow all cameos.
+   */
+  allowedCameos: z.array(z.string().min(1)).default([])
+})
+
+export type SoraSettings = z.infer<typeof SoraSettingsSchema>
 
 /**
  * Queue Settings Schema
@@ -56,7 +76,9 @@ export const ProviderSchema = z.enum(PROVIDERS)
 export const QueueSettingsSchema = z.object({
   hasAutoModerationEnabled: z.boolean(),
   limit: z.number().int().positive().nullable(),
-  providers: z.array(ProviderSchema).default([...PROVIDERS])
+  providers: z.array(ProviderSchema).default([...PROVIDERS]),
+  /** Sora-specific filtering settings (cameo username allowlist) */
+  sora: SoraSettingsSchema.default({ allowedCameos: [] })
 })
 
 export type QueueSettings = z.infer<typeof QueueSettingsSchema>

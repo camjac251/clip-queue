@@ -37,7 +37,11 @@ export enum ContentType {
   /**
    * Highlights (user-curated segments from VODs).
    */
-  HIGHLIGHT = 'highlight'
+  HIGHLIGHT = 'highlight',
+  /**
+   * Sora videos with cameos (persona appearances).
+   */
+  CAMEO = 'cameo'
 }
 
 /**
@@ -106,6 +110,10 @@ export interface Clip {
    * Start time in seconds (from URL timestamp parameter like ?t=0h12m0s).
    */
   timestamp?: number
+  /**
+   * Cameo usernames (Sora only, lowercase for case-insensitive matching).
+   */
+  cameos?: string[]
 }
 
 /**
@@ -126,5 +134,6 @@ export const ClipSchema = z.object({
   category: z.string().optional(),
   createdAt: z.string().optional(),
   duration: z.number().int().positive().optional(),
-  timestamp: z.number().int().nonnegative().optional()
+  timestamp: z.number().int().nonnegative().optional(),
+  cameos: z.array(z.string()).optional()
 })

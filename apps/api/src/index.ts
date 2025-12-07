@@ -835,6 +835,20 @@ async function handleClipSubmission(
       return
     }
 
+    // Sora cameo filtering: check allowed cameos list (case-insensitive)
+    if (provider === 'sora:cameo' && settings.queue.sora.allowedCameos.length > 0) {
+      const clipCameos = clip.cameos || []
+      const allowedCameos = settings.queue.sora.allowedCameos.map((c) => c.toLowerCase())
+      const hasMatchingCameo = clipCameos.some((cameo) => allowedCameos.includes(cameo))
+
+      if (!hasMatchingCameo) {
+        console.log(
+          `[Queue] Sora cameo not in allowed list, ignoring clip from ${submitter} (cameos: ${clipCameos.join(', ')})`
+        )
+        return
+      }
+    }
+
     // Check queue size limit
     if (settings.queue.limit !== null && queue.size() >= settings.queue.limit) {
       console.log(

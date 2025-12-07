@@ -5,7 +5,8 @@ import type {
   Provider,
   CommandSettings as SharedCommandSettings,
   LoggerSettings as SharedLoggerSettings,
-  QueueSettings as SharedQueueSettings
+  QueueSettings as SharedQueueSettings,
+  SoraSettings
 } from '@cq/schemas/settings'
 import { PROVIDERS } from '@cq/schemas/settings'
 
@@ -26,8 +27,9 @@ export interface CommandSettings extends Omit<SharedCommandSettings, 'allowed'> 
 /**
  * Settings for the queue.
  */
-export interface QueueSettings extends Omit<SharedQueueSettings, 'providers'> {
+export interface QueueSettings extends Omit<SharedQueueSettings, 'providers' | 'sora'> {
   providers: Provider[]
+  sora: SoraSettings
 }
 
 /**
@@ -45,7 +47,10 @@ export const DEFAULT_COMMAND_SETTINGS: CommandSettings = {
 export const DEFAULT_QUEUE_SETTINGS: QueueSettings = {
   hasAutoModerationEnabled: true,
   limit: null,
-  providers: [...PROVIDERS]
+  providers: [...PROVIDERS],
+  sora: {
+    allowedCameos: []
+  }
 }
 
 export const DEFAULT_LOGGER_SETTINGS: LoggerSettings = {
@@ -81,11 +86,27 @@ export const useSettings = defineStore('settings', () => {
 
   const isQueueSettingsModified = computed(() => {
     return (q: QueueSettings) => {
-      return (
+      // Check basic settings
+      if (
         queue.value.hasAutoModerationEnabled !== q.hasAutoModerationEnabled ||
-        queue.value.limit !== q.limit ||
-        PROVIDERS.some((p) => queue.value.providers.includes(p) !== q.providers.includes(p))
-      )
+        queue.value.limit !== q.limit
+      ) {
+        return true
+      }
+
+      // Check providers
+      if (PROVIDERS.some((p) => queue.value.providers.includes(p) !== q.providers.includes(p))) {
+        return true
+      }
+
+      // Check sora settings
+      const currentCameos = queue.value.sora.allowedCameos.join(',')
+      const newCameos = q.sora.allowedCameos.join(',')
+      if (currentCameos !== newCameos) {
+        return true
+      }
+
+      return false
     }
   })
 
@@ -110,7 +131,10 @@ export const useSettings = defineStore('settings', () => {
     }
     queue.value = {
       ...DEFAULT_QUEUE_SETTINGS,
-      providers: [...DEFAULT_QUEUE_SETTINGS.providers]
+      providers: [...DEFAULT_QUEUE_SETTINGS.providers],
+      sora: {
+        allowedCameos: [...DEFAULT_QUEUE_SETTINGS.sora.allowedCameos]
+      }
     }
     logger.value = { ...DEFAULT_LOGGER_SETTINGS }
   }

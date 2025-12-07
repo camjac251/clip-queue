@@ -28,9 +28,13 @@ export class SoraPlatform extends BasePlatform {
         throw new Error(`[${this.name}]: Post not found for ID ${id}.`)
       }
 
+      // Determine content type based on cameo presence
+      const hasCameos = post.cameo_profiles && post.cameo_profiles.length > 0
+      const contentType = hasCameos ? ContentType.CAMEO : ContentType.CLIP
+
       const clip: Clip = {
         platform: this.name,
-        contentType: ContentType.CLIP,
+        contentType,
         id: post.id,
         title: post.text || 'Sora Video',
         channel: profile?.display_name || profile?.username || 'Unknown',
@@ -41,7 +45,9 @@ export class SoraPlatform extends BasePlatform {
         embedUrl: `https://sora.chatgpt.com/p/${id}`,
         videoUrl: post.attachments?.[0]?.downloadable_url,
         thumbnailUrl: post.attachments?.[0]?.encodings?.thumbnail?.path || post.preview_image_url,
-        submitters: []
+        submitters: [],
+        // Store cameo usernames for filtering (lowercase for case-insensitive matching)
+        cameos: post.cameo_profiles?.map((c) => c.username.toLowerCase()) || []
       }
 
       this.cache[id] = clip
