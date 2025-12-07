@@ -11,9 +11,33 @@
         v-if="route.name !== 'queue' && !route.name?.toString().startsWith('settings')"
         class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8"
       >
-        <RouterView />
+        <RouterView v-slot="{ Component }">
+          <Transition
+            mode="out-in"
+            enter-active-class="transition-all duration-200 ease-out motion-reduce:transition-none"
+            enter-from-class="opacity-0 translate-y-2 motion-reduce:translate-y-0"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition-all duration-150 ease-in motion-reduce:transition-none"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 -translate-y-2 motion-reduce:translate-y-0"
+          >
+            <component :is="Component" />
+          </Transition>
+        </RouterView>
       </div>
-      <RouterView v-else />
+      <RouterView v-else v-slot="{ Component }">
+        <Transition
+          mode="out-in"
+          enter-active-class="transition-all duration-200 ease-out motion-reduce:transition-none"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition-all duration-150 ease-in motion-reduce:transition-none"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <component :is="Component" />
+        </Transition>
+      </RouterView>
     </main>
   </div>
 </template>

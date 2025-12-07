@@ -46,6 +46,7 @@ export { Slider as SliderRaw } from './components/ui/slider'
 export { default as Slider } from './components/SliderInput.vue'
 export { Separator } from './components/ui/separator'
 export { ScrollArea } from './components/ui/scroll-area'
+export { Skeleton } from './components/ui/skeleton'
 export {
   Table,
   TableBody,

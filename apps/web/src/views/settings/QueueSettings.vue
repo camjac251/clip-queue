@@ -1,38 +1,47 @@
 <template>
-  <div v-if="user.canManageSettings">
-    <Card class="mx-auto max-w-3xl">
-      <CardHeader>
-        <CardTitle class="flex items-center gap-2">
-          <NavInbox :size="20" class="text-violet-600 dark:text-violet-500" />
-          Queue Configuration
-        </CardTitle>
-        <CardDescription> Control how clips are queued and displayed </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-8 text-left">
-            <div>
-              <div class="mb-2.5 flex items-center justify-between gap-4">
-                <label for="autoModeration" class="text-sm font-semibold">{{ m.auto_mod() }}</label>
-                <ToggleSwitch
-                  v-model="formSettings.hasAutoModerationEnabled"
-                  input-id="autoModeration"
-                  aria-describedby="autoModeration-help"
-                />
-              </div>
-              <Message
-                id="autoModeration-help"
-                size="sm"
-                severity="secondary"
-                variant="simple"
-                class="text-xs leading-relaxed"
-                >{{ m.auto_mod_description() }}</Message
-              >
+  <div v-if="user.canManageSettings" class="space-y-4">
+    <!-- Header -->
+    <div class="flex items-center gap-3">
+      <div class="bg-brand/10 flex h-10 w-10 items-center justify-center rounded-lg">
+        <NavInbox class="text-brand h-5 w-5" />
+      </div>
+      <div>
+        <h2 class="text-foreground text-lg font-semibold">{{ m.queue() }}</h2>
+        <p class="text-muted-foreground text-sm">Control how clips are queued and displayed</p>
+      </div>
+    </div>
+
+    <!-- Settings Card -->
+    <div class="border-border/50 bg-card/80 rounded-lg border backdrop-blur-sm">
+      <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
+        <div class="divide-border/30 divide-y">
+          <!-- Auto Moderation -->
+          <div class="flex items-center justify-between gap-4 p-4">
+            <div class="min-w-0 flex-1">
+              <label for="autoModeration" class="text-foreground block text-sm font-medium">
+                {{ m.auto_mod() }}
+              </label>
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                {{ m.auto_mod_description() }}
+              </p>
             </div>
-            <div>
-              <label for="limit" class="mb-2.5 block text-sm font-semibold">{{
-                m.size_limit()
-              }}</label>
+            <ToggleSwitch
+              v-model="formSettings.hasAutoModerationEnabled"
+              input-id="autoModeration"
+            />
+          </div>
+
+          <!-- Queue Size Limit -->
+          <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0 flex-1">
+              <label for="limit" class="text-foreground block text-sm font-medium">
+                {{ m.size_limit() }}
+              </label>
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                {{ m.size_limit_description() }}
+              </p>
+            </div>
+            <div class="sm:w-36">
               <InputNumber
                 v-model="formSettings.limit"
                 input-id="limit"
@@ -41,97 +50,85 @@
                 :min="1"
                 :step="1"
                 show-buttons
-                aria-describedby="limit-help"
+                class="w-full"
               />
-              <Message
-                id="limit-help"
-                size="sm"
-                severity="secondary"
-                variant="simple"
-                class="mt-2.5 text-xs leading-relaxed"
-                >{{ m.size_limit_description() }}</Message
-              >
-            </div>
-            <div>
-              <label for="allowedPlatforms" class="mb-2.5 block text-sm font-semibold">{{
-                m.allowed_platforms()
-              }}</label>
-              <MultiSelect
-                v-model="formSettings.platforms"
-                input-id="allowedPlatforms"
-                :options="Object.values(Platform)"
-                :placeholder="m.none()"
-                display="chip"
-                aria-describedby="allowedPlatforms-help"
-              >
-                <template #option="{ option }: { option: Platform }">
-                  <PlatformName :platform="option" />
-                </template>
-                <template #chip="{ value }: { value: Platform }">
-                  <Chip>
-                    <PlatformName :platform="value" />
-                  </Chip>
-                </template>
-              </MultiSelect>
-              <Message
-                id="allowedPlatforms-help"
-                size="sm"
-                severity="secondary"
-                variant="simple"
-                class="mt-2.5 text-xs leading-relaxed"
-                >{{ m.allowed_platforms_description() }}</Message
-              >
             </div>
           </div>
-          <div class="border-border/50 mt-8 flex gap-2 border-t pt-6">
-            <Button
-              variant="default"
-              class="flex-1"
-              type="submit"
-              size="sm"
-              :disabled="!settings.isQueueSettingsModified(formSettings)"
+
+          <!-- Allowed Platforms -->
+          <div class="p-4">
+            <div class="mb-3">
+              <label for="allowedPlatforms" class="text-foreground block text-sm font-medium">
+                {{ m.allowed_platforms() }}
+              </label>
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                {{ m.allowed_platforms_description() }}
+              </p>
+            </div>
+            <MultiSelect
+              v-model="formSettings.platforms"
+              input-id="allowedPlatforms"
+              :options="Object.values(Platform)"
+              :placeholder="m.none()"
+              display="chip"
             >
-              {{ m.save() }}
-            </Button>
-            <Button
-              variant="destructive"
-              class="flex-1"
-              type="reset"
-              size="sm"
-              :disabled="!settings.isQueueSettingsModified(formSettings)"
-            >
-              {{ m.cancel() }}
-            </Button>
+              <template #option="{ option }: { option: Platform }">
+                <PlatformName :platform="option" size="small" />
+              </template>
+              <template #chip="{ value }: { value: Platform }">
+                <Chip>
+                  <PlatformName :platform="value" size="small" />
+                </Chip>
+              </template>
+            </MultiSelect>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+
+        <!-- Actions -->
+        <div class="border-border/30 flex gap-2 border-t p-4">
+          <Button
+            variant="brand"
+            class="flex-1"
+            type="submit"
+            size="sm"
+            :disabled="!settings.isQueueSettingsModified(formSettings)"
+          >
+            {{ m.save() }}
+          </Button>
+          <Button
+            variant="outline"
+            class="flex-1"
+            type="reset"
+            size="sm"
+            :disabled="!settings.isQueueSettingsModified(formSettings)"
+          >
+            {{ m.cancel() }}
+          </Button>
+        </div>
+      </form>
+    </div>
   </div>
-  <div v-else>
-    <Message severity="warn">
-      <p>Only broadcasters can access settings.</p>
-    </Message>
+
+  <!-- No access message -->
+  <div v-else class="space-y-4">
+    <div class="border-border/50 bg-card/80 rounded-lg border p-6 text-center backdrop-blur-sm">
+      <div
+        class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10"
+      >
+        <StatusLock class="h-6 w-6 text-amber-500" />
+      </div>
+      <p class="text-foreground font-medium">Access Restricted</p>
+      <p class="text-muted-foreground mt-1 text-sm">Only broadcasters can access queue settings.</p>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Platform } from '@cq/platforms'
-import {
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Chip,
-  InputNumber,
-  Message,
-  MultiSelect,
-  ToggleSwitch
-} from '@cq/ui'
+import { Button, Chip, InputNumber, MultiSelect, ToggleSwitch } from '@cq/ui'
 
 import PlatformName from '@/components/PlatformName.vue'
-import { NavInbox } from '@/composables/icons'
+import { NavInbox, StatusLock } from '@/composables/icons'
 import { useSettingsForm } from '@/composables/use-settings-form'
 import * as m from '@/paraglide/messages'
 import { usePreferences } from '@/stores/preferences'

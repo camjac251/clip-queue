@@ -83,7 +83,7 @@ function toggleSelection(option: T) {
         :aria-expanded="open"
         class="w-full justify-between"
       >
-        <span v-if="selected.length === 0" class="text-zinc-500">
+        <span v-if="selected.length === 0" class="text-muted-foreground">
           {{ props.placeholder || 'Select...' }}
         </span>
         <span v-else> {{ selected.length }} selected </span>
@@ -118,9 +118,7 @@ function toggleSelection(option: T) {
   <!-- Selected chips display -->
   <div v-if="selected.length > 0" class="mt-2 flex flex-wrap gap-2">
     <slot v-for="(item, index) in selected" :key="index" name="chip" :value="item">
-      <span
-        class="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800"
-      >
+      <span class="bg-muted inline-flex items-center rounded-md px-2 py-1 text-xs">
         {{ getLabel(item) }}
       </span>
     </slot>

@@ -11,7 +11,6 @@ import IconAlertCircle from '~icons/lucide/alert-circle'
 import IconAlertTriangle from '~icons/lucide/alert-triangle'
 import IconBookOpen from '~icons/lucide/book-open'
 import IconCheck from '~icons/lucide/check'
-// UI Controls
 import IconChevronDown from '~icons/lucide/chevron-down'
 import IconChevronLeft from '~icons/lucide/chevron-left'
 import IconChevronRight from '~icons/lucide/chevron-right'
@@ -21,6 +20,8 @@ import IconCircle from '~icons/lucide/circle'
 import IconCircleCheck from '~icons/lucide/circle-check'
 import IconCircleX from '~icons/lucide/circle-x'
 import IconClock from '~icons/lucide/clock'
+// UI Controls
+import IconDownload from '~icons/lucide/download'
 import IconExternalLink from '~icons/lucide/external-link'
 import IconHistory from '~icons/lucide/history'
 import IconInbox from '~icons/lucide/inbox'
@@ -44,6 +45,7 @@ import IconSearch from '~icons/lucide/search'
 import IconSettings from '~icons/lucide/settings'
 import IconSkipBack from '~icons/lucide/skip-back'
 import IconSkipForward from '~icons/lucide/skip-forward'
+import IconStar from '~icons/lucide/star'
 // Theme
 import IconSun from '~icons/lucide/sun'
 import IconTrash from '~icons/lucide/trash-2'
@@ -76,7 +78,8 @@ export const icons = {
     trash: IconTrash,
     rotateCcw: IconRotateCcw,
     externalLink: IconExternalLink,
-    logOut: IconLogOut
+    logOut: IconLogOut,
+    download: IconDownload
   },
 
   // Media
@@ -94,7 +97,8 @@ export const icons = {
     bookOpen: IconBookOpen,
     messageSquare: IconMessageSquare,
     palette: IconPalette,
-    inbox: IconInbox
+    inbox: IconInbox,
+    star: IconStar
   },
 
   // Status
@@ -124,7 +128,8 @@ export const icons = {
     search: IconSearch,
     circle: IconCircle,
     menu: IconMenu,
-    keyboardCommand: IconKeyboardCommand
+    keyboardCommand: IconKeyboardCommand,
+    check: IconCheck
   },
 
   // Theme
@@ -146,7 +151,8 @@ export const {
     trash: ActionTrash,
     rotateCcw: ActionRotateCcw,
     externalLink: ActionExternalLink,
-    logOut: ActionLogOut
+    logOut: ActionLogOut,
+    download: ActionDownload
   },
   media: { volume: MediaVolume, volumeMute: MediaVolumeMute },
   navigation: {
@@ -157,7 +163,8 @@ export const {
     bookOpen: NavBookOpen,
     messageSquare: NavMessageSquare,
     palette: NavPalette,
-    inbox: NavInbox
+    inbox: NavInbox,
+    star: NavStar
   },
   status: {
     lock: StatusLock,
@@ -183,7 +190,8 @@ export const {
     search: UiSearch,
     circle: UiCircle,
     menu: UiMenu,
-    keyboardCommand: UiKeyboardCommand
+    keyboardCommand: UiKeyboardCommand,
+    check: UiCheck
   },
   theme: { sun: ThemeSun, moon: ThemeMoon }
 } = icons

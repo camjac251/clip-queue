@@ -60,9 +60,7 @@
           class="group relative flex w-full items-center gap-3 rounded-md font-medium transition-colors"
           :class="[
             isCollapsed ? 'justify-center p-3' : 'px-3 py-2',
-            isActive
-              ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-              : 'text-foreground hover:bg-muted/50'
+            isActive ? 'bg-brand-muted text-brand' : 'text-foreground hover:bg-muted/50'
           ]"
           @click="() => router.push({ name: route.name })"
         >
@@ -151,7 +149,7 @@
           v-if="!isCollapsed"
           :size="16"
           class="relative shrink-0 transition-colors"
-          :class="preferences.isDark ? 'text-violet-500' : 'text-muted-foreground'"
+          :class="preferences.isDark ? 'text-brand' : 'text-muted-foreground'"
         />
       </Button>
 

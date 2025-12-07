@@ -1,90 +1,124 @@
 <template>
-  <div class="space-y-4">
-    <!-- Page Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1
-          class="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent sm:text-3xl dark:from-violet-400 dark:to-purple-400"
-        >
-          {{ m.history() }}
-        </h1>
-        <p class="text-muted-foreground mt-1 text-sm">View and manage previously watched clips</p>
-      </div>
-    </div>
-
-    <!-- Action Bar -->
+  <div class="bg-background flex h-dvh flex-col overflow-hidden">
+    <!-- Header Bar - Glassmorphism -->
     <div
-      v-if="user.canControlQueue"
-      class="border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 shadow-sm"
+      class="border-border/50 bg-card/80 flex flex-shrink-0 items-center justify-between gap-3 border-b px-3 py-2 backdrop-blur-sm"
     >
-      <div class="relative min-w-[200px] flex-1">
-        <UiSearch
-          :size="16"
-          class="text-muted-foreground absolute start-3 top-1/2 z-1 -mt-2 leading-none"
-        />
-        <Input v-model="searchQuery" :placeholder="m.search()" class="pl-10" />
+      <div class="flex items-center gap-2">
+        <div class="bg-brand/10 flex h-8 w-8 items-center justify-center rounded-lg">
+          <NavHistory class="text-brand h-4 w-4" />
+        </div>
+        <div>
+          <h1 class="text-foreground text-sm font-semibold">{{ m.history() }}</h1>
+          <p class="text-muted-foreground text-xs">
+            {{ history.entries.value.length }} clips watched
+          </p>
+        </div>
       </div>
-      <div class="flex gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          :disabled="isQueueClipsDisabled"
-          @click="queueClips()"
-        >
-          {{ m.queue() }}
-        </Button>
-        <Button
-          variant="destructive"
-          size="sm"
-          :disabled="!selection.length"
-          @click="deleteClips()"
-        >
-          {{ m.delete_label() }}
-        </Button>
+
+      <!-- Search and Actions -->
+      <div class="flex items-center gap-2">
+        <div class="relative">
+          <UiSearch
+            :size="14"
+            class="text-muted-foreground pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2"
+          />
+          <Input
+            v-model="searchQuery"
+            :placeholder="m.search()"
+            class="h-8 w-40 pl-8 text-xs sm:w-56"
+          />
+        </div>
+
+        <div v-if="user.canControlQueue" class="flex gap-1.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            class="h-8 gap-1.5 px-2.5 text-xs"
+            :disabled="isQueueClipsDisabled"
+            @click="queueClips()"
+          >
+            <ActionPlay class="h-3.5 w-3.5" />
+            <span class="hidden sm:inline">{{ m.queue() }}</span>
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            class="h-8 gap-1.5 px-2.5 text-xs"
+            :disabled="!selection.length"
+            @click="deleteClips()"
+          >
+            <ActionTrash class="h-3.5 w-3.5" />
+            <span class="hidden sm:inline">{{ m.delete_label() }}</span>
+          </Button>
+        </div>
       </div>
     </div>
 
-    <!-- Search for non-mod users -->
-    <div v-else class="relative">
-      <UiSearch
-        :size="16"
-        class="text-muted-foreground absolute start-3 top-1/2 z-1 -mt-2 leading-none"
-      />
-      <Input v-model="searchQuery" :placeholder="m.search()" class="pl-10" />
+    <!-- Table Container - Takes remaining space -->
+    <div class="relative min-h-0 flex-1 overflow-hidden">
+      <div class="absolute inset-0 overflow-auto">
+        <DataTable
+          ref="dataTableRef"
+          :data="filteredClips"
+          :columns="columns"
+          paginator
+          :rows="20"
+          :rows-per-page-options="[20, 50, 100]"
+          class="[&_.p-datatable-wrapper]:border-border/50 [&_.p-datatable-wrapper]:bg-card/50 [&_.p-datatable-wrapper]:rounded-none [&_.p-datatable-wrapper]:border-0"
+        >
+          <template #empty>
+            <div class="flex flex-col items-center justify-center py-16">
+              <div class="bg-brand/10 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+                <NavHistory class="text-brand h-8 w-8" />
+              </div>
+              <p class="text-foreground mb-1 text-base font-semibold">
+                {{ m.no_clips_previously_watched() }}
+              </p>
+              <p class="text-muted-foreground max-w-xs text-center text-sm">
+                Clips you've watched will appear here for easy reference
+              </p>
+            </div>
+          </template>
+        </DataTable>
+
+        <!-- Infinite scroll trigger -->
+        <div ref="loadMoreTrigger" class="h-1" />
+
+        <!-- Loading indicator -->
+        <div
+          v-if="history.loading.value"
+          class="text-muted-foreground border-border/30 border-t py-3 text-center text-xs"
+        >
+          Loading more history...
+        </div>
+
+        <!-- Error message -->
+        <div v-if="history.error.value" class="text-destructive py-3 text-center text-xs">
+          {{ history.error.value }}
+        </div>
+      </div>
     </div>
 
-    <!-- Data Table Card -->
-    <Card class="overflow-hidden">
-      <DataTable
-        ref="dataTableRef"
-        :data="filteredClips"
-        :columns="columns"
-        paginator
-        :rows="10"
-        :rows-per-page-options="[10, 20, 50]"
-      >
-        <template #empty>
-          <div class="text-muted-foreground flex flex-col items-center justify-center py-12">
-            <NavHistory :size="48" class="mb-4 opacity-50" />
-            <p class="text-lg font-medium">{{ m.no_clips_previously_watched() }}</p>
-            <p class="text-sm">Clips you've watched will appear here</p>
-          </div>
+    <!-- Status Bar - Compact footer -->
+    <div
+      class="border-border/50 bg-card/50 flex flex-shrink-0 items-center justify-between px-3 py-1.5 text-xs backdrop-blur-sm"
+      :class="selection.length > 0 ? 'border-t' : 'border-t'"
+    >
+      <div class="text-muted-foreground flex items-center gap-1">
+        <span class="font-semibold tabular-nums">{{ filteredClips.length }}</span>
+        <span>{{ filteredClips.length === 1 ? 'clip' : 'clips' }}</span>
+        <template v-if="searchQuery">
+          <span class="text-border mx-1">|</span>
+          <span>filtered from {{ history.entries.value.length }}</span>
         </template>
-      </DataTable>
-
-      <!-- Infinite scroll trigger -->
-      <div ref="loadMoreTrigger" class="h-1" />
-
-      <!-- Loading indicator -->
-      <div v-if="history.loading.value" class="text-muted-foreground py-4 text-center text-sm">
-        Loading more history...
       </div>
-
-      <!-- Error message -->
-      <div v-if="history.error.value" class="text-destructive py-4 text-center text-sm">
-        {{ history.error.value }}
+      <div v-if="selection.length > 0" class="text-brand flex items-center gap-1 font-medium">
+        <UiCheck class="h-3.5 w-3.5" />
+        <span class="tabular-nums">{{ selection.length }}</span>
+        <span>selected</span>
       </div>
-    </Card>
+    </div>
   </div>
 </template>
 
@@ -94,11 +128,18 @@ import { useIntersectionObserver } from '@vueuse/core'
 import { computed, h, onMounted, ref } from 'vue'
 
 import { toClipUUID } from '@cq/platforms'
-import { Button, Card, Checkbox, DataTable, Input, useConfirm } from '@cq/ui'
+import { Button, Checkbox, DataTable, Input, useConfirm } from '@cq/ui'
 
 import type { PlayLogEntry } from '@/composables/use-history'
 import PlatformName from '@/components/PlatformName.vue'
-import { ActionExternalLink, NavHistory, UiSearch } from '@/composables/icons'
+import {
+  ActionExternalLink,
+  ActionPlay,
+  ActionTrash,
+  NavHistory,
+  UiCheck,
+  UiSearch
+} from '@/composables/icons'
 import { useToastNotifications } from '@/composables/toast'
 import { useHistory } from '@/composables/use-history'
 import * as m from '@/paraglide/messages'
@@ -182,12 +223,12 @@ const columns = computed<ColumnDef<PlayLogEntry>[]>(() => [
       const clip = row.original.clip
       return h('div', { class: 'flex items-center' }, [
         h('img', {
-          class: 'hidden aspect-video w-24 rounded-lg sm:block',
+          class: 'hidden aspect-video w-20 rounded sm:block',
           src: clip.thumbnailUrl,
           alt: clip.title
         }),
         h('div', { class: 'text-left text-sm sm:ml-3' }, [
-          h('p', { class: 'font-normal' }, [
+          h('p', { class: 'font-medium text-foreground line-clamp-1' }, [
             clip.title,
             clip.url &&
               h('span', [
@@ -197,9 +238,9 @@ const columns = computed<ColumnDef<PlayLogEntry>[]>(() => [
                     href: clip.url,
                     target: '_blank',
                     rel: 'noreferrer',
-                    class: 'text-muted-foreground hover:text-foreground no-underline ml-2'
+                    class: 'text-muted-foreground hover:text-brand ml-1.5 inline-flex'
                   },
-                  [h(ActionExternalLink, { size: 16 })]
+                  [h(ActionExternalLink, { size: 14 })]
                 )
               ])
           ]),
@@ -213,17 +254,27 @@ const columns = computed<ColumnDef<PlayLogEntry>[]>(() => [
   {
     accessorKey: 'clip.platform',
     header: m.platform(),
-    cell: ({ row }) => h(PlatformName, { platform: row.original.clip.platform })
+    cell: ({ row }) => h(PlatformName, { platform: row.original.clip.platform, size: 'small' })
   },
   {
     accessorKey: 'clip.creator',
     header: m.creator(),
-    cell: ({ row }) => row.original.clip.creator ?? m.unknown()
+    cell: ({ row }) =>
+      h(
+        'span',
+        { class: 'text-sm' },
+        row.original.clip.creator ?? h('span', { class: 'text-muted-foreground' }, m.unknown())
+      )
   },
   {
     accessorKey: 'clip.submitters',
     header: m.submitter(),
-    cell: ({ row }) => row.original.clip.submitters[0] ?? ''
+    cell: ({ row }) =>
+      h(
+        'span',
+        { class: row.original.clip.submitters[0] ? 'text-brand text-sm font-medium' : 'text-sm' },
+        row.original.clip.submitters[0] ?? ''
+      )
   }
 ])
 

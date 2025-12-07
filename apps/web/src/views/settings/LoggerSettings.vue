@@ -1,23 +1,37 @@
 <template>
   <div class="space-y-4">
-    <!-- Logger Configuration -->
-    <Card class="mx-auto max-w-3xl">
-      <CardHeader>
-        <CardTitle class="flex items-center gap-2">
-          <NavSettings :size="20" class="text-violet-600 dark:text-violet-500" />
-          Logger Configuration
-        </CardTitle>
-        <CardDescription> Configure log level and storage limits </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-8 text-left">
-            <div>
-              <label for="loggerLevel" class="mb-2.5 block text-sm font-semibold">{{
-                m.level_colon()
-              }}</label>
+    <!-- Header -->
+    <div class="flex items-center gap-3">
+      <div class="bg-brand/10 flex h-10 w-10 items-center justify-center rounded-lg">
+        <NavBookOpen class="text-brand h-5 w-5" />
+      </div>
+      <div>
+        <h2 class="text-foreground text-lg font-semibold">{{ m.logs() }}</h2>
+        <p class="text-muted-foreground text-sm">Configure logging and view application logs</p>
+      </div>
+    </div>
+
+    <!-- Logger Configuration Card -->
+    <div class="border-border/50 bg-card/80 rounded-lg border backdrop-blur-sm">
+      <div class="border-border/30 flex items-center gap-2 border-b px-4 py-2.5">
+        <NavSettings class="text-muted-foreground h-4 w-4" />
+        <span class="text-foreground text-sm font-medium">Configuration</span>
+      </div>
+      <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
+        <div class="divide-border/30 divide-y">
+          <!-- Log Level -->
+          <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0 flex-1">
+              <label for="loggerLevel" class="text-foreground block text-sm font-medium">
+                {{ m.level_colon() }}
+              </label>
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                {{ m.logger_level_description() }}
+              </p>
+            </div>
+            <div class="sm:w-36">
               <Select v-model="formSettings.level">
-                <SelectTrigger id="loggerLevel" aria-describedby="loggerLevel-help">
+                <SelectTrigger id="loggerLevel" class="h-9 text-sm">
                   <SelectValue :placeholder="logLevelTranslations[formSettings.level]()" />
                 </SelectTrigger>
                 <SelectContent>
@@ -26,19 +40,20 @@
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <Message
-                id="loggerLevel-help"
-                size="sm"
-                severity="secondary"
-                variant="simple"
-                class="mt-2.5 text-xs leading-relaxed"
-                >{{ m.logger_level_description() }}</Message
-              >
             </div>
-            <div>
-              <label for="loggerLimit" class="mb-2.5 block text-sm font-semibold">{{
-                m.size_limit()
-              }}</label>
+          </div>
+
+          <!-- Log Limit -->
+          <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0 flex-1">
+              <label for="loggerLimit" class="text-foreground block text-sm font-medium">
+                {{ m.size_limit() }}
+              </label>
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                {{ m.logger_size_limit_description() }}
+              </p>
+            </div>
+            <div class="sm:w-36">
               <InputNumber
                 v-model="formSettings.limit"
                 input-id="loggerLimit"
@@ -48,93 +63,91 @@
                 :max="100000"
                 :step="1"
                 show-buttons
-                aria-describedby="loggerLimit-help"
+                class="w-full"
               />
-              <Message
-                id="loggerLimit-help"
-                size="sm"
-                severity="secondary"
-                variant="simple"
-                class="mt-2.5 text-xs leading-relaxed"
-                >{{ m.logger_size_limit_description() }}</Message
-              >
             </div>
-          </div>
-          <div class="border-border/50 mt-8 flex gap-2 border-t pt-6">
-            <Button
-              variant="default"
-              class="flex-1"
-              type="submit"
-              size="sm"
-              :disabled="!settings.isLoggerSettingsModified(formSettings)"
-            >
-              {{ m.save() }}
-            </Button>
-            <Button
-              variant="destructive"
-              class="flex-1"
-              type="reset"
-              size="sm"
-              :disabled="!settings.isLoggerSettingsModified(formSettings)"
-            >
-              {{ m.cancel() }}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-
-    <!-- Logs View -->
-    <Card class="mx-auto max-w-3xl">
-      <CardHeader>
-        <div class="flex items-center justify-between">
-          <div>
-            <CardTitle class="flex items-center gap-2">
-              <NavBookOpen :size="20" class="text-violet-600 dark:text-violet-500" />
-              {{ m.logs() }}
-            </CardTitle>
-            <CardDescription> View application logs and debugging information </CardDescription>
-          </div>
-          <div class="flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              :disabled="logs.length === 0"
-              @click="exportCSV()"
-            >
-              {{ m.download() }}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              :disabled="logs.length === 0"
-              @click="deleteAllLogs()"
-            >
-              {{ m.clear() }}
-            </Button>
           </div>
         </div>
-      </CardHeader>
-      <CardContent class="p-0">
-        <DataTable
-          ref="table"
-          :data="logs"
-          :columns="columns"
-          paginator
-          export-filename="logs.clip-queue"
-          :rows="10"
-          :rows-per-page-options="[10, 20, 50]"
-        >
-          <template #empty>
-            <div class="text-muted-foreground flex flex-col items-center justify-center py-12">
-              <NavBookOpen :size="48" class="mb-4 opacity-50" />
-              <p class="text-lg font-medium">{{ m.no_logs_captured() }}</p>
-              <p class="text-sm">Application logs will appear here</p>
+
+        <!-- Config Actions -->
+        <div class="border-border/30 flex gap-2 border-t p-4">
+          <Button
+            variant="brand"
+            class="flex-1"
+            type="submit"
+            size="sm"
+            :disabled="!settings.isLoggerSettingsModified(formSettings)"
+          >
+            {{ m.save() }}
+          </Button>
+          <Button
+            variant="outline"
+            class="flex-1"
+            type="reset"
+            size="sm"
+            :disabled="!settings.isLoggerSettingsModified(formSettings)"
+          >
+            {{ m.cancel() }}
+          </Button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Logs View Card -->
+    <div class="border-border/50 bg-card/80 rounded-lg border backdrop-blur-sm">
+      <div class="border-border/30 flex items-center justify-between gap-2 border-b px-4 py-2.5">
+        <div class="flex items-center gap-2">
+          <NavBookOpen class="text-muted-foreground h-4 w-4" />
+          <span class="text-foreground text-sm font-medium">{{ m.logs() }}</span>
+          <Badge variant="secondary" class="bg-brand/10 text-brand h-5 px-1.5 text-xs">
+            {{ logs.length }}
+          </Badge>
+        </div>
+        <div class="flex gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            class="h-7 gap-1.5 px-2 text-xs"
+            :disabled="logs.length === 0"
+            @click="exportCSV()"
+          >
+            <ActionDownload class="h-3 w-3" />
+            {{ m.download() }}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            class="h-7 gap-1.5 px-2 text-xs"
+            :disabled="logs.length === 0"
+            @click="deleteAllLogs()"
+          >
+            <ActionTrash class="h-3 w-3" />
+            {{ m.clear() }}
+          </Button>
+        </div>
+      </div>
+
+      <DataTable
+        ref="table"
+        :data="logs"
+        :columns="columns"
+        paginator
+        export-filename="logs.clip-queue"
+        :rows="10"
+        :rows-per-page-options="[10, 20, 50]"
+        class="[&_.p-datatable-wrapper]:border-0"
+      >
+        <template #empty>
+          <div class="flex flex-col items-center justify-center py-12">
+            <div class="bg-brand/10 mb-3 flex h-12 w-12 items-center justify-center rounded-full">
+              <NavBookOpen class="text-brand h-6 w-6" />
             </div>
-          </template>
-        </DataTable>
-      </CardContent>
-    </Card>
+            <p class="text-foreground text-sm font-medium">{{ m.no_logs_captured() }}</p>
+            <p class="text-muted-foreground mt-0.5 text-xs">Application logs will appear here</p>
+          </div>
+        </template>
+      </DataTable>
+    </div>
   </div>
 </template>
 
@@ -145,14 +158,8 @@ import { computed, h, useTemplateRef } from 'vue'
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   DataTable,
   InputNumber,
-  Message,
   Select,
   SelectContent,
   SelectItem,
@@ -162,7 +169,7 @@ import {
 } from '@cq/ui'
 
 import type { Log } from '@/stores/logger'
-import { NavBookOpen, NavSettings } from '@/composables/icons'
+import { ActionDownload, ActionTrash, NavBookOpen, NavSettings } from '@/composables/icons'
 import { useSettingsForm } from '@/composables/use-settings-form'
 import * as m from '@/paraglide/messages'
 import { datetime } from '@/paraglide/registry'
@@ -213,7 +220,12 @@ const columns = computed<ColumnDef<Log>[]>(() => [
   {
     accessorKey: 'timestamp',
     header: m.timestamp(),
-    cell: ({ row }) => formatTimestamp(row.original.timestamp)
+    cell: ({ row }) =>
+      h(
+        'span',
+        { class: 'text-muted-foreground text-xs tabular-nums' },
+        formatTimestamp(row.original.timestamp)
+      )
   },
   {
     accessorKey: 'level',
@@ -228,14 +240,15 @@ const columns = computed<ColumnDef<Log>[]>(() => [
         error: 'destructive',
         secondary: 'secondary'
       }
-      return h(Badge, { variant: severityMap[severity] || 'default' }, () =>
+      return h(Badge, { variant: severityMap[severity] || 'default', class: 'text-xs' }, () =>
         logLevelTranslations[level]()
       )
     }
   },
   {
     accessorKey: 'message',
-    header: m.message()
+    header: m.message(),
+    cell: ({ row }) => h('span', { class: 'text-sm' }, row.original.message)
   }
 ])
 

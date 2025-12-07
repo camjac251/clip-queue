@@ -1,257 +1,268 @@
 <template>
-  <div class="bg-background flex min-h-screen flex-col">
-    <!-- Player Section -->
-    <div class="relative w-full bg-black">
-      <div class="mx-auto aspect-video w-full max-w-[1920px]">
-        <ClipPlayer
-          v-if="queue.current && queue.current.id"
-          ref="clipPlayerRef"
-          :key="toClipUUID(queue.current)"
-          :clip="queue.current"
-          :autoplay="preferences.preferences.autoplay"
-          @ended="handleNext()"
-        />
-        <div
-          v-else-if="settings.queue.platforms.length === 0"
-          class="text-muted-foreground flex h-full w-full flex-col items-center justify-center bg-black px-4"
-        >
-          <div class="mb-4 sm:mb-6">
-            <StatusAlertCircle
-              class="animate-[pulse_2s_ease-in-out_infinite] opacity-50 sm:hidden"
-              :size="60"
-            />
-            <StatusAlertCircle
-              class="hidden animate-[pulse_2s_ease-in-out_infinite] opacity-50 sm:block"
-              :size="80"
-            />
-          </div>
-          <p
-            class="text-foreground m-0 mb-2 text-center text-lg font-bold sm:mb-3 sm:text-xl lg:text-2xl"
+  <div class="bg-background flex h-dvh flex-col overflow-hidden">
+    <!-- Player Section - Takes remaining space -->
+    <div class="relative min-h-0 flex-1 bg-black">
+      <div class="absolute inset-0 flex items-center justify-center">
+        <div class="relative aspect-video h-full max-h-full w-full max-w-[calc(100dvh*16/9)]">
+          <!-- Player content -->
+          <ClipPlayer
+            v-if="queue.current && queue.current.id"
+            ref="clipPlayerRef"
+            :key="toClipUUID(queue.current)"
+            :clip="queue.current"
+            :autoplay="preferences.preferences.autoplay"
+            @ended="handleNext()"
+          />
+
+          <!-- Empty state: No platforms enabled -->
+          <div
+            v-else-if="settings.queue.platforms.length === 0"
+            class="flex h-full w-full flex-col items-center justify-center px-4"
           >
-            {{ m.message_no_clip_platforms_enabled() }}
-          </p>
-        </div>
-        <div
-          v-else
-          class="text-muted-foreground flex h-full w-full flex-col items-center justify-center bg-black px-4"
-        >
-          <div class="mb-4 sm:mb-6">
-            <ActionPlayCircle
-              class="animate-[pulse_2s_ease-in-out_infinite] opacity-50 sm:hidden"
-              :size="60"
-            />
-            <ActionPlayCircle
-              class="hidden animate-[pulse_2s_ease-in-out_infinite] opacity-50 sm:block"
-              :size="80"
-            />
+            <div
+              class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10"
+            >
+              <StatusAlertCircle class="h-8 w-8 text-amber-500" />
+            </div>
+            <h2 class="mb-2 text-center text-lg font-bold text-white">
+              {{ m.message_no_clip_platforms_enabled() }}
+            </h2>
+            <p class="max-w-md text-center text-sm text-white/60">
+              Enable at least one platform in settings
+            </p>
           </div>
-          <p
-            class="text-foreground m-0 mb-2 text-center text-lg font-bold sm:mb-3 sm:text-xl lg:text-2xl"
-          >
-            {{ m.queue() }} {{ queue.isOpen ? m.open() : m.closed() }}
-          </p>
-          <p class="m-0 text-center text-sm opacity-70 sm:text-base">
-            {{
-              queue.upcoming.size() > 0
-                ? `${queue.upcoming.size()} clips waiting`
-                : 'No clips in queue'
-            }}
-          </p>
+
+          <!-- Empty state: Queue ready -->
+          <div v-else class="flex h-full w-full flex-col items-center justify-center px-4">
+            <div
+              class="mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+              :class="queue.isOpen ? 'bg-brand/10' : 'bg-muted'"
+            >
+              <ActionPlayCircle
+                class="h-8 w-8"
+                :class="queue.isOpen ? 'text-brand' : 'text-muted-foreground'"
+              />
+            </div>
+            <Badge
+              :variant="queue.isOpen ? 'default' : 'secondary'"
+              class="mb-2 px-3 py-1 text-sm font-semibold tracking-wide uppercase"
+              :class="queue.isOpen && 'bg-brand text-brand-foreground'"
+            >
+              {{ m.queue() }} {{ queue.isOpen ? m.open() : m.closed() }}
+            </Badge>
+            <p class="text-sm text-white/60">
+              {{
+                queue.upcoming.size() > 0
+                  ? `${queue.upcoming.size()} clips waiting`
+                  : 'Waiting for clips...'
+              }}
+            </p>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Control Panel -->
-    <div class="border-border bg-card border-b shadow-sm">
-      <div class="mx-auto max-w-[1920px] px-4 py-2.5 sm:px-6 sm:py-3">
-        <!-- Progress Bar -->
-        <div class="mb-3 flex flex-col gap-1.5">
+    <!-- Info Bar - Compact single row -->
+    <div
+      v-if="queue.current && queue.current.id"
+      class="border-border/50 bg-card/90 flex flex-shrink-0 items-center gap-3 border-t px-3 py-1.5 backdrop-blur-sm"
+    >
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <h2 class="text-foreground truncate text-sm font-semibold">
+            {{ queue.current.title }}
+          </h2>
+          <a
+            v-if="queue.current.url"
+            :href="queue.current.url"
+            target="_blank"
+            rel="noreferrer"
+            class="text-muted-foreground hover:text-brand flex-shrink-0 transition-colors"
+            aria-label="Open in new tab"
+          >
+            <ActionExternalLink class="h-3.5 w-3.5" />
+          </a>
+        </div>
+        <div class="text-muted-foreground flex items-center gap-2 text-xs">
+          <PlatformName :platform="queue.current.platform" size="small" />
+          <span class="text-border">|</span>
+          <span>{{ queue.current.channel }}</span>
+          <template v-if="queue.current.category">
+            <span class="text-border hidden sm:inline">|</span>
+            <span class="hidden sm:inline">{{ queue.current.category }}</span>
+          </template>
+        </div>
+      </div>
+      <div class="flex flex-shrink-0 items-center gap-2">
+        <Badge v-if="queue.current.creator" variant="outline" class="gap-1 py-0.5 text-xs">
+          <UiCircle class="fill-brand text-brand h-1.5 w-1.5" />
+          {{ queue.current.creator }}
+        </Badge>
+        <Badge
+          v-if="queue.current.submitters[0]"
+          variant="secondary"
+          class="bg-brand/10 text-brand py-0.5 text-xs"
+        >
+          {{ queue.current.submitters[0] }}
+        </Badge>
+      </div>
+    </div>
+
+    <!-- Control Bar - Compact single row -->
+    <div class="border-border/50 bg-card/80 flex-shrink-0 border-t backdrop-blur-sm">
+      <div class="flex items-center gap-3 px-3 py-2">
+        <!-- Progress Slider -->
+        <div class="flex min-w-0 flex-1 items-center gap-2">
+          <span class="text-foreground w-10 text-right text-xs font-medium tabular-nums">
+            {{ formatTime(currentTime) }}
+          </span>
           <Slider
             :model-value="currentTime"
             :max="duration"
             :step="0.016"
-            class="w-full"
+            class="flex-1"
             @update:model-value="handleSeek"
           />
-          <div class="text-muted-foreground flex justify-between text-xs font-medium">
-            <span>{{ formatTime(currentTime) }}</span>
-            <span>{{ formatTime(duration) }}</span>
-          </div>
+          <span class="text-muted-foreground w-10 text-xs font-medium tabular-nums">
+            {{ formatTime(duration) }}
+          </span>
         </div>
 
-        <!-- Controls Container -->
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-          <!-- Left: Transport Controls -->
-          <div class="flex items-center justify-center gap-1 lg:justify-start">
-            <Button
-              v-if="user.canControlQueue"
-              variant="ghost"
-              size="icon"
-              class="h-9 w-9 shrink-0"
-              :disabled="queue.playHistory.length === 0"
-              :aria-label="m.previous()"
-              @click="handlePrevious()"
-            >
-              <ActionSkipBack :size="20" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              class="h-11 w-11 shrink-0"
-              :aria-label="isPlaying ? 'Pause' : 'Play'"
-              @click="togglePlayPause"
-            >
-              <template v-if="isPlaying">
-                <ActionPause :size="26" class="text-primary" />
-              </template>
-              <template v-else>
-                <ActionPlay :size="26" class="text-primary" />
-              </template>
-            </Button>
-            <Button
-              v-if="user.canControlQueue"
-              variant="ghost"
-              size="icon"
-              class="h-9 w-9 shrink-0"
-              :aria-label="m.next()"
-              @click="handleNext()"
-            >
-              <ActionSkipForward :size="20" />
-            </Button>
-          </div>
+        <!-- Transport Controls -->
+        <div class="flex flex-shrink-0 items-center gap-1">
+          <Button
+            v-if="user.canControlQueue"
+            variant="ghost"
+            size="icon-sm"
+            class="h-8 w-8 rounded-full"
+            :disabled="queue.playHistory.length === 0"
+            :aria-label="m.previous()"
+            @click="handlePrevious()"
+          >
+            <ActionSkipBack class="h-4 w-4" />
+          </Button>
 
-          <!-- Center: Volume Controls -->
-          <div class="flex items-center justify-center gap-2.5">
-            <Button
-              variant="ghost"
-              size="icon"
-              class="h-9 w-9 shrink-0"
-              :aria-label="isMuted ? 'Unmute' : 'Mute'"
-              @click="toggleMute"
-            >
-              <template v-if="isMuted">
-                <MediaVolumeMute :size="20" />
-              </template>
-              <template v-else>
-                <MediaVolume :size="20" />
-              </template>
-            </Button>
-            <Slider
-              :model-value="volume"
-              :max="100"
-              :step="1"
-              class="w-28 sm:w-32 md:w-36"
-              @update:model-value="handleVolumeChange"
+          <Button
+            :variant="isPlaying ? 'secondary' : 'brand'"
+            size="icon"
+            class="h-10 w-10 rounded-full shadow-md"
+            :class="!isPlaying && 'shadow-brand/30'"
+            :aria-label="isPlaying ? 'Pause' : 'Play'"
+            @click="togglePlayPause"
+          >
+            <ActionPause v-if="isPlaying" class="h-5 w-5" />
+            <ActionPlay v-else class="h-5 w-5" />
+          </Button>
+
+          <Button
+            v-if="user.canControlQueue"
+            variant="ghost"
+            size="icon-sm"
+            class="h-8 w-8 rounded-full"
+            :aria-label="m.next()"
+            @click="handleNext()"
+          >
+            <ActionSkipForward class="h-4 w-4" />
+          </Button>
+        </div>
+
+        <!-- Volume Controls -->
+        <div class="hidden flex-shrink-0 items-center gap-2 sm:flex">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="h-8 w-8 rounded-full"
+            :aria-label="isMuted ? 'Unmute' : 'Mute'"
+            @click="toggleMute"
+          >
+            <MediaVolumeMute v-if="isMuted" class="h-4 w-4" />
+            <MediaVolume v-else class="h-4 w-4" />
+          </Button>
+          <Slider
+            :model-value="volume"
+            :max="100"
+            :step="1"
+            class="w-20"
+            @update:model-value="handleVolumeChange"
+          />
+        </div>
+
+        <!-- Queue Controls -->
+        <div class="flex flex-shrink-0 items-center gap-2">
+          <div
+            v-if="user.canControlQueue"
+            class="border-border bg-card/50 hidden items-center gap-1.5 rounded-full border px-2 py-1 sm:flex"
+          >
+            <Switch
+              id="autoplay-controls"
+              v-model="preferences.preferences.autoplay"
+              class="scale-75"
             />
-            <span class="text-muted-foreground min-w-[3ch] text-sm font-semibold tabular-nums">{{
-              volume
-            }}</span>
+            <label
+              for="autoplay-controls"
+              class="text-foreground cursor-pointer text-xs font-medium select-none"
+            >
+              {{ m.autoplay() }}
+            </label>
           </div>
 
-          <!-- Right: Queue Controls -->
-          <div class="flex flex-wrap items-center justify-center gap-2 lg:justify-end">
-            <div
-              v-if="user.canControlQueue"
-              class="border-border bg-muted/30 flex items-center gap-1.5 rounded-md border px-2.5 py-1.5"
-            >
-              <Switch
-                id="autoplay-controls"
-                v-model="preferences.preferences.autoplay"
-                class="scale-90"
-              />
-              <label
-                for="autoplay-controls"
-                class="text-foreground cursor-pointer text-xs font-medium select-none"
-              >
-                {{ m.autoplay() }}
-              </label>
-            </div>
-            <Button
-              v-if="user.isBroadcaster"
-              variant="outline"
-              size="sm"
-              class="h-8 w-8 shrink-0 p-0"
-              :disabled="queue.upcoming.size() === 0"
-              :aria-label="m.clear()"
-              @click="handleClear()"
-            >
-              <ActionTrash :size="14" />
-            </Button>
-          </div>
+          <Button
+            v-if="user.isBroadcaster"
+            variant="outline"
+            size="icon-sm"
+            class="h-8 w-8 rounded-full"
+            :disabled="queue.upcoming.size() === 0"
+            :aria-label="m.clear()"
+            @click="handleClear()"
+          >
+            <ActionTrash class="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
     </div>
 
-    <!-- Content Area -->
-    <div class="flex-1 overflow-y-auto">
-      <div
-        class="mx-auto max-w-[1920px] space-y-3 px-3 py-3 sm:space-y-4 sm:px-6 sm:py-4 lg:space-y-6 lg:py-6"
-      >
-        <!-- Player Info -->
-        <PlayerInfo v-if="queue.current && queue.current.id" :clip="queue.current" />
-
-        <!-- Timeline -->
-        <TimelineView
-          :current-clip="queue.current"
-          :history-clips="
-            queue.playHistory
-              .map((entry) => entry.clip)
-              .slice()
-              .reverse()
-          "
-          :upcoming-clips="queue.upcoming.toArray()"
-          :can-control="user.canControlQueue"
-          :is-navigating-history="queue.isNavigatingHistory"
-          @replay="handleReplay"
-          @play="handlePlay"
-        />
-
-        <!-- Queue Stats -->
-        <div
-          class="border-border bg-card flex flex-wrap items-center justify-center gap-3 rounded-lg border p-3 text-center sm:gap-4 sm:p-4 md:gap-6 lg:gap-8"
-        >
-          <div class="flex items-center gap-1.5 sm:gap-2">
-            <NavHistory :size="16" class="text-violet-600 sm:hidden dark:text-violet-500" />
-            <NavHistory :size="18" class="hidden text-violet-600 sm:block dark:text-violet-500" />
-            <span
-              class="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase sm:text-xs"
-            >
-              {{ m.history() }}
-            </span>
-            <span class="text-foreground text-base font-bold sm:text-lg">{{
-              queue.playHistory.length
-            }}</span>
-          </div>
-          <Separator orientation="vertical" class="h-4 sm:h-5 lg:h-6" />
-          <div class="flex items-center gap-1.5 sm:gap-2">
-            <StatusClock :size="16" class="text-violet-600 sm:hidden dark:text-violet-500" />
-            <StatusClock :size="18" class="hidden text-violet-600 sm:block dark:text-violet-500" />
-            <span
-              class="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase sm:text-xs"
-            >
-              {{ m.upcoming_clips() }}
-            </span>
-            <span class="text-foreground text-base font-bold sm:text-lg">{{
-              queue.upcoming.size()
-            }}</span>
-          </div>
-          <Separator orientation="vertical" class="h-4 sm:h-5 lg:h-6" />
-          <div class="flex items-center gap-1.5 sm:gap-2">
-            <NavInfo :size="16" class="text-violet-600 sm:hidden dark:text-violet-500" />
-            <NavInfo :size="18" class="hidden text-violet-600 sm:block dark:text-violet-500" />
-            <span
-              class="text-muted-foreground text-[10px] font-semibold tracking-wide uppercase sm:text-xs"
-            >
-              {{ m.queue() }}
-            </span>
-            <span
-              class="text-foreground inline-block min-w-[4.5rem] text-base font-bold sm:text-lg"
-            >
-              {{ queue.isOpen ? m.open() : m.closed() }}
-            </span>
-          </div>
+    <!-- Timeline + Stats - Compact combined section -->
+    <div class="border-border/50 bg-card/50 flex-shrink-0 border-t backdrop-blur-sm">
+      <!-- Stats Row - Inline compact -->
+      <div class="border-border/30 flex items-center justify-between border-b px-3 py-1">
+        <div class="text-muted-foreground flex items-center gap-1 text-xs">
+          <NavHistory class="h-3.5 w-3.5" />
+          <span class="font-semibold tabular-nums">{{ queue.playHistory.length }}</span>
+          <span class="hidden sm:inline">{{ m.history() }}</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <StatusLockOpen v-if="queue.isOpen" class="h-3.5 w-3.5 text-emerald-500" />
+          <StatusLock v-else class="h-3.5 w-3.5 text-amber-500" />
+          <span
+            class="text-xs font-semibold"
+            :class="queue.isOpen ? 'text-emerald-500' : 'text-amber-500'"
+          >
+            {{ m.queue() }} {{ queue.isOpen ? m.open() : m.closed() }}
+          </span>
+        </div>
+        <div class="text-muted-foreground flex items-center gap-1 text-xs">
+          <span class="hidden sm:inline">{{ m.upcoming_clips() }}</span>
+          <span class="font-semibold tabular-nums">{{ queue.upcoming.size() }}</span>
+          <StatusClock class="h-3.5 w-3.5" />
         </div>
       </div>
+
+      <!-- Timeline - Compact -->
+      <TimelineView
+        :current-clip="queue.current"
+        :history-clips="
+          queue.playHistory
+            .map((entry) => entry.clip)
+            .slice()
+            .reverse()
+        "
+        :upcoming-clips="queue.upcoming.toArray()"
+        :can-control="user.canControlQueue"
+        :is-navigating-history="queue.isNavigatingHistory"
+        compact
+        @replay="handleReplay"
+        @play="handlePlay"
+      />
     </div>
   </div>
 </template>
@@ -262,12 +273,13 @@ import { ref } from 'vue'
 
 import type { Clip } from '@cq/platforms'
 import { toClipUUID } from '@cq/platforms'
-import { Button, Separator, Slider, Switch } from '@cq/ui'
+import { Badge, Button, Slider, Switch } from '@cq/ui'
 
 import ClipPlayer from '@/components/ClipPlayer.vue'
-import PlayerInfo from '@/components/PlayerInfo.vue'
+import PlatformName from '@/components/PlatformName.vue'
 import TimelineView from '@/components/TimelineView.vue'
 import {
+  ActionExternalLink,
   ActionPause,
   ActionPlay,
   ActionPlayCircle,
@@ -277,9 +289,11 @@ import {
   MediaVolume,
   MediaVolumeMute,
   NavHistory,
-  NavInfo,
   StatusAlertCircle,
-  StatusClock
+  StatusClock,
+  StatusLock,
+  StatusLockOpen,
+  UiCircle
 } from '@/composables/icons'
 import { usePlayerState } from '@/composables/player-state'
 import * as m from '@/paraglide/messages'

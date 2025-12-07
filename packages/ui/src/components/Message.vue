@@ -21,8 +21,7 @@ const severityClasses = {
   warn: 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-300',
   error:
     'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300',
-  secondary:
-    'bg-zinc-50 dark:bg-zinc-900/20 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
+  secondary: 'bg-muted border-border text-muted-foreground'
 }
 
 const sizeClasses = {

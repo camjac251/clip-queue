@@ -113,22 +113,21 @@ defineExpose({ exportCSV, table, selectedRows })
   <div :class="cn('space-y-4', props.class)">
     <slot name="header" />
 
-    <div class="rounded-md border border-zinc-200 dark:border-zinc-700">
+    <div class="border-border rounded-md border">
       <Table>
         <TableHeader>
           <TableRow
             v-for="headerGroup in table.getHeaderGroups()"
             :key="headerGroup.id"
-            class="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
+            class="border-border bg-muted/50 border-b"
           >
             <TableHead
               v-for="header in headerGroup.headers"
               :key="header.id"
               :class="
                 cn(
-                  'px-4 py-3 text-left text-sm font-medium text-zinc-700 dark:text-zinc-300',
-                  header.column.getCanSort() &&
-                    'cursor-pointer select-none hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  'text-muted-foreground px-4 py-3 text-left text-sm font-medium',
+                  header.column.getCanSort() && 'hover:bg-muted cursor-pointer select-none'
                 )
               "
               @click="header.column.getToggleSortingHandler()?.($event)"
@@ -157,12 +156,12 @@ defineExpose({ exportCSV, table, selectedRows })
             <TableRow
               v-for="row in table.getRowModel().rows"
               :key="row.id"
-              class="border-b border-zinc-200 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              class="border-border hover:bg-muted/50 border-b transition-colors"
             >
               <TableCell
                 v-for="cell in row.getVisibleCells()"
                 :key="cell.id"
-                class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100"
+                class="text-foreground px-4 py-3 text-sm"
               >
                 <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
               </TableCell>
@@ -172,7 +171,7 @@ defineExpose({ exportCSV, table, selectedRows })
             <TableRow>
               <TableCell :colspan="table.getAllColumns().length" class="h-24 text-center">
                 <slot name="empty">
-                  <div class="p-4 text-zinc-500 dark:text-zinc-400">No data</div>
+                  <div class="text-muted-foreground p-4">No data</div>
                 </slot>
               </TableCell>
             </TableRow>
@@ -183,7 +182,7 @@ defineExpose({ exportCSV, table, selectedRows })
 
     <div v-if="paginator" class="flex items-center justify-between px-2">
       <div class="flex items-center gap-2">
-        <span class="text-sm text-zinc-700 dark:text-zinc-300">Rows per page:</span>
+        <span class="text-muted-foreground text-sm">Rows per page:</span>
         <Select
           :model-value="pageSize.toString()"
           @update:model-value="
@@ -205,7 +204,7 @@ defineExpose({ exportCSV, table, selectedRows })
       </div>
 
       <div class="flex items-center gap-2">
-        <span class="text-sm text-zinc-700 dark:text-zinc-300">
+        <span class="text-muted-foreground text-sm">
           Page {{ table.getState().pagination.pageIndex + 1 }} of {{ table.getPageCount() }}
         </span>
         <div class="flex gap-1">

@@ -9,7 +9,7 @@
         :href="clip.url"
         target="_blank"
         rel="noreferrer"
-        class="text-muted-foreground flex-shrink-0 no-underline transition-colors duration-200 hover:text-violet-600 dark:hover:text-violet-500"
+        class="text-muted-foreground hover:text-brand flex-shrink-0 no-underline transition-colors duration-200"
       >
         <ActionExternalLink :size="16" class="sm:hidden" />
         <ActionExternalLink :size="18" class="hidden sm:block lg:hidden" />
@@ -28,13 +28,13 @@
       </template>
       <template v-if="clip.creator">
         <span class="hidden opacity-40 sm:inline">•</span>
-        <span class="hidden truncate font-semibold text-violet-600 sm:inline dark:text-violet-500">
+        <span class="text-brand hidden truncate font-semibold sm:inline">
           {{ m.creator_name({ name: clip.creator }) }}
         </span>
       </template>
       <template v-if="clip.submitters[0]">
         <span class="opacity-40">•</span>
-        <span class="truncate font-semibold text-violet-600 dark:text-violet-500">
+        <span class="text-brand truncate font-semibold">
           {{ m.submitter_name({ name: clip.submitters[0] }) }}
         </span>
       </template>

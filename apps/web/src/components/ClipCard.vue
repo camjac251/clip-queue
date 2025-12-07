@@ -1,11 +1,18 @@
 <template>
-  <Card class="max-w-2xs shrink-0 overflow-hidden text-left">
-    <img
-      class="aspect-video w-full"
-      :alt="clip.title"
-      :src="clip.thumbnailUrl"
-      @error="emit('remove')"
-    />
+  <Card
+    class="hover:shadow-brand/10 max-w-2xs shrink-0 overflow-hidden text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+  >
+    <div class="group relative overflow-hidden">
+      <img
+        class="aspect-video w-full transition-transform duration-300 group-hover:scale-105"
+        :alt="clip.title"
+        :src="clip.thumbnailUrl"
+        @error="emit('remove')"
+      />
+      <div
+        class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+      />
+    </div>
     <CardHeader>
       <CardTitle class="line-clamp-1 text-base font-normal" :title="clip.title">
         {{ clip.title }}
@@ -16,10 +23,7 @@
     </CardHeader>
     <CardContent>
       <div class="text-muted-foreground text-xs">
-        <p
-          v-if="clip.submitters[0]"
-          class="line-clamp-1 font-medium text-violet-600 dark:text-violet-400"
-        >
+        <p v-if="clip.submitters[0]" class="text-brand line-clamp-1 font-medium">
           {{ m.submitter_name({ name: clip.submitters[0] }) }}
         </p>
         <p class="line-clamp-1">

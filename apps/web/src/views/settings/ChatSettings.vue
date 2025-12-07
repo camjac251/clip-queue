@@ -1,135 +1,149 @@
 <template>
-  <div v-if="user.canManageSettings">
-    <Card class="mx-auto max-w-3xl">
-      <CardHeader>
-        <CardTitle class="flex items-center gap-2">
-          <NavMessageSquare :size="20" class="text-violet-600 dark:text-violet-500" />
-          Chat Commands
-        </CardTitle>
-        <CardDescription> Configure chat command prefix and allowed commands </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
-          <div class="flex flex-col gap-8 text-left">
-            <!-- Command Prefix -->
-            <div>
-              <label for="commandPrefix" class="mb-2.5 block text-sm font-semibold">{{
-                m.command_prefix()
-              }}</label>
+  <div v-if="user.canManageSettings" class="space-y-4">
+    <!-- Header -->
+    <div class="flex items-center gap-3">
+      <div class="bg-brand/10 flex h-10 w-10 items-center justify-center rounded-lg">
+        <NavMessageSquare class="text-brand h-5 w-5" />
+      </div>
+      <div>
+        <h2 class="text-foreground text-lg font-semibold">{{ m.settings_chat() }}</h2>
+        <p class="text-muted-foreground text-sm">
+          Configure chat command prefix and allowed commands
+        </p>
+      </div>
+    </div>
+
+    <!-- Settings Card -->
+    <div class="border-border/50 bg-card/80 rounded-lg border backdrop-blur-sm">
+      <form :key="formKey" @submit.prevent="onSubmit" @reset="onReset">
+        <!-- Command Prefix -->
+        <div class="border-border/30 border-b p-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0 flex-1">
+              <label for="commandPrefix" class="text-foreground block text-sm font-medium">
+                {{ m.command_prefix() }}
+              </label>
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                {{ m.command_prefix_description() }}
+              </p>
+            </div>
+            <div class="sm:w-32">
               <InputText
                 id="commandPrefix"
                 v-model="formSettings.prefix"
                 required
                 :maxlength="8"
-                aria-describedby="commandPrefix-help"
+                class="h-9 font-mono text-sm"
                 @keydown.space.prevent
               />
-              <Message
-                id="commandPrefix-help"
-                size="sm"
-                severity="secondary"
-                variant="simple"
-                class="mt-2.5 text-xs leading-relaxed"
-                >{{ m.command_prefix_description() }}</Message
-              >
             </div>
+          </div>
+        </div>
 
-            <!-- Commands Grid -->
+        <!-- Commands List -->
+        <div class="p-4">
+          <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div class="mb-2.5 flex items-center justify-between gap-4">
-                <label class="text-sm font-semibold">{{ m.allowed_commands() }}</label>
-                <div class="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" @click="selectAll">
-                    Select All
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" @click="selectNone">
-                    Select None
-                  </Button>
-                </div>
-              </div>
-              <Message
+              <span class="text-foreground block text-sm font-medium">{{
+                m.allowed_commands()
+              }}</span>
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                {{ m.allowed_commands_description() }}
+              </p>
+            </div>
+            <div class="flex gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
                 size="sm"
-                severity="secondary"
-                variant="simple"
-                class="mb-3 text-xs leading-relaxed"
-                >{{ m.allowed_commands_description() }}</Message
+                class="h-7 px-2 text-xs"
+                @click="selectAll"
               >
-
-              <!-- Command List -->
-              <div class="grid gap-3 sm:grid-cols-2">
-                <div
-                  v-for="command in Object.values(Command)"
-                  :key="command"
-                  class="group border-border bg-card hover:bg-muted/30 relative flex items-start gap-3 rounded-md border p-3 transition-colors hover:border-violet-500/50"
-                >
-                  <Checkbox :id="`cmd-${command}`" v-model="commandStates[command]" />
-                  <div class="flex-1 space-y-0.5">
-                    <label
-                      :for="`cmd-${command}`"
-                      class="cursor-pointer font-mono text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {{ formSettings.prefix }}{{ command }}
-                      <span v-if="commandHelp[command].args" class="text-muted-foreground">
-                        {{ commandHelp[command].args!.map((arg) => `<${arg}>`).join(' ') }}
-                      </span>
-                    </label>
-                    <p class="text-muted-foreground text-xs">
-                      {{ commandHelp[command].description }}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                Select All
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                class="h-7 px-2 text-xs"
+                @click="selectNone"
+              >
+                Select None
+              </Button>
             </div>
           </div>
 
-          <!-- Action Buttons -->
-          <div class="border-border/50 mt-8 flex gap-2 border-t pt-6">
-            <Button
-              variant="default"
-              class="flex-1"
-              type="submit"
-              size="sm"
-              :disabled="!settings.isCommandsSettingsModified(formSettings)"
+          <!-- Command Grid -->
+          <div class="grid gap-2 sm:grid-cols-2">
+            <div
+              v-for="command in Object.values(Command)"
+              :key="command"
+              class="border-border/50 bg-background/50 hover:border-brand/30 hover:bg-brand/5 group flex items-start gap-2.5 rounded-md border p-2.5 transition-all duration-150"
             >
-              {{ m.save() }}
-            </Button>
-            <Button
-              variant="destructive"
-              class="flex-1"
-              type="reset"
-              size="sm"
-              :disabled="!settings.isCommandsSettingsModified(formSettings)"
-            >
-              {{ m.cancel() }}
-            </Button>
+              <Checkbox :id="`cmd-${command}`" v-model="commandStates[command]" class="mt-0.5" />
+              <div class="min-w-0 flex-1">
+                <label
+                  :for="`cmd-${command}`"
+                  class="text-foreground cursor-pointer font-mono text-xs leading-none font-medium"
+                >
+                  {{ formSettings.prefix }}{{ command }}
+                  <span v-if="commandHelp[command].args" class="text-muted-foreground font-normal">
+                    {{ commandHelp[command].args!.map((arg) => `<${arg}>`).join(' ') }}
+                  </span>
+                </label>
+                <p class="text-muted-foreground mt-1 text-[11px] leading-snug">
+                  {{ commandHelp[command].description }}
+                </p>
+              </div>
+            </div>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+
+        <!-- Actions -->
+        <div class="border-border/30 flex gap-2 border-t p-4">
+          <Button
+            variant="brand"
+            class="flex-1"
+            type="submit"
+            size="sm"
+            :disabled="!settings.isCommandsSettingsModified(formSettings)"
+          >
+            {{ m.save() }}
+          </Button>
+          <Button
+            variant="outline"
+            class="flex-1"
+            type="reset"
+            size="sm"
+            :disabled="!settings.isCommandsSettingsModified(formSettings)"
+          >
+            {{ m.cancel() }}
+          </Button>
+        </div>
+      </form>
+    </div>
   </div>
-  <div v-else>
-    <Message severity="warn">
-      <p>Only broadcasters can access settings.</p>
-    </Message>
+
+  <!-- No access message -->
+  <div v-else class="space-y-4">
+    <div class="border-border/50 bg-card/80 rounded-lg border p-6 text-center backdrop-blur-sm">
+      <div
+        class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10"
+      >
+        <StatusLock class="h-6 w-6 text-amber-500" />
+      </div>
+      <p class="text-foreground font-medium">Access Restricted</p>
+      <p class="text-muted-foreground mt-1 text-sm">Only broadcasters can access chat settings.</p>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-import {
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Checkbox,
-  InputText,
-  Message
-} from '@cq/ui'
+import { Button, Checkbox, InputText } from '@cq/ui'
 
-import { NavMessageSquare } from '@/composables/icons'
+import { NavMessageSquare, StatusLock } from '@/composables/icons'
 import { useSettingsForm } from '@/composables/use-settings-form'
 import * as m from '@/paraglide/messages'
 import { useSettings } from '@/stores/settings'
@@ -139,7 +153,7 @@ import { Command } from '@/types/commands'
 const user = useUser()
 const settings = useSettings()
 
-// Command help information (note: commands are handled by backend)
+// Command help information
 const commandHelp: Record<Command, { description: string; args?: string[] }> = {
   [Command.OPEN]: { description: m.command_open() },
   [Command.CLOSE]: { description: m.command_close() },
@@ -188,7 +202,6 @@ const {
 )
 
 // Track individual checkbox states for reactivity
-// Initialize synchronously to avoid watcher firing with empty object before onMounted
 const commandStates = ref<Record<string, boolean>>(
   Object.fromEntries(
     Object.values(Command).map((cmd) => [cmd, formSettings.value.allowed.includes(cmd)])
