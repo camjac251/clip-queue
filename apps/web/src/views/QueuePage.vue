@@ -14,9 +14,9 @@
             @ended="handleNext()"
           />
 
-          <!-- Empty state: No platforms enabled -->
+          <!-- Empty state: No providers enabled -->
           <div
-            v-else-if="settings.queue.platforms.length === 0"
+            v-else-if="settings.queue.providers.length === 0"
             class="flex h-full w-full flex-col items-center justify-center px-4"
           >
             <div
@@ -25,7 +25,7 @@
               <StatusAlertCircle class="h-8 w-8 text-amber-500" />
             </div>
             <h2 class="mb-2 text-center text-lg font-bold text-white">
-              {{ m.message_no_clip_platforms_enabled() }}
+              {{ m.message_no_providers_enabled() }}
             </h2>
             <p class="max-w-md text-center text-sm text-white/60">
               Enable at least one platform in settings

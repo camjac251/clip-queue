@@ -17,16 +17,24 @@ import {
   AppSettingsSchema,
   CommandSettingsSchema,
   LoggerSettingsSchema,
+  PROVIDERS,
   QueueSettingsSchema
 } from '@cq/schemas/settings'
 
 export type {
   CommandSettings,
+  Provider,
   QueueSettings,
   LoggerSettings,
   AppSettings
 } from '@cq/schemas/settings'
-export { CommandSettingsSchema, QueueSettingsSchema, LoggerSettingsSchema, AppSettingsSchema }
+export {
+  CommandSettingsSchema,
+  PROVIDERS,
+  QueueSettingsSchema,
+  LoggerSettingsSchema,
+  AppSettingsSchema
+}
 
 // Re-export clip types for convenience
 export { Platform, ContentType, type Clip }
@@ -169,7 +177,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   queue: {
     hasAutoModerationEnabled: true,
     limit: null,
-    platforms: ['twitch', 'kick']
+    providers: ['twitch:clip', 'twitch:vod', 'twitch:highlight', 'kick:clip', 'sora:clip']
   },
   logger: {
     level: 'WARN',

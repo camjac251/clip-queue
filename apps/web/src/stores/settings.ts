@@ -2,11 +2,12 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import type {
+  Provider,
   CommandSettings as SharedCommandSettings,
   LoggerSettings as SharedLoggerSettings,
   QueueSettings as SharedQueueSettings
 } from '@cq/schemas/settings'
-import { Platform } from '@cq/platforms'
+import { PROVIDERS } from '@cq/schemas/settings'
 
 import type { LogLevel } from '@/stores/logger'
 import { env } from '@/config'
@@ -25,8 +26,8 @@ export interface CommandSettings extends Omit<SharedCommandSettings, 'allowed'> 
 /**
  * Settings for the queue.
  */
-export interface QueueSettings extends Omit<SharedQueueSettings, 'platforms'> {
-  platforms: Platform[]
+export interface QueueSettings extends Omit<SharedQueueSettings, 'providers'> {
+  providers: Provider[]
 }
 
 /**
@@ -44,7 +45,7 @@ export const DEFAULT_COMMAND_SETTINGS: CommandSettings = {
 export const DEFAULT_QUEUE_SETTINGS: QueueSettings = {
   hasAutoModerationEnabled: true,
   limit: null,
-  platforms: Object.values(Platform)
+  providers: [...PROVIDERS]
 }
 
 export const DEFAULT_LOGGER_SETTINGS: LoggerSettings = {
@@ -61,7 +62,7 @@ export const useSettings = defineStore('settings', () => {
   })
   const queue = ref<QueueSettings>({
     ...DEFAULT_QUEUE_SETTINGS,
-    platforms: [...DEFAULT_QUEUE_SETTINGS.platforms]
+    providers: [...DEFAULT_QUEUE_SETTINGS.providers]
   })
   const logger = ref<LoggerSettings>({ ...DEFAULT_LOGGER_SETTINGS })
   const log = useLogger()
@@ -83,9 +84,7 @@ export const useSettings = defineStore('settings', () => {
       return (
         queue.value.hasAutoModerationEnabled !== q.hasAutoModerationEnabled ||
         queue.value.limit !== q.limit ||
-        Object.values(Platform).some(
-          (p) => queue.value.platforms.includes(p) !== q.platforms.includes(p)
-        )
+        PROVIDERS.some((p) => queue.value.providers.includes(p) !== q.providers.includes(p))
       )
     }
   })
@@ -111,7 +110,7 @@ export const useSettings = defineStore('settings', () => {
     }
     queue.value = {
       ...DEFAULT_QUEUE_SETTINGS,
-      platforms: [...DEFAULT_QUEUE_SETTINGS.platforms]
+      providers: [...DEFAULT_QUEUE_SETTINGS.providers]
     }
     logger.value = { ...DEFAULT_LOGGER_SETTINGS }
   }
@@ -141,7 +140,7 @@ export const useSettings = defineStore('settings', () => {
       queue.value = data.queue as QueueSettings
       logger.value = data.logger as LoggerSettings
       log.info(
-        `[Settings] Loaded from backend: commands=${commands.value.allowed.length} allowed, queue.platforms=${queue.value.platforms.length}, logger.level=${logger.value.level}`
+        `[Settings] Loaded from backend: commands=${commands.value.allowed.length} allowed, queue.providers=${queue.value.providers.length}, logger.level=${logger.value.level}`
       )
     } catch (error: unknown) {
       log.error(`[Settings] Failed to load from backend: ${error}`)

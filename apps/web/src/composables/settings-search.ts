@@ -147,15 +147,24 @@ function buildQueueSettings(queue: QueueSettings): SearchResult[] {
       keywords: ['queue', 'limit', 'size', 'maximum', 'clips']
     },
     {
-      id: 'setting-queue-platforms',
+      id: 'setting-queue-providers',
       type: 'setting',
-      title: m.allowed_platforms(),
-      description: m.allowed_platforms_description(),
+      title: m.allowed_providers(),
+      description: m.allowed_providers_description(),
       category: m.settings_queue(),
       route: RouteNameConstants.SETTINGS_QUEUE,
-      value: queue.platforms,
+      value: queue.providers,
       settingType: 'multiselect',
-      keywords: ['queue', 'platforms', 'twitch', 'kick', ...queue.platforms]
+      keywords: [
+        'queue',
+        'providers',
+        'twitch',
+        'kick',
+        'clip',
+        'vod',
+        'highlight',
+        ...queue.providers
+      ]
     }
   ]
 }

@@ -12,7 +12,7 @@ import { asc, desc, eq, inArray, lt } from 'drizzle-orm'
 import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 
-import type { AppSettings, Clip } from './schema.js'
+import type { AppSettings, Clip, Provider } from './schema.js'
 import { resolveFromRoot } from './paths.js'
 import {
   AppSettingsSchema,
@@ -21,6 +21,7 @@ import {
   clipSubmitters,
   DEFAULT_SETTINGS,
   playLog,
+  PROVIDERS,
   settings
 } from './schema.js'
 
@@ -624,7 +625,9 @@ export {
   settings,
   type Clip,
   type AppSettings,
+  type Provider,
   ClipSchema,
   AppSettingsSchema,
-  DEFAULT_SETTINGS
+  DEFAULT_SETTINGS,
+  PROVIDERS
 }

@@ -170,7 +170,7 @@ export const useQueueServer = defineStore('queue-server', () => {
     isOpen: boolean
     settings?: {
       commands: { prefix: string; allowed: string[] }
-      queue: { hasAutoModerationEnabled: boolean; limit: number | null; platforms: string[] }
+      queue: { hasAutoModerationEnabled: boolean; limit: number | null; providers: string[] }
       logger: { level: string; limit: number }
     }
   }): void {

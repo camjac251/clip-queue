@@ -34,13 +34,29 @@ export const CommandSettingsSchema = z.object({
 export type CommandSettings = z.infer<typeof CommandSettingsSchema>
 
 /**
+ * Valid provider identifiers (platform:contentType combinations)
+ * Each provider represents a specific type of content from a specific platform.
+ */
+export const PROVIDERS = [
+  'twitch:clip',
+  'twitch:vod',
+  'twitch:highlight',
+  'kick:clip',
+  'sora:clip'
+] as const
+
+export type Provider = (typeof PROVIDERS)[number]
+
+export const ProviderSchema = z.enum(PROVIDERS)
+
+/**
  * Queue Settings Schema
  * Controls queue behavior and platform filtering
  */
 export const QueueSettingsSchema = z.object({
   hasAutoModerationEnabled: z.boolean(),
   limit: z.number().int().positive().nullable(),
-  platforms: z.array(z.enum(['twitch', 'kick', 'sora']))
+  providers: z.array(ProviderSchema).default([...PROVIDERS])
 })
 
 export type QueueSettings = z.infer<typeof QueueSettingsSchema>

@@ -59,13 +59,15 @@ import IconKeyboardCommand from '~icons/mdi/apple-keyboard-command'
 import IconInboxArrowDown from '~icons/mdi/inbox-arrow-down'
 import IconInboxRemove from '~icons/mdi/inbox-remove'
 import IconKick from '~icons/simple-icons/kick'
+import IconOpenAI from '~icons/simple-icons/openai'
 import IconTwitch from '~icons/simple-icons/twitch'
 
 export const icons = {
   // Brands
   brands: {
     twitch: IconTwitch,
-    kick: IconKick
+    kick: IconKick,
+    openai: IconOpenAI
   },
 
   // Actions
@@ -141,7 +143,7 @@ export const icons = {
 
 // Flat exports for convenience
 export const {
-  brands: { twitch: BrandTwitch, kick: BrandKick },
+  brands: { twitch: BrandTwitch, kick: BrandKick, openai: BrandOpenAI },
   actions: {
     play: ActionPlay,
     playCircle: ActionPlayCircle,

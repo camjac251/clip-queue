@@ -33,7 +33,7 @@ import twitch from '@cq/services/twitch'
 import { TTLCache } from '@cq/utils'
 
 import type { AuthenticatedRequest } from './auth.js'
-import type { AppSettings, Clip } from './db.js'
+import type { AppSettings, Clip, Provider } from './db.js'
 import {
   authenticate,
   clearAllCaches,
@@ -55,6 +55,7 @@ import {
   initSettings,
   insertPlayLog,
   playLog,
+  PROVIDERS,
   updateClipStatus,
   updateSettings,
   upsertClip
@@ -596,44 +597,103 @@ async function handleChatCommand(message: { username: string; text: string }): P
     }
 
     case 'enableplatform': {
-      const platformArg = args[0]?.toLowerCase()
-      if (
-        !platformArg ||
-        (platformArg !== 'twitch' && platformArg !== 'kick' && platformArg !== 'sora')
-      ) {
-        console.log(`[Command] Invalid platform: ${args[0]}`)
+      const arg = args[0]?.toLowerCase()
+      if (!arg) {
+        console.log(`[Command] Missing provider argument`)
         break
       }
 
-      if (!settings.queue.platforms.includes(platformArg as 'twitch' | 'kick' | 'sora')) {
-        settings.queue.platforms.push(platformArg as 'twitch' | 'kick' | 'sora')
-        updateSettings(db, settings)
-        console.log(`[Command] Enabled ${platformArg} platform (requested by ${message.username})`)
-        invalidateETag()
+      // Check if it's a provider (platform:contentType) or just a platform
+      const allProviders = PROVIDERS as readonly string[]
+      if (arg.includes(':')) {
+        // Single provider
+        if (!allProviders.includes(arg)) {
+          console.log(`[Command] Invalid provider: ${arg}`)
+          break
+        }
+        if (!settings.queue.providers.includes(arg as Provider)) {
+          settings.queue.providers.push(arg as Provider)
+          updateSettings(db, settings)
+          console.log(`[Command] Enabled ${arg} provider (requested by ${message.username})`)
+          invalidateETag()
+        } else {
+          console.log(`[Command] ${arg} provider already enabled`)
+        }
       } else {
-        console.log(`[Command] ${platformArg} platform already enabled`)
+        // Platform - enable all providers for this platform
+        const platformProviders = allProviders.filter((p) => p.startsWith(`${arg}:`))
+        if (platformProviders.length === 0) {
+          console.log(`[Command] Invalid platform: ${arg}`)
+          break
+        }
+        let enabled = 0
+        for (const provider of platformProviders) {
+          if (!settings.queue.providers.includes(provider as Provider)) {
+            settings.queue.providers.push(provider as Provider)
+            enabled++
+          }
+        }
+        if (enabled > 0) {
+          updateSettings(db, settings)
+          console.log(
+            `[Command] Enabled ${enabled} ${arg} providers (requested by ${message.username})`
+          )
+          invalidateETag()
+        } else {
+          console.log(`[Command] All ${arg} providers already enabled`)
+        }
       }
       break
     }
 
     case 'disableplatform': {
-      const platformArg = args[0]?.toLowerCase()
-      if (
-        !platformArg ||
-        (platformArg !== 'twitch' && platformArg !== 'kick' && platformArg !== 'sora')
-      ) {
-        console.log(`[Command] Invalid platform: ${args[0]}`)
+      const arg = args[0]?.toLowerCase()
+      if (!arg) {
+        console.log(`[Command] Missing provider argument`)
         break
       }
 
-      const index = settings.queue.platforms.indexOf(platformArg as 'twitch' | 'kick' | 'sora')
-      if (index !== -1) {
-        settings.queue.platforms.splice(index, 1)
-        updateSettings(db, settings)
-        console.log(`[Command] Disabled ${platformArg} platform (requested by ${message.username})`)
-        invalidateETag()
+      // Check if it's a provider (platform:contentType) or just a platform
+      const allProviders = PROVIDERS as readonly string[]
+      if (arg.includes(':')) {
+        // Single provider
+        if (!allProviders.includes(arg)) {
+          console.log(`[Command] Invalid provider: ${arg}`)
+          break
+        }
+        const index = settings.queue.providers.indexOf(arg as Provider)
+        if (index !== -1) {
+          settings.queue.providers.splice(index, 1)
+          updateSettings(db, settings)
+          console.log(`[Command] Disabled ${arg} provider (requested by ${message.username})`)
+          invalidateETag()
+        } else {
+          console.log(`[Command] ${arg} provider already disabled`)
+        }
       } else {
-        console.log(`[Command] ${platformArg} platform already disabled`)
+        // Platform - disable all providers for this platform
+        const platformProviders = allProviders.filter((p) => p.startsWith(`${arg}:`))
+        if (platformProviders.length === 0) {
+          console.log(`[Command] Invalid platform: ${arg}`)
+          break
+        }
+        let disabled = 0
+        for (const provider of platformProviders) {
+          const index = settings.queue.providers.indexOf(provider as Provider)
+          if (index !== -1) {
+            settings.queue.providers.splice(index, 1)
+            disabled++
+          }
+        }
+        if (disabled > 0) {
+          updateSettings(db, settings)
+          console.log(
+            `[Command] Disabled ${disabled} ${arg} providers (requested by ${message.username})`
+          )
+          invalidateETag()
+        } else {
+          console.log(`[Command] All ${arg} providers already disabled`)
+        }
       }
       break
     }
@@ -768,9 +828,10 @@ async function handleClipSubmission(
       return
     }
 
-    // Check if platform is enabled in settings
-    if (!settings.queue.platforms.includes(clip.platform)) {
-      console.log(`[Queue] Platform ${clip.platform} is disabled, ignoring clip from ${submitter}`)
+    // Check if provider (platform:contentType) is enabled in settings
+    const provider = `${clip.platform}:${clip.contentType}` as Provider
+    if (!settings.queue.providers.includes(provider)) {
+      console.log(`[Queue] Provider ${provider} is disabled, ignoring clip from ${submitter}`)
       return
     }
 

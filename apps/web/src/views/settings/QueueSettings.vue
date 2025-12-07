@@ -55,29 +55,29 @@
             </div>
           </div>
 
-          <!-- Allowed Platforms -->
+          <!-- Allowed Providers -->
           <div class="p-4">
             <div class="mb-3">
-              <label for="allowedPlatforms" class="text-foreground block text-sm font-medium">
-                {{ m.allowed_platforms() }}
+              <label for="allowedProviders" class="text-foreground block text-sm font-medium">
+                {{ m.allowed_providers() }}
               </label>
               <p class="text-muted-foreground mt-0.5 text-xs">
-                {{ m.allowed_platforms_description() }}
+                {{ m.allowed_providers_description() }}
               </p>
             </div>
             <MultiSelect
-              v-model="formSettings.platforms"
-              input-id="allowedPlatforms"
-              :options="Object.values(Platform)"
+              v-model="formSettings.providers"
+              input-id="allowedProviders"
+              :options="[...PROVIDERS]"
               :placeholder="m.none()"
               display="chip"
             >
-              <template #option="{ option }: { option: Platform }">
-                <PlatformName :platform="option" size="small" />
+              <template #option="{ option }: { option: Provider }">
+                <ProviderName :provider="option" size="small" />
               </template>
-              <template #chip="{ value }: { value: Platform }">
+              <template #chip="{ value }: { value: Provider }">
                 <Chip>
-                  <PlatformName :platform="value" size="small" />
+                  <ProviderName :provider="value" size="small" />
                 </Chip>
               </template>
             </MultiSelect>
@@ -124,10 +124,11 @@
 </template>
 
 <script setup lang="ts">
-import { Platform } from '@cq/platforms'
+import type { Provider } from '@cq/schemas/settings'
+import { PROVIDERS } from '@cq/schemas/settings'
 import { Button, Chip, InputNumber, MultiSelect, ToggleSwitch } from '@cq/ui'
 
-import PlatformName from '@/components/PlatformName.vue'
+import ProviderName from '@/components/ProviderName.vue'
 import { NavInbox, StatusLock } from '@/composables/icons'
 import { useSettingsForm } from '@/composables/use-settings-form'
 import * as m from '@/paraglide/messages'

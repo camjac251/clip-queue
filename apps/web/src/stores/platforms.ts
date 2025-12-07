@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import type { Clip, PlayerFormat } from '@cq/platforms'
+import type { Provider } from '@cq/schemas/settings'
 import { Platform, platforms as ps } from '@cq/platforms'
 
 import { useLogger } from '@/stores/logger'
@@ -39,10 +40,18 @@ export const usePlatforms = defineStore('platforms', () => {
     }
   })
 
+  /**
+   * Check if a provider (platform:contentType) is enabled.
+   */
+  function isProviderEnabled(clip: Clip): boolean {
+    const provider = `${clip.platform}:${clip.contentType}` as Provider
+    return settings.queue.providers.includes(provider)
+  }
+
   function getPlayerFormat(clip: Clip): PlayerFormat | undefined {
-    if (!settings.queue.platforms.includes(clip.platform)) {
+    if (!isProviderEnabled(clip)) {
       logger.warn(
-        `[Platforms]: Attempted to get player format for clip from disabled platform: ${clip.platform}.`
+        `[Platforms]: Attempted to get player format for clip from disabled provider: ${clip.platform}:${clip.contentType}.`
       )
       return
     }
@@ -51,9 +60,9 @@ export const usePlatforms = defineStore('platforms', () => {
   }
 
   function getPlayerSource(clip: Clip): string | undefined {
-    if (!settings.queue.platforms.includes(clip.platform)) {
+    if (!isProviderEnabled(clip)) {
       logger.warn(
-        `[Platforms]: Attempted to get player source for clip from disabled platform: ${clip.platform}.`
+        `[Platforms]: Attempted to get player source for clip from disabled provider: ${clip.platform}:${clip.contentType}.`
       )
       return
     }
@@ -65,6 +74,7 @@ export const usePlatforms = defineStore('platforms', () => {
     svg,
     displayName,
     isExperimental,
+    isProviderEnabled,
     getPlayerFormat,
     getPlayerSource
   }
