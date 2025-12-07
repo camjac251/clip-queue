@@ -3,6 +3,7 @@ import { fileURLToPath, URL } from 'node:url'
 import { paraglideVitePlugin } from '@inlang/paraglide-js'
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
+import { FileSystemIconLoader } from 'unplugin-icons/loaders'
 import Icons from 'unplugin-icons/vite'
 import { defineConfig, loadEnv } from 'vite'
 
@@ -29,7 +30,10 @@ export default defineConfig(({ mode }) => {
       }),
       Icons({
         compiler: 'vue3',
-        autoInstall: true
+        autoInstall: true,
+        customCollections: {
+          custom: FileSystemIconLoader('./src/assets/icons')
+        }
       })
     ],
     define: {

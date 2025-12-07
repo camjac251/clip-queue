@@ -7,6 +7,7 @@
  */
 
 // Brands
+import IconSora from '~icons/custom/sora'
 import IconAlertCircle from '~icons/lucide/alert-circle'
 import IconAlertTriangle from '~icons/lucide/alert-triangle'
 import IconBookOpen from '~icons/lucide/book-open'
@@ -59,7 +60,6 @@ import IconKeyboardCommand from '~icons/mdi/apple-keyboard-command'
 import IconInboxArrowDown from '~icons/mdi/inbox-arrow-down'
 import IconInboxRemove from '~icons/mdi/inbox-remove'
 import IconKick from '~icons/simple-icons/kick'
-import IconOpenAI from '~icons/simple-icons/openai'
 import IconTwitch from '~icons/simple-icons/twitch'
 
 export const icons = {
@@ -67,7 +67,7 @@ export const icons = {
   brands: {
     twitch: IconTwitch,
     kick: IconKick,
-    openai: IconOpenAI
+    sora: IconSora
   },
 
   // Actions
@@ -143,7 +143,7 @@ export const icons = {
 
 // Flat exports for convenience
 export const {
-  brands: { twitch: BrandTwitch, kick: BrandKick, openai: BrandOpenAI },
+  brands: { twitch: BrandTwitch, kick: BrandKick, sora: BrandSora },
   actions: {
     play: ActionPlay,
     playCircle: ActionPlayCircle,

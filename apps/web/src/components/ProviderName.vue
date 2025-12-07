@@ -11,7 +11,7 @@ import { computed, toRefs } from 'vue'
 import type { Provider } from '@cq/schemas/settings'
 import { Platform } from '@cq/platforms'
 
-import { BrandKick, BrandOpenAI, BrandTwitch } from '@/composables/icons'
+import { BrandKick, BrandSora, BrandTwitch } from '@/composables/icons'
 import * as m from '@/paraglide/messages'
 
 export interface Props {
@@ -43,7 +43,7 @@ const platformIcon = computed(() => {
     case Platform.KICK:
       return BrandKick
     case Platform.SORA:
-      return BrandOpenAI
+      return BrandSora
     default:
       return BrandTwitch
   }

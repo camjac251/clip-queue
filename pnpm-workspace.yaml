@@ -3,7 +3,7 @@ packages:
   - packages/*
 
 catalog:
-  '@iconify/json': ^2.2.293
+  '@iconify/json': ^2.2.415
   '@tailwindcss/vite': ^4.1.14
   '@types/jsdom': ^27.0.0
   '@types/node': ^24.10.1
