@@ -80,6 +80,7 @@
   "content_type_cameo": "Камео",
   "content_type_clip": "Клипы",
   "content_type_highlight": "Моменты",
+  "content_type_video": "Видео",
   "content_type_vod": "VOD",
   "creator": "Создатель",
   "creator_name": "Создатель: {name}",

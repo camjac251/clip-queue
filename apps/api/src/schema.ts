@@ -51,8 +51,8 @@ export const clips = sqliteTable(
   'clips',
   {
     id: text('id').primaryKey(), // UUID format: "platform:contentType:clip_id"
-    platform: text('platform', { enum: ['twitch', 'kick', 'sora'] }).notNull(),
-    contentType: text('content_type', { enum: ['clip', 'vod', 'highlight', 'cameo'] })
+    platform: text('platform', { enum: ['twitch', 'kick', 'sora', 'streamable'] }).notNull(),
+    contentType: text('content_type', { enum: ['clip', 'vod', 'highlight', 'cameo', 'video'] })
       .notNull()
       .default('clip'),
     clipId: text('clip_id').notNull(), // The actual clip ID from platform
@@ -186,7 +186,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
       'twitch:highlight',
       'kick:clip',
       'sora:clip',
-      'sora:cameo'
+      'sora:cameo',
+      'streamable:video'
     ],
     sora: {
       allowedCameos: []

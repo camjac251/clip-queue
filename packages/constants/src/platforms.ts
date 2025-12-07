@@ -6,6 +6,7 @@
 export enum Platform {
   KICK = 'kick',
   SORA = 'sora',
+  STREAMABLE = 'streamable',
   TWITCH = 'twitch'
 }
 

@@ -8,6 +8,7 @@
 
 // Brands
 import IconSora from '~icons/custom/sora'
+import IconStreamable from '~icons/custom/streamable'
 import IconAlertCircle from '~icons/lucide/alert-circle'
 import IconAlertTriangle from '~icons/lucide/alert-triangle'
 import IconBookOpen from '~icons/lucide/book-open'
@@ -67,7 +68,8 @@ export const icons = {
   brands: {
     twitch: IconTwitch,
     kick: IconKick,
-    sora: IconSora
+    sora: IconSora,
+    streamable: IconStreamable
   },
 
   // Actions
@@ -143,7 +145,7 @@ export const icons = {
 
 // Flat exports for convenience
 export const {
-  brands: { twitch: BrandTwitch, kick: BrandKick, sora: BrandSora },
+  brands: { twitch: BrandTwitch, kick: BrandKick, sora: BrandSora, streamable: BrandStreamable },
   actions: {
     play: ActionPlay,
     playCircle: ActionPlayCircle,

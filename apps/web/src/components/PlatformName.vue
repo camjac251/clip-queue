@@ -17,7 +17,13 @@ import { computed, toRefs } from 'vue'
 import type { Platform } from '@cq/platforms'
 import { Platform as PlatformEnum } from '@cq/platforms'
 
-import { BrandKick, BrandTwitch, StatusAlertTriangle } from '@/composables/icons'
+import {
+  BrandKick,
+  BrandSora,
+  BrandStreamable,
+  BrandTwitch,
+  StatusAlertTriangle
+} from '@/composables/icons'
 import * as m from '@/paraglide/messages'
 import { usePlatforms } from '@/stores/platforms'
 
@@ -39,6 +45,10 @@ const platformIcon = computed(() => {
       return BrandTwitch
     case PlatformEnum.KICK:
       return BrandKick
+    case PlatformEnum.SORA:
+      return BrandSora
+    case PlatformEnum.STREAMABLE:
+      return BrandStreamable
     default:
       return BrandTwitch
   }

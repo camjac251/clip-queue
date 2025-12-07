@@ -52,6 +52,7 @@ import 'vidstack/player/ui'
 import type { MediaPlayerElement } from 'vidstack/elements'
 import { onMounted, ref, toRefs, watch } from 'vue'
 
+import streamable from '@cq/services/streamable'
 import twitch, { getDirectVideoUrl } from '@cq/services/twitch'
 
 export interface Props {
@@ -213,15 +214,71 @@ async function fetchTwitchVideoUrl(
 }
 
 /**
- * Refreshes expired Twitch video URL
+ * Fetches direct video URL for Streamable content client-side
+ * Streamable URLs are signed and expire, so we fetch them on-demand.
+ *
+ * @param signal - Optional AbortSignal for request cancellation (prevents race conditions on rapid clip navigation)
+ */
+async function fetchStreamableVideoUrl(signal?: AbortSignal): Promise<string | undefined> {
+  if (!clipId?.value || clipPlatform?.value !== 'streamable') {
+    return undefined
+  }
+
+  try {
+    console.log(`[VidStack] Fetching direct video URL for Streamable: ${clipId.value}`)
+
+    // Check for abort before making request
+    if (signal?.aborted) {
+      console.log('[VidStack] Streamable fetch aborted before request')
+      return undefined
+    }
+
+    const video = await streamable.getVideo(clipId.value)
+
+    // Check for abort after request
+    if (signal?.aborted) {
+      console.log('[VidStack] Streamable fetch aborted after request')
+      return undefined
+    }
+
+    // Check if video is ready
+    if (video.status !== 2) {
+      console.error(`[VidStack] Streamable video still processing: ${video.percent}%`)
+      emit('error', `Video is still processing (${video.percent}%)`)
+      return undefined
+    }
+
+    if (!video.files) {
+      console.error('[VidStack] Streamable video has no files')
+      emit('error', 'Video has no available files')
+      return undefined
+    }
+
+    // Get the best available video URL (prefer mp4, fallback to mp4-mobile)
+    const videoFile = video.files.mp4 || video.files['mp4-mobile']
+    const url = videoFile?.url ? `https:${videoFile.url}` : undefined
+
+    if (!url) {
+      console.error('[VidStack] Failed to extract Streamable video URL')
+      emit('error', 'Failed to load video URL')
+      return undefined
+    }
+
+    console.log('[VidStack] Successfully fetched Streamable video URL')
+    return url
+  } catch (error) {
+    console.error('[VidStack] Error fetching Streamable video URL:', error)
+    emit('error', `Failed to load video: ${error}`)
+    return undefined
+  }
+}
+
+/**
+ * Refreshes expired video URL (Twitch or Streamable)
  */
 async function refreshVideoUrl(): Promise<
   string | { src: string; type: 'application/x-mpegurl' } | undefined
 > {
-  if (clipPlatform?.value !== 'twitch') {
-    return undefined
-  }
-
   if (hasRefreshed.value) {
     console.warn('[VidStack] Already attempted refresh, not retrying')
     return undefined
@@ -230,7 +287,13 @@ async function refreshVideoUrl(): Promise<
   console.log('[VidStack] Refreshing expired video URL')
   hasRefreshed.value = true
 
-  return await fetchTwitchVideoUrl()
+  if (clipPlatform?.value === 'twitch') {
+    return await fetchTwitchVideoUrl()
+  } else if (clipPlatform?.value === 'streamable') {
+    return await fetchStreamableVideoUrl()
+  }
+
+  return undefined
 }
 
 /**
@@ -385,10 +448,16 @@ watch(
     pendingPlay.value = false
     hasStartedPlaying.value = false
 
-    // If no source provided but we have a Twitch content ID, fetch it
-    if (!newSource && newClipId && newPlatform === 'twitch') {
+    // If no source provided but we have a content ID for Twitch/Streamable, fetch it
+    if (!newSource && newClipId) {
       currentFetchAbort.value = new AbortController()
-      currentVideoUrl.value = await fetchTwitchVideoUrl(currentFetchAbort.value.signal)
+      if (newPlatform === 'twitch') {
+        currentVideoUrl.value = await fetchTwitchVideoUrl(currentFetchAbort.value.signal)
+      } else if (newPlatform === 'streamable') {
+        currentVideoUrl.value = await fetchStreamableVideoUrl(currentFetchAbort.value.signal)
+      } else {
+        currentVideoUrl.value = newSource
+      }
       currentFetchAbort.value = null
     } else {
       currentVideoUrl.value = newSource
@@ -403,9 +472,15 @@ onMounted(async () => {
   pendingPlay.value = false
   hasStartedPlaying.value = false
 
-  // If no source provided but we have a Twitch content ID, fetch it
-  if (!source.value && clipId?.value && clipPlatform?.value === 'twitch') {
-    currentVideoUrl.value = await fetchTwitchVideoUrl()
+  // If no source provided but we have a content ID for Twitch/Streamable, fetch it
+  if (!source.value && clipId?.value) {
+    if (clipPlatform?.value === 'twitch') {
+      currentVideoUrl.value = await fetchTwitchVideoUrl()
+    } else if (clipPlatform?.value === 'streamable') {
+      currentVideoUrl.value = await fetchStreamableVideoUrl()
+    } else {
+      currentVideoUrl.value = source.value
+    }
   } else {
     currentVideoUrl.value = source.value
   }

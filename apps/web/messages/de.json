@@ -80,6 +80,7 @@
   "content_type_cameo": "Gastauftritte",
   "content_type_clip": "Clips",
   "content_type_highlight": "Highlights",
+  "content_type_video": "Videos",
   "content_type_vod": "VODs",
   "creator": "Ersteller",
   "creator_name": "Ersteller: {name}",

@@ -80,6 +80,7 @@
   "content_type_cameo": "カメオ出演",
   "content_type_clip": "クリップ",
   "content_type_highlight": "ハイライト",
+  "content_type_video": "動画",
   "content_type_vod": "VOD",
   "creator": "クリエイター",
   "creator_name": "クリエイター: {name}",

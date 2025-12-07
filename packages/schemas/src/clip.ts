@@ -17,6 +17,10 @@ export enum Platform {
    */
   SORA = 'sora',
   /**
+   * Streamable.com videos.
+   */
+  STREAMABLE = 'streamable',
+  /**
    * Twitch.tv clips.
    */
   TWITCH = 'twitch'
@@ -41,7 +45,11 @@ export enum ContentType {
   /**
    * Sora videos with cameos (persona appearances).
    */
-  CAMEO = 'cameo'
+  CAMEO = 'cameo',
+  /**
+   * Generic video content (e.g., Streamable).
+   */
+  VIDEO = 'video'
 }
 
 /**

@@ -80,6 +80,7 @@
   "content_type_cameo": "Apparizioni speciali",
   "content_type_clip": "Clip",
   "content_type_highlight": "Momenti salienti",
+  "content_type_video": "Video",
   "content_type_vod": "VOD",
   "creator": "Creatore",
   "creator_name": "Creatore: {name}",

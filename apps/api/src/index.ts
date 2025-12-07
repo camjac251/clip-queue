@@ -23,12 +23,14 @@ import {
   KickPlatform,
   PlayHistory,
   SoraPlatform,
+  StreamablePlatform,
   toClipUUID,
   TwitchPlatform
 } from '@cq/platforms'
 import { advanceQueue, clearQueue, jumpToHistoryClip, playClip, previousClip } from '@cq/queue-ops'
 import kick from '@cq/services/kick'
 import sora from '@cq/services/sora'
+import streamable from '@cq/services/streamable'
 import twitch from '@cq/services/twitch'
 import { TTLCache } from '@cq/utils'
 
@@ -278,7 +280,8 @@ const platforms = {
     token: process.env.TWITCH_BOT_TOKEN
   })),
   kick: new KickPlatform(),
-  sora: new SoraPlatform()
+  sora: new SoraPlatform(),
+  streamable: new StreamablePlatform()
 }
 
 // Per-user rate limiting cache (tracks last submission time per user)
@@ -410,6 +413,10 @@ async function connectToChat() {
           }
           // Check if it's a Kick clip URL
           else if (kick.getClipIdFromUrl(url)) {
+            await handleClipSubmission(url, message.username, canAutoApprove)
+          }
+          // Check if it's a Streamable video URL
+          else if (streamable.getVideoIdFromUrl(url)) {
             await handleClipSubmission(url, message.username, canAutoApprove)
           }
         }
@@ -815,6 +822,8 @@ async function handleClipSubmission(
       platformInstance = platforms.kick
     } else if (sora.getPostIdFromUrl(url)) {
       platformInstance = platforms.sora
+    } else if (streamable.getVideoIdFromUrl(url)) {
+      platformInstance = platforms.streamable
     } else if (twitch.getContentTypeFromUrl(url)) {
       platformInstance = platforms.twitch
     } else {

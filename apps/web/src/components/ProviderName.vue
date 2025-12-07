@@ -11,7 +11,7 @@ import { computed, toRefs } from 'vue'
 import type { Provider } from '@cq/schemas/settings'
 import { Platform } from '@cq/platforms'
 
-import { BrandKick, BrandSora, BrandTwitch } from '@/composables/icons'
+import { BrandKick, BrandSora, BrandStreamable, BrandTwitch } from '@/composables/icons'
 import * as m from '@/paraglide/messages'
 
 export interface Props {
@@ -44,6 +44,8 @@ const platformIcon = computed(() => {
       return BrandKick
     case Platform.SORA:
       return BrandSora
+    case Platform.STREAMABLE:
+      return BrandStreamable
     default:
       return BrandTwitch
   }
@@ -64,6 +66,9 @@ const displayName = computed(() => {
     case Platform.SORA:
       platformName = 'Sora'
       break
+    case Platform.STREAMABLE:
+      platformName = 'Streamable'
+      break
     default:
       platformName = platform
   }
@@ -82,6 +87,9 @@ const displayName = computed(() => {
       break
     case 'cameo':
       contentTypeName = m.content_type_cameo()
+      break
+    case 'video':
+      contentTypeName = m.content_type_video()
       break
     default:
       contentTypeName = contentType

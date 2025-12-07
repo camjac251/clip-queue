@@ -80,6 +80,7 @@
   "content_type_cameo": "客串视频",
   "content_type_clip": "剪辑",
   "content_type_highlight": "精彩片段",
+  "content_type_video": "视频",
   "content_type_vod": "点播视频",
   "creator": "创作者",
   "creator_name": "创作者: {name}",

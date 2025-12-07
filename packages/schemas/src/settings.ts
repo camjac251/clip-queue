@@ -47,7 +47,8 @@ export const PROVIDERS = [
   'twitch:highlight',
   'kick:clip',
   'sora:clip',
-  'sora:cameo'
+  'sora:cameo',
+  'streamable:video'
 ] as const
 
 export type Provider = (typeof PROVIDERS)[number]
